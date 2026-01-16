@@ -1,3 +1,15 @@
 spring:
   application:
     name: nova
+springdoc:
+  cache:
+    disabled: true              # 캐시 사용 여부
+  api-docs:
+    path: /v3/api-docs
+    groups:
+      enabled: true
+  swagger-ui:
+    enabled: true               # Swagger UI 접근 경로 => <http://localhost:8080/swagger-ui/index.html>
+    path: /swagger.html         # Swagger UI 추가 접근 경로 => <http://localhost:8080/swagger.html>
+    tags-sorter: alpha          # alpha: 알파벳 순 태그 정렬, method: HTTP Method 순 정렬
+    operations-sorter: alpha    # alpha: 알파벳 순 태그 정렬, method: HTTP Method 순 정렬
