@@ -11,4 +11,4 @@ jobs:
       - uses: actions/add-to-project@v0.5.0
         with:
           project-url: https://github.com/orgs/HDC-NOVA-3rd/projects/1
-          github-token: ${{ secrets.PROJECT_TOKEN }}
+          github-token: ${{ secrets.PROJECT_REPO_TOKEN }}
