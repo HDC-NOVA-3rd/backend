@@ -61,10 +61,10 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/moment:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/moment:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/moment:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/moment:buildcache,mode=max
+            hdc-nova/spring-app:latest
+            hdc-nova/spring-app:${{ github.sha }}
+          cache-from: type=registry,ref=hdc-nova/spring-app:buildcache
+          cache-to: type=registry,ref=hdc-nova/spring-app:buildcache,mode=max
 
       - name: Save image tag to file
         run: echo ${{ github.sha }} > ./image-tag.txt
