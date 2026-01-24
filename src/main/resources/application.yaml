@@ -1,6 +1,24 @@
 spring:
   application:
     name: nova
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_TABLE}?serverTimezone=Asia/Seoul
+    username: ${DB_USER}
+    password: ${DB_PW}
+    sql:
+      init:
+        encoding: UTF-8
+        mode: always
+    jpa:
+      show-sql: true
+      hibernate:
+        ddl-auto: none
+      defer-datasource-initialization: true
+      properties:
+        hibernate:
+          format_sql: true
+          use_sql_comments: true
 springdoc:
   cache:
     disabled: true              # 캐시 사용 여부
