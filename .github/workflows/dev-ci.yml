@@ -73,8 +73,8 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            hdc-nova/spring-app:latest
-            hdc-nova/spring-app:${{ github.sha }}
+            jungil12532/nova-spring-app:latest
+            jungil12532/nova-spring-app:${{ github.sha }}
           cache-from: type=registry,ref=hdc-nova/spring-app:buildcache
           cache-to: type=registry,ref=hdc-nova/spring-app:buildcache,mode=max
 
