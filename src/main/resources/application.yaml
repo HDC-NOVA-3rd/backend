@@ -1,33 +1,25 @@
 spring:
   application:
-    name: nova
+    name: nova # 애플리케이션 이름 설정
   datasource:
-    driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://${DB_TABLE}?serverTimezone=Asia/Seoul
-    username: ${DB_USER}
-    password: ${DB_PW}
-    sql:
-      init:
-        encoding: UTF-8
-        mode: always
-    jpa:
-      show-sql: true
+    url: jdbc:mysql://${DB_TABLE}?serverTimezone=Asia/Seoul # DB 접속 URL (Timezone: Asia/Seoul)
+    username: ${DB_USER} # DB 사용자 계정
+    password: ${DB_PW} # DB 비밀번호
+  sql:
+    init:
+      mode: never # 애플리케이션 시작 시 SQL 스크립트 실행 모드 (always: 항상 실행, never: 실행 x)
+  jpa:
+    show-sql: true # 실행되는 SQL 쿼리를 콘솔에 출력
+    hibernate:
+      ddl-auto: none # DDL 자동 생성 전략 (none / create / validate / update)
+    properties:
       hibernate:
-        ddl-auto: none
-      defer-datasource-initialization: true
-      properties:
-        hibernate:
-          format_sql: true
-          use_sql_comments: true
+        format_sql: true # 로그에 출력되는 SQL을 보기 좋게 포맷팅
+
+# Swagger (SpringDoc) 설정
 springdoc:
-  cache:
-    disabled: true              # 캐시 사용 여부
-  api-docs:
-    path: /v3/api-docs
-    groups:
-      enabled: true
   swagger-ui:
-    enabled: true               # Swagger UI 접근 경로 => <http://localhost:8080/swagger-ui/index.html>
-    path: /swagger.html         # Swagger UI 추가 접근 경로 => <http://localhost:8080/swagger.html>
-    tags-sorter: alpha          # alpha: 알파벳 순 태그 정렬, method: HTTP Method 순 정렬
-    operations-sorter: alpha    # alpha: 알파벳 순 태그 정렬, method: HTTP Method 순 정렬
+    enabled: true               # Swagger UI 사용 활성화
+    path: /swagger.html         # Swagger UI 접속 경로 (기본 경로 외 커스텀 경로)
+    tags-sorter: alpha          # API 태그(Controller) 정렬 순서 (alpha: 알파벳순)
+    operations-sorter: alpha    # API 오퍼레이션(Method) 정렬 순서 (alpha: 알파벳순)

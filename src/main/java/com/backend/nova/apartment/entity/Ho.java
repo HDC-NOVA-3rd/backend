@@ -1,4 +1,4 @@
-package com.backend.nova.resident.entity;
+package com.backend.nova.apartment.entity;
 
 import jakarta.persistence.*;
 import lombok.Getter;

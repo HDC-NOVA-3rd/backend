@@ -1,5 +1,6 @@
 package com.backend.nova.resident.entity;
 
+import com.backend.nova.apartment.entity.Ho;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,7 +21,7 @@ public class Resident {
     @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 50, unique = true)
     private String phone;
 
     public void update(Ho ho, String name, String phone) {
