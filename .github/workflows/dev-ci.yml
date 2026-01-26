@@ -13,6 +13,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: true # 서브모듈 가져오기 활성화
+          token: ${{ secrets.PROJECT_REPO_TOKEN }} # repo에 접근가능한 token 획득
+
+      - name: Update Submodule
+        run: git submodule update --remote
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -33,6 +39,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: true # 서브모듈 가져오기 활성화
+          token: ${{ secrets.PROJECT_REPO_TOKEN }} # repo에 접근가능한 token 획득
+
+      - name: Update Submodule
+        run: git submodule update --remote
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -61,10 +73,10 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/moment:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/moment:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/moment:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/moment:buildcache,mode=max
+            hdc-nova/spring-app:latest
+            hdc-nova/spring-app:${{ github.sha }}
+          cache-from: type=registry,ref=hdc-nova/spring-app:buildcache
+          cache-to: type=registry,ref=hdc-nova/spring-app:buildcache,mode=max
 
       - name: Save image tag to file
         run: echo ${{ github.sha }} > ./image-tag.txt
