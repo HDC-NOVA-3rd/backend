@@ -41,7 +41,7 @@ public class ResidentController {
     public ResponseEntity<?> createResident(@RequestBody ResidentRequestDto requestDto) {
         try {
             Long residentId = residentService.createResident(requestDto);
-            return ResponseEntity.created(URI.create("/resident/" + residentId)).build();
+            return ResponseEntity.created(URI.create("/api/resident/" + residentId)).build();
         } catch (DataIntegrityViolationException e) {
             // DB unique 제약조건 위반 시 발생
             return ResponseEntity.badRequest().body("이미 등록된 휴대폰 번호입니다.");

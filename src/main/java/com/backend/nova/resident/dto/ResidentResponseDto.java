@@ -10,8 +10,8 @@ public record ResidentResponseDto(
         String name,
         String phone
 ) {
-    public ResidentResponseDto(Resident resident) {
-        this(
+    public static ResidentResponseDto fromEntity(Resident resident) {
+        return new ResidentResponseDto(
                 resident.getId(),
                 resident.getHo().getDong().getApartment().getName(),
                 resident.getHo().getDong().getDongNo(),

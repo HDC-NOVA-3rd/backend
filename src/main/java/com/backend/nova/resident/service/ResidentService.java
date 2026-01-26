@@ -4,7 +4,6 @@ import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.apartment.repository.HoRepository;
 import com.backend.nova.resident.dto.ResidentRequestDto;
 import com.backend.nova.resident.dto.ResidentResponseDto;
-import com.backend.nova.resident.dto.ResidentVerifyResponseDto;
 import com.backend.nova.resident.entity.Resident;
 import com.backend.nova.resident.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +24,13 @@ public class ResidentService {
     public Long createResident(ResidentRequestDto requestDto) {
         Ho ho = hoRepository.findById(requestDto.hoId())
                 .orElseThrow(() -> new IllegalArgumentException("해당 호가 없습니다. id=" + requestDto.hoId()));
-        Resident resident = new Resident(ho, requestDto.name(), requestDto.phone());
+        
+        Resident resident = Resident.builder()
+                .ho(ho)
+                .name(requestDto.name())
+                .phone(requestDto.phone())
+                .build();
+                
         return residentRepository.save(resident).getId();
     }
 
@@ -62,9 +67,9 @@ public class ResidentService {
         residentRepository.deleteByHoId(hoId);
     }
 
-    public ResidentVerifyResponseDto verifyResident(ResidentRequestDto requestDto) {
+    public ResidentResponseDto.ResidentVerifyResponseDto verifyResident(ResidentRequestDto requestDto) {
         return residentRepository.findByHo_IdAndNameAndPhone(requestDto.hoId(), requestDto.name(), requestDto.phone())
-                .map(resident -> new ResidentVerifyResponseDto(true, resident.getId(), "인증 성공"))
-                .orElseGet(() -> new ResidentVerifyResponseDto(false,null,"인증 실패"));
+                .map(resident -> ResidentResponseDto.ResidentVerifyResponseDto.success(resident.getId()))
+                .orElseGet(ResidentResponseDto.ResidentVerifyResponseDto::fail);
     }
 }

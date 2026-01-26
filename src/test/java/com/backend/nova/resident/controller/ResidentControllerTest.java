@@ -1,5 +1,6 @@
 package com.backend.nova.resident.controller;
 
+import com.backend.nova.config.SecurityConfig;
 import com.backend.nova.resident.dto.ResidentRequestDto;
 import com.backend.nova.resident.dto.ResidentVerifyResponseDto;
 import com.backend.nova.resident.service.ResidentService;
@@ -8,6 +9,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -19,6 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(ResidentController.class)
+@Import(SecurityConfig.class)
 class ResidentControllerTest {
 
     @Autowired
