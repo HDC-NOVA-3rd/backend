@@ -4,6 +4,7 @@ import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.apartment.repository.HoRepository;
 import com.backend.nova.resident.dto.ResidentRequestDto;
 import com.backend.nova.resident.dto.ResidentResponseDto;
+import com.backend.nova.resident.dto.ResidentVerifyResponseDto;
 import com.backend.nova.resident.entity.Resident;
 import com.backend.nova.resident.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
@@ -59,5 +60,11 @@ public class ResidentService {
             throw new IllegalArgumentException("해당 호가 없습니다. id=" + hoId);
         }
         residentRepository.deleteByHoId(hoId);
+    }
+
+    public ResidentVerifyResponseDto verifyResident(ResidentRequestDto requestDto) {
+        return residentRepository.findByHo_IdAndNameAndPhone(requestDto.hoId(), requestDto.name(), requestDto.phone())
+                .map(resident -> new ResidentVerifyResponseDto(true, resident.getId(), "인증 성공"))
+                .orElseGet(() -> new ResidentVerifyResponseDto(false,null,"인증 실패"));
     }
 }

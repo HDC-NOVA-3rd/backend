@@ -2,6 +2,7 @@ package com.backend.nova.resident.controller;
 
 import com.backend.nova.resident.dto.ResidentRequestDto;
 import com.backend.nova.resident.dto.ResidentResponseDto;
+import com.backend.nova.resident.dto.ResidentVerifyResponseDto;
 import com.backend.nova.resident.service.ResidentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -66,5 +67,12 @@ public class ResidentController {
     public ResponseEntity<Void> deleteAllResidents(@PathVariable Long hoId) {
         residentService.deleteAllResidents(hoId);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "입주민 정보 검증", description = "입주민 정보(호 ID, 이름, 전화번호)가 일치하는지 확인합니다.")
+    @PostMapping("/verify")
+    public ResponseEntity<ResidentVerifyResponseDto> verifyResident(@RequestBody ResidentRequestDto requestDto) {
+        ResidentVerifyResponseDto verifyResDto = residentService.verifyResident(requestDto);
+        return ResponseEntity.ok(verifyResDto);
     }
 }
