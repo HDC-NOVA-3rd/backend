@@ -75,8 +75,8 @@ jobs:
           tags: |
             jungil12532/nova-spring-app:latest
             jungil12532/nova-spring-app:${{ github.sha }}
-          cache-from: type=registry,ref=hdc-nova/spring-app:buildcache
-          cache-to: type=registry,ref=hdc-nova/spring-app:buildcache,mode=max
+          cache-from: type=registry,ref=jungil12532/nova-spring-app:buildcache
+          cache-to: type=registry,ref=jungil12532/nova-spring-app:buildcache,mode=max
 
       - name: Save image tag to file
         run: echo ${{ github.sha }} > ./image-tag.txt
