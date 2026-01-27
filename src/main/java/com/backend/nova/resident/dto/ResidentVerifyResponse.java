@@ -1,6 +1,9 @@
 package com.backend.nova.resident.dto;
 
-public record ResidentVerifyResponseDto(
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public record ResidentVerifyResponse(
         boolean isVerified,
         Long residentId,
         String message
