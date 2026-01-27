@@ -1,7 +1,8 @@
 package com.backend.nova.member.controller;
 
+import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.config.SecurityConfig;
-import com.backend.nova.member.dto.MemberRequestDto;
+import com.backend.nova.member.dto.SignupRequest;
 import com.backend.nova.member.entity.LoginType;
 import com.backend.nova.member.service.MemberService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,6 +33,9 @@ class MemberControllerTest {
     @MockitoBean
     private MemberService memberService;
 
+    @MockitoBean
+    private JwtProvider jwtProvider;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -39,15 +43,15 @@ class MemberControllerTest {
     @DisplayName("회원 가입 성공 테스트")
     void registerMember_Success() throws Exception {
         // given
-        MemberRequestDto requestDto = new MemberRequestDto(
+        SignupRequest request = new SignupRequest(
                 1L, "user123", "password", "user@example.com", "홍길동", "010-1234-5678",
                 LocalDate.of(1990, 1, 1), LoginType.NORMAL, null);
-        given(memberService.registerMember(any(MemberRequestDto.class))).willReturn(1L);
+        given(memberService.registerMember(any(SignupRequest.class))).willReturn(1L);
 
         // when & then
         mockMvc.perform(post("/api/member/register")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(requestDto)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
                 .andExpect(header().string("Location", "/api/member/1"));
     }
