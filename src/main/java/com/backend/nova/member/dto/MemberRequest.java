@@ -6,7 +6,7 @@ import com.backend.nova.resident.entity.Resident;
 
 import java.time.LocalDate;
 
-public record MemberRequestDto(
+public record MemberRequest(
         Long residentId,
         String loginId,
         String password,

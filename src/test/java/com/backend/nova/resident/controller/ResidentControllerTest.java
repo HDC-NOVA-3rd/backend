@@ -1,8 +1,9 @@
 package com.backend.nova.resident.controller;
 
+import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.config.SecurityConfig;
-import com.backend.nova.resident.dto.ResidentRequestDto;
-import com.backend.nova.resident.dto.ResidentVerifyResponseDto;
+import com.backend.nova.resident.dto.ResidentRequest;
+import com.backend.nova.resident.dto.ResidentVerifyResponse;
 import com.backend.nova.resident.service.ResidentService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
@@ -30,6 +31,9 @@ class ResidentControllerTest {
     @MockitoBean
     private ResidentService residentService;
 
+    @MockitoBean
+    private JwtProvider jwtProvider;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -37,15 +41,15 @@ class ResidentControllerTest {
     @DisplayName("입주민 인증 성공 테스트")
     void verifyResident_Success() throws Exception {
         // given
-        ResidentRequestDto requestDto = new ResidentRequestDto(1L, "홍길동", "010-1234-5678");
-        ResidentVerifyResponseDto responseDto = new ResidentVerifyResponseDto(true,123L, "인증 성공");
-        given(residentService.verifyResident(any(ResidentRequestDto.class))).willReturn(responseDto);
+        ResidentRequest request = new ResidentRequest(1L, "홍길동", "010-1234-5678");
+        ResidentVerifyResponse response = new ResidentVerifyResponse(true, 123L, "인증 성공");
+        given(residentService.verifyResident(any(ResidentRequest.class))).willReturn(response);
 
         // when & then
         mockMvc.perform(
                 post("/api/resident/verify")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(requestDto)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isVerified").value(true))
                 .andExpect(jsonPath("$.residentId").value(123))
@@ -56,14 +60,14 @@ class ResidentControllerTest {
     @DisplayName("입주민 인증 실패 테스트")
     void verifyResident_Fail() throws Exception {
         // given
-        ResidentRequestDto requestDto = new ResidentRequestDto(1L, "홍길동", "010-1234-5678");
-        ResidentVerifyResponseDto responseDto = new ResidentVerifyResponseDto(false,null,"인증 실패");
-        given(residentService.verifyResident(any(ResidentRequestDto.class))).willReturn(responseDto);
+        ResidentRequest request = new ResidentRequest(1L, "홍길동", "010-1234-5678");
+        ResidentVerifyResponse response = new ResidentVerifyResponse(false, null, "인증 실패");
+        given(residentService.verifyResident(any(ResidentRequest.class))).willReturn(response);
 
         // when & then
         mockMvc.perform(post("/api/resident/verify")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(requestDto)))
+                        .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.isVerified").value(false))
                 .andExpect(jsonPath("$.residentId").doesNotExist())
