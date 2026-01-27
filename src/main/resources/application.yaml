@@ -18,6 +18,14 @@ spring:
       hibernate:
         format_sql: true # 로그에 출력되는 SQL을 보기 좋게 포맷팅
 
+  ai:
+    google:
+      genai:
+        api-key: ${GOOGLE_API_KEY}
+        project-id: ${GOOGLE_PROJECT_ID}
+        chat:
+          options:
+            model: gemini-2.5-flash
 # Swagger (SpringDoc) 설정
 springdoc:
   swagger-ui:
@@ -25,3 +33,4 @@ springdoc:
     path: /swagger.html         # Swagger UI 접속 경로 (기본 경로 외 커스텀 경로)
     tags-sorter: alpha          # API 태그(Controller) 정렬 순서 (alpha: 알파벳순)
     operations-sorter: alpha    # API 오퍼레이션(Method) 정렬 순서 (alpha: 알파벳순)
+
