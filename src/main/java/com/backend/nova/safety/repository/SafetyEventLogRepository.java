@@ -22,9 +22,14 @@ public interface SafetyEventLogRepository extends JpaRepository<SafetyEventLog, 
     List<SafetyEventLog> findByApartmentIdOrderByEventAtDesc(Long apartmentId);
 
     /**
-     * 특정 구역의 이벤트 로그 조회 (최신순)
+     * 특정 구역(DONG)의 이벤트 로그 조회 (최신순)
      */
-    List<SafetyEventLog> findByApartmentIdAndAreaOrderByEventAtDesc(Long apartmentId, String area);
+    List<SafetyEventLog> findByApartmentIdAndDongIdOrderByEventAtDesc(Long apartmentId, Long dongId);
+
+    /**
+     * 특정 구역(FACILITY)의 이벤트 로그 조회 (최신순)
+     */
+    List<SafetyEventLog> findByApartmentIdAndFacilityIdOrderByEventAtDesc(Long apartmentId, Long facilityId);
 
     /**
      * 특정 기간의 이벤트 로그 조회
