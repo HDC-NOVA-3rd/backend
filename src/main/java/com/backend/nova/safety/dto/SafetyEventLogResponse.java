@@ -1,0 +1,4 @@
+package com.backend.nova.safety.dto;
+
+public record SafetyEventLogResponse() {
+}
