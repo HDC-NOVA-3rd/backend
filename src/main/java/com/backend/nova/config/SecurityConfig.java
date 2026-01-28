@@ -1,7 +1,7 @@
 package com.backend.nova.config;
 
-import com.backend.nova.auth.jwt.AdminJwtAuthenticationFilter;
-import com.backend.nova.auth.jwt.AdminJwtTokenProvider;
+
+import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -26,14 +26,15 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final AdminJwtTokenProvider tokenProvider;
-
+    private final JwtProvider jwtProvider;
+    private final MemberAuthenticationProvider memberAuthenticationProvider;
+    private final AdminAuthenticationProvider adminAuthenticationProvider;
     /**
      * 관리자 JWT 인증 필터
      */
     @Bean
-    public AdminJwtAuthenticationFilter adminJwtAuthenticationFilter() {
-        return new AdminJwtAuthenticationFilter(tokenProvider);
+    public JwtAuthenticationFilter adminJwtAuthenticationFilter() {
+        return new JwtAuthenticationFilter(jwtProvider);
     }
 
     /**
@@ -98,9 +99,6 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", config);
         return source;
     }
-}
-    private final JwtProvider jwtProvider;
-    private final MemberAuthenticationProvider memberAuthenticationProvider;
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {

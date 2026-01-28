@@ -1,9 +1,9 @@
 package com.backend.nova.admin.dto;
 
-import lombok.Getter;
-
-@Getter
-public class PasswordResetConfirmRequest {
-    private String loginId;
-    private String newPassword;
-}
+/**
+ * 비밀번호 재설정 요청 DTO
+ */
+public record PasswordResetConfirmRequest(
+        String loginId,
+        String newPassword
+) {}

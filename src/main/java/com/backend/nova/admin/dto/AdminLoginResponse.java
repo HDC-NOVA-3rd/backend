@@ -1,12 +1,16 @@
 package com.backend.nova.admin.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-
-@Getter
-@AllArgsConstructor
-public class AdminLoginResponse {
-    private Long adminId;
-    private String name;
-    private String accessToken; // JWT 사용 시
+public record AdminLoginResponse(
+        Long adminId,
+        String name,
+        String accessToken
+) {
+    public AdminLoginResponse {
+        if (adminId == null) {
+            throw new IllegalArgumentException("adminId는 필수입니다.");
+        }
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("name은 필수입니다.");
+        }
+    }
 }

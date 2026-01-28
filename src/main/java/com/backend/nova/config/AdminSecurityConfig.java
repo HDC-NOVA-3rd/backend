@@ -1,7 +1,9 @@
 package com.backend.nova.config;
 
-import com.backend.nova.auth.jwt.AdminJwtAuthenticationFilter;
-import com.backend.nova.auth.jwt.AdminJwtTokenProvider;
+
+
+import com.backend.nova.auth.jwt.JwtAuthenticationFilter;
+import com.backend.nova.auth.jwt.JwtProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,7 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class AdminSecurityConfig {
 
-    private final AdminJwtTokenProvider adminJwtTokenProvider;
+    private final JwtProvider adminJwtTokenProvider;
 
     @Bean
     public SecurityFilterChain adminSecurityFilterChain(HttpSecurity http) throws Exception {
@@ -33,7 +35,7 @@ public class AdminSecurityConfig {
                         .anyRequest().hasRole("ADMIN")
                 )
                 .addFilterBefore(
-                        new AdminJwtAuthenticationFilter(adminJwtTokenProvider),
+                        new JwtAuthenticationFilter(adminJwtTokenProvider),
                         UsernamePasswordAuthenticationFilter.class
                 );
 

@@ -10,11 +10,11 @@ import java.util.Collection;
 import java.util.Collections;
 
 @Getter
-public class AdminUserDetails implements UserDetails {
+public class AdminDetails implements UserDetails {
 
     private final Admin admin;
 
-    public AdminUserDetails(Admin admin) {
+    public AdminDetails(Admin admin) {
         this.admin = admin;
     }
 

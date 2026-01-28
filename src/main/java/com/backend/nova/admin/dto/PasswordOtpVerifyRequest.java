@@ -1,9 +1,9 @@
 package com.backend.nova.admin.dto;
 
-import lombok.Getter;
-
-@Getter
-public class PasswordOtpVerifyRequest {
-    private String loginId;
-    private String otp;
-}
+/**
+ * 관리자 비밀번호 OTP 검증 요청 DTO
+ */
+public record PasswordOtpVerifyRequest(
+        String loginId,
+        String otp
+) {}

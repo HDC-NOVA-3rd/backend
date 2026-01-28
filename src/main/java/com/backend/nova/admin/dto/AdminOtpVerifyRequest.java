@@ -1,23 +1,16 @@
 package com.backend.nova.admin.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+/**
+ * 관리자 OTP 검증 요청 DTO
+ */
+public record AdminOtpVerifyRequest(
+        /**
+         * 관리자 로그인 ID
+         */
+        String loginId,
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-public class AdminOtpVerifyRequest {
-
-    /**
-     * 관리자 로그인 ID
-     */
-    private String loginId;
-
-    /**
-     * 이메일/앱으로 받은 OTP 코드
-     */
-    private String otpCode;
-}
+        /**
+         * 이메일/앱으로 받은 OTP 코드
+         */
+        String otpCode
+) {}

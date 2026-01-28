@@ -7,16 +7,20 @@ import com.backend.nova.admin.entity.AdminStatus;
 import com.backend.nova.admin.entity.OtpPurpose;
 import com.backend.nova.admin.repository.AdminMfaOtpRepository;
 import com.backend.nova.admin.repository.AdminRepository;
-import com.backend.nova.auth.jwt.AdminJwtTokenProvider;
+import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -27,7 +31,7 @@ public class AdminAuthService {
     private final AdminMfaOtpRepository otpRepository;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
-    private final AdminJwtTokenProvider jwtTokenProvider;
+    private final JwtProvider jwtProvider;
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final int OTP_EXPIRE_MINUTES = 5;
@@ -36,31 +40,30 @@ public class AdminAuthService {
     @Transactional
     public void createAdmin(AdminCreateRequest request) {
 
-        if (adminRepository.findByLoginId(request.getLoginId()).isPresent()) {
+        if (adminRepository.findByLoginId(request.loginId()).isPresent()) {
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_ID_DUPLICATED);
         }
 
         Admin admin = Admin.builder()
-                .loginId(request.getLoginId())
-                .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .name(request.getName())
-                .email(request.getEmail())
-                .role(request.getRole())
+                .loginId(request.loginId())
+                .passwordHash(passwordEncoder.encode(request.password()))
+                .name(request.name())
+                .email(request.email())
+                .role(request.role())
                 .build();
 
         adminRepository.save(admin);
     }
 
-
     /* ================= 관리자 로그인 ================= */
 
     public AdminLoginResponse login(AdminLoginRequest request) {
-        Admin admin = getAdminByLoginId(request.getLoginId());
+        Admin admin = getAdminByLoginId(request.loginId());
 
         validateAdminStatus(admin);
 
         if (!passwordEncoder.matches(
-                request.getPassword(),
+                request.password(),
                 admin.getPasswordHash()
         )) {
             handleLoginFailure(admin);
@@ -69,18 +72,24 @@ public class AdminAuthService {
 
         handleLoginSuccess(admin);
 
-        String accessToken = jwtTokenProvider.createToken(
-                admin.getId(),
-                admin.getLoginId()
-        );
+        //  Authentication 객체 직접 생성 (Admin용)
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        admin.getId().toString(), // subject → adminId
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                );
 
-        return new AdminLoginResponse(
-                admin.getId(),
-                admin.getName(),
-                accessToken
-        );
+        //  JwtProvider 공통 로직 사용
+        String accessToken = jwtProvider
+                .generateToken(authentication)
+                .accessToken();
+
+        return new AdminLoginResponse(admin.getId(), admin.getName(), accessToken);
+
     }
 
+    /* ================= OTP 로그인 ================= */
 
 //    public AdminLoginResponse login(AdminLoginRequest request) {
 //        Admin admin = getAdminByLoginId(request.getLoginId());
@@ -108,10 +117,16 @@ public class AdminAuthService {
 //
 //        markOtpVerified(otp);
 //
-//        String accessToken = jwtTokenProvider.createToken(
-//                admin.getId(),
-//                admin.getLoginId()
-//        );
+//        Authentication authentication =
+//                new UsernamePasswordAuthenticationToken(
+//                        admin.getId().toString(),
+//                        null,
+//                        List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+//                );
+//
+//        String accessToken = jwtProvider
+//                .generateToken(authentication)
+//                .getAccessToken();
 //
 //        return new AdminLoginResponse(
 //                admin.getId(),
@@ -119,7 +134,6 @@ public class AdminAuthService {
 //                accessToken
 //        );
 //    }
-
 
     public String passwordVerifyOtp(AdminOtpVerifyRequest request) {
         Admin admin = getAdminByLoginId(request.getLoginId());
@@ -130,7 +144,16 @@ public class AdminAuthService {
 
         markOtpVerified(otp);
 
-        return jwtTokenProvider.createToken(admin.getId(), admin.getLoginId());
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        admin.getId().toString(),
+                        null,
+                        List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                );
+
+        return jwtProvider
+                .generateToken(authentication)
+                .accessToken();
     }
 
     /* ================= 비밀번호 재설정 ================= */
@@ -277,7 +300,7 @@ public class AdminAuthService {
     }
 
     private Admin getCurrentAdmin() {
-        // SecurityContext에서 adminId 꺼내서 조회
+        // TODO: SecurityContextHolder 에서 adminId 꺼내서 조회
         return null;
     }
 }

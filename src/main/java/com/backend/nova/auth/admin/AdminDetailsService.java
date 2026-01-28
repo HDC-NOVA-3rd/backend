@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class AdminUserDetailsService implements UserDetailsService {
+public class AdminDetailsService implements UserDetailsService {
 
     private final AdminRepository adminRepository;
 
@@ -20,6 +20,6 @@ public class AdminUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String loginId) throws UsernameNotFoundException {
         Admin admin = adminRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new UsernameNotFoundException("Admin not found: " + loginId));
-        return new AdminUserDetails(admin);
+        return new AdminDetails(admin);
     }
 }
