@@ -1,7 +1,8 @@
 package com.backend.nova.resident.controller;
 
-import com.backend.nova.resident.dto.ResidentRequestDto;
-import com.backend.nova.resident.dto.ResidentResponseDto;
+import com.backend.nova.resident.dto.ResidentRequest;
+import com.backend.nova.resident.dto.ResidentResponse;
+import com.backend.nova.resident.dto.ResidentVerifyResponse;
 import com.backend.nova.resident.service.ResidentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,24 +24,24 @@ public class ResidentController {
 
     @Operation(summary = "입주민 상세 조회", description = "입주민 ID로 상세 정보를 조회합니다.")
     @GetMapping("/{residentId}")
-    public ResponseEntity<ResidentResponseDto> getResident(@PathVariable Long residentId) {
-        ResidentResponseDto resident = residentService.getResident(residentId);
+    public ResponseEntity<ResidentResponse> getResident(@PathVariable Long residentId) {
+        ResidentResponse resident = residentService.getResident(residentId);
         return ResponseEntity.ok(resident);
     }
 
     @Operation(summary = "아파트별 입주민 목록 조회", description = "아파트 ID로 해당 아파트의 모든 입주민을 조회합니다.")
     @GetMapping("/apartment/{apartmentId}")
-    public ResponseEntity<List<ResidentResponseDto>> getAllResidents(@PathVariable Long apartmentId) {
-        List<ResidentResponseDto> residents = residentService.getAllResidents(apartmentId);
+    public ResponseEntity<List<ResidentResponse>> getAllResidents(@PathVariable Long apartmentId) {
+        List<ResidentResponse> residents = residentService.getAllResidents(apartmentId);
         return ResponseEntity.ok(residents);
     }
 
     @Operation(summary = "입주민 등록", description = "새로운 입주민을 등록합니다.")
     @PostMapping
-    public ResponseEntity<?> createResident(@RequestBody ResidentRequestDto requestDto) {
+    public ResponseEntity<?> createResident(@RequestBody ResidentRequest requestDto) {
         try {
             Long residentId = residentService.createResident(requestDto);
-            return ResponseEntity.created(URI.create("/resident/" + residentId)).build();
+            return ResponseEntity.created(URI.create("/api/resident/" + residentId)).build();
         } catch (DataIntegrityViolationException e) {
             // DB unique 제약조건 위반 시 발생
             return ResponseEntity.badRequest().body("이미 등록된 휴대폰 번호입니다.");
@@ -49,7 +50,7 @@ public class ResidentController {
 
     @Operation(summary = "입주민 정보 수정", description = "입주민 정보를 수정합니다.")
     @PutMapping("/{residentId}")
-    public ResponseEntity<Void> updateResident(@PathVariable Long residentId, @RequestBody ResidentRequestDto requestDto) {
+    public ResponseEntity<Void> updateResident(@PathVariable Long residentId, @RequestBody ResidentRequest requestDto) {
         residentService.updateResident(residentId, requestDto);
         return ResponseEntity.ok().build();
     }
@@ -66,5 +67,12 @@ public class ResidentController {
     public ResponseEntity<Void> deleteAllResidents(@PathVariable Long hoId) {
         residentService.deleteAllResidents(hoId);
         return ResponseEntity.ok().build();
+    }
+
+    @Operation(summary = "입주민 정보 검증", description = "입주민 정보(호 ID, 이름, 전화번호)가 일치하는지 확인합니다.")
+    @PostMapping("/verify")
+    public ResponseEntity<ResidentVerifyResponse> verifyResident(@RequestBody ResidentRequest requestDto) {
+        ResidentVerifyResponse verifyResDto = residentService.verifyResident(requestDto);
+        return ResponseEntity.ok(verifyResDto);
     }
 }
