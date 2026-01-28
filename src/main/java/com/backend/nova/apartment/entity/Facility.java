@@ -34,4 +34,8 @@ public class Facility {
 
     @Column(name = "reservation_available", nullable = false)
     private Boolean reservationAvailable;
+
+    public void changeReservationAvailability(boolean available) {
+        this.reservationAvailable = available;
+    }
 }

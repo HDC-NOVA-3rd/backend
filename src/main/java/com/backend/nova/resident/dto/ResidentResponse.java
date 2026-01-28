@@ -2,7 +2,7 @@ package com.backend.nova.resident.dto;
 
 import com.backend.nova.resident.entity.Resident;
 
-public record ResidentResponseDto(
+public record ResidentResponse(
         Long residentId,
         String apartmentName,
         String dongNo,
@@ -10,8 +10,8 @@ public record ResidentResponseDto(
         String name,
         String phone
 ) {
-    public ResidentResponseDto(Resident resident) {
-        this(
+    public static ResidentResponse fromEntity(Resident resident) {
+        return new ResidentResponse(
                 resident.getId(),
                 resident.getHo().getDong().getApartment().getName(),
                 resident.getHo().getDong().getDongNo(),
