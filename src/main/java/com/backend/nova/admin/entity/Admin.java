@@ -47,6 +47,12 @@ public class Admin {
     @Column(nullable = false, length = 50)
     private AdminStatus status;
 
+    /** 관리자 권한 */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 50)
+    private AdminRole role;
+
+
     /** 관리자 폰 번호 */
     @Column(name = "phone_number", length = 20)
     private String phoneNumber;
@@ -92,6 +98,7 @@ public class Admin {
         this.updatedAt = now;
         this.failedLoginCount = 0;
         this.status = AdminStatus.ACTIVE;
+        this.role = AdminRole.ADMIN; // 기본은 일반 관리자
     }
 
     @PreUpdate

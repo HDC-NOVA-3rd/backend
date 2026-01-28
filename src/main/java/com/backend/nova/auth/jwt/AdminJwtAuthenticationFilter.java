@@ -22,6 +22,14 @@ public class AdminJwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+
+        return path.startsWith("/api/admin/login")
+                || path.startsWith("/api/admin/password");
+    }
+
+    @Override
     protected void doFilterInternal(
             HttpServletRequest request,
             HttpServletResponse response,
@@ -46,7 +54,8 @@ public class AdminJwtAuthenticationFilter extends OncePerRequestFilter {
                                     List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
                             );
 
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
                 }
 
             } catch (Exception e) {
@@ -57,3 +66,4 @@ public class AdminJwtAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 }
+

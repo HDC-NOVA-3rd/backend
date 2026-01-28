@@ -4,6 +4,7 @@ import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.service.AdminAuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,6 +13,21 @@ import org.springframework.web.bind.annotation.*;
 public class AdminAuthController {
 
     private final AdminAuthService adminAuthService;
+
+
+    /**
+     * 관리자 회원가입 (슈퍼관리자만 가능)
+     * POST /api/admin
+     */
+    @PostMapping
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<?> createAdmin(
+            @RequestBody AdminCreateRequest request
+    ) {
+        adminAuthService.createAdmin(request);
+        return ResponseEntity.ok().build();
+    }
+
 
     /**
      * 관리자 로그인
@@ -22,6 +38,17 @@ public class AdminAuthController {
         AdminLoginResponse response = adminAuthService.login(request);
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * 슈퍼관리자 로그인시 otp인증
+     * POST /api/admin/login/verify-otp
+     */
+//    @PostMapping("/login/verify-otp")
+//    @PreAuthorize("hasRole('SUPER_ADMIN')")
+//    public ResponseEntity<?> loginVerifyOtp(@RequestBody AdminLoginOtpVerifyRequest request) {
+//        AdminLoginResponse response = adminAuthService.loginVerifyOtp(request);
+//        return ResponseEntity.ok(response);
+//    }
 
     /**
      * 관리자 로그아웃
@@ -50,10 +77,10 @@ public class AdminAuthController {
      * POST /api/admin/password/verify-otp
      */
     @PostMapping("/password/verify-otp")
-    public ResponseEntity<?> verifyOtp(
+    public ResponseEntity<?> passwordVerifyOtp(
             @RequestBody PasswordOtpVerifyRequest request
     ) {
-        adminAuthService.verifyOtp(request);
+        adminAuthService.passwordVerifyOtp(request);
         return ResponseEntity.ok().build();
     }
 

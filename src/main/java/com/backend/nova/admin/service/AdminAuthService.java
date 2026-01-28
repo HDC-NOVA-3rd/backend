@@ -8,6 +8,8 @@ import com.backend.nova.admin.entity.OtpPurpose;
 import com.backend.nova.admin.repository.AdminMfaOtpRepository;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.auth.jwt.AdminJwtTokenProvider;
+import com.backend.nova.global.exception.BusinessException;
+import com.backend.nova.global.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,26 +32,96 @@ public class AdminAuthService {
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final int OTP_EXPIRE_MINUTES = 5;
 
-    /* ================= 로그인 ================= */
+    /* ================= 관리자 회원가입 ================= */
+    @Transactional
+    public void createAdmin(AdminCreateRequest request) {
+
+        if (adminRepository.findByLoginId(request.getLoginId()).isPresent()) {
+            throw new BusinessException(ErrorCode.ADMIN_LOGIN_ID_DUPLICATED);
+        }
+
+        Admin admin = Admin.builder()
+                .loginId(request.getLoginId())
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .name(request.getName())
+                .email(request.getEmail())
+                .role(request.getRole())
+                .build();
+
+        adminRepository.save(admin);
+    }
+
+
+    /* ================= 관리자 로그인 ================= */
 
     public AdminLoginResponse login(AdminLoginRequest request) {
         Admin admin = getAdminByLoginId(request.getLoginId());
 
         validateAdminStatus(admin);
 
-        if (!passwordEncoder.matches(request.getPassword(), admin.getPasswordHash())) {
+        if (!passwordEncoder.matches(
+                request.getPassword(),
+                admin.getPasswordHash()
+        )) {
             handleLoginFailure(admin);
             throw new IllegalArgumentException("비밀번호 불일치");
         }
 
         handleLoginSuccess(admin);
 
-        sendOtp(admin, OtpPurpose.LOGIN);
+        String accessToken = jwtTokenProvider.createToken(
+                admin.getId(),
+                admin.getLoginId()
+        );
 
-        return new AdminLoginResponse(admin.getId(), admin.getName(), null);
+        return new AdminLoginResponse(
+                admin.getId(),
+                admin.getName(),
+                accessToken
+        );
     }
 
-    public String verifyOtp(AdminOtpVerifyRequest request) {
+
+//    public AdminLoginResponse login(AdminLoginRequest request) {
+//        Admin admin = getAdminByLoginId(request.getLoginId());
+//
+//        validateAdminStatus(admin);
+//
+//        if (!passwordEncoder.matches(request.getPassword(), admin.getPasswordHash())) {
+//            handleLoginFailure(admin);
+//            throw new IllegalArgumentException("비밀번호 불일치");
+//        }
+//
+//        handleLoginSuccess(admin);
+//
+//        sendOtp(admin, OtpPurpose.LOGIN);
+//
+//        return new AdminLoginResponse(admin.getId(), admin.getName(), null);
+//    }
+
+//    public AdminLoginResponse loginVerifyOtp(AdminLoginOtpVerifyRequest request) {
+//        Admin admin = getAdminByLoginId(request.getLoginId());
+//
+//        AdminMfaOtp otp = getLatestOtp(admin, OtpPurpose.LOGIN);
+//
+//        validateOtp(otp, request.getOtpCode());
+//
+//        markOtpVerified(otp);
+//
+//        String accessToken = jwtTokenProvider.createToken(
+//                admin.getId(),
+//                admin.getLoginId()
+//        );
+//
+//        return new AdminLoginResponse(
+//                admin.getId(),
+//                admin.getName(),
+//                accessToken
+//        );
+//    }
+
+
+    public String passwordVerifyOtp(AdminOtpVerifyRequest request) {
         Admin admin = getAdminByLoginId(request.getLoginId());
 
         AdminMfaOtp otp = getLatestOtp(admin, OtpPurpose.LOGIN);
@@ -73,7 +145,7 @@ public class AdminAuthService {
         sendOtp(admin, OtpPurpose.PASSWORD_RESET);
     }
 
-    public void verifyOtp(PasswordOtpVerifyRequest request) {
+    public void passwordVerifyOtp(PasswordOtpVerifyRequest request) {
         Admin admin = getAdminByLoginId(request.getLoginId());
 
         AdminMfaOtp otp = getLatestOtp(admin, OtpPurpose.PASSWORD_RESET);
