@@ -1,7 +1,7 @@
-package com.backend.security.config;
+package com.backend.nova.config;
 
-import com.backend.security.jwt.AdminJwtAuthenticationFilter;
-import com.backend.security.jwt.AdminJwtTokenProvider;
+import com.backend.nova.auth.jwt.AdminJwtAuthenticationFilter;
+import com.backend.nova.auth.jwt.AdminJwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

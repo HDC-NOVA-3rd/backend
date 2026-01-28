@@ -1,4 +1,4 @@
-package com.backend.security.jwt;
+package com.backend.nova.auth.jwt;
 
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;

@@ -1,5 +1,4 @@
-package com.backend.security;
-//package com.fiveguys.smartapartment.backend.admin.security;
+package com.backend.nova.auth.admin;
 
 
 import com.backend.nova.admin.entity.Admin;

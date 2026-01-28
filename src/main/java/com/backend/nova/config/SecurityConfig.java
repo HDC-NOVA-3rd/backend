@@ -1,9 +1,8 @@
 package com.backend.nova.config;
 
-//import com.fiveguys.smartapartment.backend.security.CustomAuthenticationProvider;
-import com.backend.security.jwt.AdminJwtAuthenticationFilter;
-import com.backend.security.jwt.AdminJwtTokenProvider;
-//import com.fiveguys.smartapartment.backend.security.jwt.JwtAuthenticationFilter;
+
+import com.backend.nova.auth.jwt.AdminJwtAuthenticationFilter;
+import com.backend.nova.auth.jwt.AdminJwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,8 +22,6 @@ import org.springframework.http.HttpMethod;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-//    private final JwtAuthenticationFilter jwtAuthenticationFilter;
-//    private final CustomAuthenticationProvider customAuthenticationProvider;
 
     private final AdminJwtAuthenticationFilter jwtAuthenticationFilter;
     private final AdminJwtTokenProvider customAuthenticationProvider;

@@ -1,13 +1,14 @@
 package com.backend.nova.admin.service;
 
 import com.backend.nova.admin.dto.*;
+import com.backend.nova.auth.admin.dto.*;
 import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.entity.AdminMfaOtp;
 import com.backend.nova.admin.entity.AdminStatus;
 import com.backend.nova.admin.entity.OtpPurpose;
 import com.backend.nova.admin.repository.AdminMfaOtpRepository;
 import com.backend.nova.admin.repository.AdminRepository;
-import com.backend.security.jwt.AdminJwtTokenProvider;
+import com.backend.nova.auth.jwt.AdminJwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;

@@ -1,6 +1,5 @@
 package com.backend.nova.admin.entity;
 
-import com.backend.nova.admin.entity.OtpPurpose;
 import jakarta.persistence.*;
 import lombok.*;
 

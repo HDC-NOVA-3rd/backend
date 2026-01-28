@@ -1,6 +1,7 @@
 package com.backend.nova.admin.controller;
 
 import com.backend.nova.admin.dto.*;
+import com.backend.nova.auth.admin.dto.*;
 import com.backend.nova.admin.service.AdminAuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;

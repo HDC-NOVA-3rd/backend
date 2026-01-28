@@ -1,4 +1,4 @@
-package com.backend.security;
+package com.backend.nova.auth.admin;
 
 //package com.fiveguys.smartapartment.backend.admin.security;
 
