@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:classpath:config/secrets.yaml #secrets.yaml 파일로 값 읽어오기
   datasource:
     url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1 # 테스트 전용 메모리 DB
     username: sa
@@ -15,3 +17,6 @@ spring:
   sql:
     init:
       mode: never
+
+jwt:
+  secret: ${JWT_TOKEN}

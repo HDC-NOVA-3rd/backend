@@ -2,12 +2,13 @@ package com.backend.nova.resident.entity;
 
 import com.backend.nova.apartment.entity.Ho;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 @Entity
 @Getter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@AllArgsConstructor(access = AccessLevel.PRIVATE)
+@Builder
 public class Resident {
 
     @Id
@@ -25,12 +26,6 @@ public class Resident {
     private String phone;
 
     public void update(Ho ho, String name, String phone) {
-        this.ho = ho;
-        this.name = name;
-        this.phone = phone;
-    }
-
-    public Resident(Ho ho, String name, String phone) {
         this.ho = ho;
         this.name = name;
         this.phone = phone;
