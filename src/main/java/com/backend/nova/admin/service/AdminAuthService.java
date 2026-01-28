@@ -1,7 +1,6 @@
 package com.backend.nova.admin.service;
 
 import com.backend.nova.admin.dto.*;
-import com.backend.nova.auth.admin.dto.*;
 import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.entity.AdminMfaOtp;
 import com.backend.nova.admin.entity.AdminStatus;
