@@ -15,9 +15,9 @@ import java.util.List;
 
 @Tag(name = "Safety", description = "Safety API")
 @RestController
-@RequestMapping("/api/safety/event/log")
+@RequestMapping({"/api/safety/event/log", "/api/safety/event-log"})
 @RequiredArgsConstructor
-public class SafetyLogController {
+public class SafetyEventLogController {
 
     private final SafetyService safetyService;
 

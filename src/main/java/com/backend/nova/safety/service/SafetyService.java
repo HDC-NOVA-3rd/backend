@@ -9,13 +9,18 @@ import com.backend.nova.safety.dto.SafetySensorLogResponse;
 import com.backend.nova.safety.dto.SafetyStatusResponse;
 import com.backend.nova.safety.entity.SafetyEventLog;
 import com.backend.nova.safety.entity.SafetyStatusEntity;
-import com.backend.nova.safety.enums.SafetyLockCommand;
+import com.backend.nova.safety.entity.Sensor;
+import com.backend.nova.safety.entity.SensorLog;
 import com.backend.nova.safety.enums.SafetyReason;
 import com.backend.nova.safety.enums.SafetyStatus;
+import com.backend.nova.safety.enums.SensorType;
 import com.backend.nova.safety.repository.SafetyEventLogRepository;
 import com.backend.nova.safety.repository.SafetyStatusRepository;
 import com.backend.nova.safety.repository.SensorLogRepository;
+import com.backend.nova.safety.repository.SensorRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,10 +35,14 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SafetyService {
+    private static final String REQUEST_FROM_UNKNOWN = "unknown";
+
     private final FacilityRepository facilityRepository;
     private final SafetyEventLogRepository safetyEventLogRepository;
     private final SafetyStatusRepository safetyStatusRepository;
     private final SensorLogRepository sensorLogRepository;
+    private final SensorRepository sensorRepository;
+    private final SafetyAutoLockPolicy autoLockPolicy;
 
     public List<SafetyStatusResponse> listSafetyStatus(Long apartmentId) {
         if (apartmentId == null || apartmentId <= 0) {
@@ -109,7 +118,7 @@ public class SafetyService {
             return null;
         }
 
-        boolean reservationAvailable = request.command() == SafetyLockCommand.UNLOCK;
+        boolean reservationAvailable = Boolean.TRUE.equals(request.reservationAvailable());
         facility.changeReservationAvailability(reservationAvailable);
 
         Long apartmentId = facility.getApartment().getId();
@@ -136,7 +145,8 @@ public class SafetyService {
                 .apartment(facility.getApartment())
                 .dongId(null)
                 .facilityId(facilityId)
-                .requestFrom("MANUAL")
+                .manual(true)
+                .requestFrom(currentAdminRequestFrom())
                 .sensor(null)
                 .sensorType(null)
                 .value(null)
@@ -147,6 +157,118 @@ public class SafetyService {
         safetyEventLogRepository.save(eventLog);
 
         return new SafetyLockResponse(facility.getId(), reservationAvailable, statusTo, reason);
+    }
+
+    /**
+     * 센서 값을 저장하고, 설정된 임계치 초과 시 자동으로 시설 예약을 차단합니다.
+     * UNLOCK(해제)는 관리자 수동 조치로만 수행합니다.
+     *
+     * @return 위험 판단(임계치 초과) 시 true, 그 외 false
+     */
+    @Transactional
+    public boolean autoLockFromSensor(Long sensorId, Double value) {
+        return autoLockFromSensor(sensorId, value, LocalDateTime.now());
+    }
+
+    @Transactional
+    public boolean autoLockFromSensor(Long sensorId, Double value, LocalDateTime eventAt) {
+        if (sensorId == null || sensorId <= 0 || value == null) {
+            return false;
+        }
+        Sensor sensor = sensorRepository.findById(sensorId).orElse(null);
+        if (sensor == null) {
+            return false;
+        }
+
+        sensorLogRepository.save(SensorLog.builder()
+                .sensor(sensor)
+                .value(value)
+                .build());
+
+        SensorType sensorType = sensor.getSensorType();
+        if (!autoLockPolicy.isDangerous(sensorType, value)) {
+            return false;
+        }
+
+        LocalDateTime occurredAt = eventAt == null ? LocalDateTime.now() : eventAt;
+        SafetyReason reason = (sensorType == SensorType.SMOKE) ? SafetyReason.FIRE_SMOKE : SafetyReason.HEAT;
+        SafetyStatus statusTo = SafetyStatus.DANGER;
+
+        Facility facilityToLock = (sensor.getSpace() == null) ? null : sensor.getSpace().getFacility();
+        Long facilityId = facilityToLock == null ? null : facilityToLock.getId();
+        Long dongId = (facilityId != null || sensor.getHo() == null) ? null : sensor.getHo().getDong().getId();
+
+        if (facilityToLock != null && Boolean.TRUE.equals(facilityToLock.getReservationAvailable())) {
+            facilityToLock.changeReservationAvailability(false);
+        }
+
+        SafetyStatusEntity statusEntity;
+        boolean statusExisted;
+        if (facilityId != null) {
+            var existing = safetyStatusRepository.findByApartmentIdAndFacilityId(sensor.getApartment().getId(), facilityId);
+            statusExisted = existing.isPresent();
+            statusEntity = existing.orElseGet(() -> SafetyStatusEntity.builder()
+                    .apartment(sensor.getApartment())
+                    .dongId(null)
+                    .facilityId(facilityId)
+                    .updatedAt(occurredAt)
+                    .reason(reason)
+                    .safetyStatus(statusTo)
+                    .build());
+        } else if (dongId != null) {
+            var existing = safetyStatusRepository.findByApartmentIdAndDongId(sensor.getApartment().getId(), dongId);
+            statusExisted = existing.isPresent();
+            statusEntity = existing.orElseGet(() -> SafetyStatusEntity.builder()
+                    .apartment(sensor.getApartment())
+                    .dongId(dongId)
+                    .facilityId(null)
+                    .updatedAt(occurredAt)
+                    .reason(reason)
+                    .safetyStatus(statusTo)
+                    .build());
+        } else {
+            return true;
+        }
+
+        boolean wasSameDanger = statusExisted
+                && statusEntity.getSafetyStatus() == SafetyStatus.DANGER
+                && statusEntity.getReason() == reason;
+        statusEntity.update(occurredAt, reason, statusTo);
+        safetyStatusRepository.save(statusEntity);
+
+        if (!wasSameDanger) {
+            safetyEventLogRepository.save(SafetyEventLog.builder()
+                    .apartment(sensor.getApartment())
+                    .dongId(dongId)
+                    .facilityId(facilityId)
+                    .manual(false)
+                    .requestFrom(String.valueOf(sensorId))
+                    .sensor(sensor)
+                    .sensorType(sensorType)
+                    .value(value)
+                    .unit(autoLockPolicy.unitFor(sensorType))
+                    .statusTo(statusTo)
+                    .eventAt(occurredAt)
+                    .build());
+        }
+        return true;
+    }
+
+    private static String currentAdminRequestFrom() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return REQUEST_FROM_UNKNOWN;
+        }
+        String name = authentication.getName();
+        if (name == null || name.isBlank() || "anonymousUser".equalsIgnoreCase(name)) {
+            return REQUEST_FROM_UNKNOWN;
+        }
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(authority -> {
+                    String role = authority.getAuthority();
+                    return "ROLE_ADMIN".equals(role) || "ROLE_SUPER_ADMIN".equals(role);
+                });
+        return isAdmin ? name : REQUEST_FROM_UNKNOWN;
     }
 
 }
