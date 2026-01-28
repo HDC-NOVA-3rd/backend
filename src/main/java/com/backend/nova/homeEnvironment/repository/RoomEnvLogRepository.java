@@ -12,6 +12,7 @@ public interface RoomEnvLogRepository extends JpaRepository<RoomEnvLog, Long> {
                 Long roomId,
                 String sensorType
         );
+
 }
 
 
