@@ -1,5 +1,6 @@
 package com.backend.nova.safety.entity;
 
+import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.apartment.entity.Space;
 import com.backend.nova.safety.enums.SensorType;
@@ -37,20 +38,7 @@ public class Sensor {
     @JoinColumn(name = "space_id")
     private Space space;
 
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof Sensor other)) return false;
-        return id != null && Objects.equals(id, other.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return getClass().hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return "Sensor{id=" + id + "}";
-    }
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "apartment_id", nullable = false)
+    private Apartment apartment;
 }

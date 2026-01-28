@@ -91,7 +91,7 @@ public class SafetyService {
         if (apartmentId == null || apartmentId <= 0) {
             return List.of();
         }
-        return sensorLogRepository.findByApartmentIdOrderByIdDesc(apartmentId).stream()
+        return sensorLogRepository.findBySensor_Apartment_IdOrderByIdDesc(apartmentId).stream()
                 .map(log -> new SafetySensorLogResponse(
                         log.getId(),
                         log.getSensor().getId(),
