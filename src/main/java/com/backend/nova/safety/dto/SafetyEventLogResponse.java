@@ -9,6 +9,7 @@ public record SafetyEventLogResponse(
         Long id,
         Long dongId,
         Long facilityId,
+        boolean manual,
         String requestFrom,
         SensorType sensorType,
         Double value,
