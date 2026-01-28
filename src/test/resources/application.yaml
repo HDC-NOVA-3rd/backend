@@ -19,4 +19,4 @@ spring:
       mode: never
 
 jwt:
-  secret: ${JWT_TOKEN:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=}
+  secret: ${JWT_TOKEN}

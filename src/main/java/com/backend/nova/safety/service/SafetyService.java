@@ -16,8 +16,6 @@ import com.backend.nova.safety.repository.SafetyEventLogRepository;
 import com.backend.nova.safety.repository.SafetyStatusRepository;
 import com.backend.nova.safety.repository.SensorLogRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,10 +30,6 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SafetyService {
-    private static final String REQUEST_FROM_UNKNOWN = "unknown";
-    private static final String REQUEST_FROM_MEMBER_PREFIX = "member:";
-    private static final String REQUEST_FROM_ADMIN_PREFIX = "admin:";
-
     private final FacilityRepository facilityRepository;
     private final SafetyEventLogRepository safetyEventLogRepository;
     private final SafetyStatusRepository safetyStatusRepository;
@@ -77,12 +71,11 @@ public class SafetyService {
         List<SafetyEventLog> logs = safetyEventLogRepository.findByApartmentIdOrderByEventAtDesc(apartmentId);
         return logs.stream()
                 .map(log -> {
-                    boolean isManual = log.isManual();
+                    boolean isManual = "MANUAL".equalsIgnoreCase(log.getRequestFrom());
                     return new SafetyEventLogResponse(
                             log.getId(),
                             log.getDongId(),
                             log.getFacilityId(),
-                            isManual,
                             log.getRequestFrom(),
                             isManual ? null : log.getSensorType(),
                             isManual ? null : log.getValue(),
@@ -142,8 +135,7 @@ public class SafetyService {
                 .apartment(facility.getApartment())
                 .dongId(null)
                 .facilityId(facilityId)
-                .manual(true)
-                .requestFrom(currentRequestFrom())
+                .requestFrom("MANUAL")
                 .sensor(null)
                 .sensorType(null)
                 .value(null)
@@ -156,20 +148,4 @@ public class SafetyService {
         return new SafetyLockResponse(facility.getId(), reservationAvailable, statusTo, reason);
     }
 
-    private static String currentRequestFrom() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return REQUEST_FROM_UNKNOWN;
-        }
-        String name = authentication.getName();
-        if (name == null || name.isBlank() || "anonymousUser".equalsIgnoreCase(name)) {
-            return REQUEST_FROM_UNKNOWN;
-        }
-        boolean isAdmin = authentication.getAuthorities().stream()
-                .anyMatch(authority -> {
-                    String role = authority.getAuthority();
-                    return "ROLE_ADMIN".equals(role) || "ROLE_SUPER_ADMIN".equals(role);
-                });
-        return (isAdmin ? REQUEST_FROM_ADMIN_PREFIX : REQUEST_FROM_MEMBER_PREFIX) + name;
-    }
 }
