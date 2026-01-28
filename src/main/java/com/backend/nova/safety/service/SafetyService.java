@@ -71,11 +71,12 @@ public class SafetyService {
         List<SafetyEventLog> logs = safetyEventLogRepository.findByApartmentIdOrderByEventAtDesc(apartmentId);
         return logs.stream()
                 .map(log -> {
-                    boolean isManual = "MANUAL".equalsIgnoreCase(log.getRequestFrom());
+                    boolean isManual = log.isManual();
                     return new SafetyEventLogResponse(
                             log.getId(),
                             log.getDongId(),
                             log.getFacilityId(),
+                            isManual,
                             log.getRequestFrom(),
                             isManual ? null : log.getSensorType(),
                             isManual ? null : log.getValue(),
