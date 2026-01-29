@@ -3,6 +3,7 @@ package com.backend.nova.safety.service;
 import com.backend.nova.apartment.entity.Dong;
 import com.backend.nova.apartment.entity.Facility;
 import com.backend.nova.apartment.repository.FacilityRepository;
+import com.backend.nova.apartment.repository.DongRepository;
 import com.backend.nova.safety.dto.SafetySensorInboundPayload;
 import com.backend.nova.safety.dto.SafetyEventLogResponse;
 import com.backend.nova.safety.dto.SafetyLockRequest;
@@ -47,6 +48,7 @@ public class SafetyService {
     private static final double HEAT_DANGER_THRESHOLD = 70.0;
 
     private final FacilityRepository facilityRepository;
+    private final DongRepository dongRepository;
     private final SafetyEventLogRepository safetyEventLogRepository;
     private final SafetyStatusRepository safetyStatusRepository;
     private final SensorLogRepository sensorLogRepository;
@@ -61,17 +63,24 @@ public class SafetyService {
                 .map(SafetyStatusEntity::getFacilityId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+        Set<Long> dongIdSet = statusEntityList.stream()
+                .map(SafetyStatusEntity::getDongId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
 
         Map<Long, String> facilityNameById = facilityRepository.findAllById(facilityIdSet).stream()
                 .filter(facility -> facility.getApartment().getId().equals(apartmentId))
                 .collect(Collectors.toMap(Facility::getId, Facility::getName));
+        Map<Long, String> dongNoById = dongRepository.findAllById(dongIdSet).stream()
+                .filter(dong -> dong.getApartment().getId().equals(apartmentId))
+                .collect(Collectors.toMap(Dong::getId, Dong::getDongNo));
 
         return statusEntityList.stream()
                 .map(entity -> {
                     String facilityName = entity.getFacilityId() == null ? null : facilityNameById.get(entity.getFacilityId());
+                    String dongNo = entity.getDongId() == null ? null : dongNoById.get(entity.getDongId());
                     return new SafetyStatusResponse(
-                            entity.getDongId(),
-                            entity.getFacilityId(),
+                            dongNo,
                             facilityName,
                             entity.getSafetyStatus(),
                             entity.getReason(),
@@ -86,15 +95,39 @@ public class SafetyService {
             return List.of();
         }
         List<SafetyEventLog> logs = safetyEventLogRepository.findByApartmentIdOrderByEventedAtDesc(apartmentId);
+        Set<Long> facilityIdSet = logs.stream()
+                .map(SafetyEventLog::getFacilityId)
+                .collect(Collectors.toSet());
+        Set<Long> dongIdSet = logs.stream()
+                .map(SafetyEventLog::getDongId)
+                .collect(Collectors.toSet());
+        Set<Long> sensorIdSet = logs.stream()
+                .map(SafetyEventLog::getSafetySensor)
+                .filter(Objects::nonNull)
+                .map(SafetySensor::getId)
+                .collect(Collectors.toSet());
+
+        Map<Long, String> facilityNameById = facilityRepository.findAllById(facilityIdSet).stream()
+                .filter(facility -> facility.getApartment().getId().equals(apartmentId))
+                .collect(Collectors.toMap(Facility::getId, Facility::getName));
+        Map<Long, String> dongNoById = dongRepository.findAllById(dongIdSet).stream()
+                .filter(dong -> dong.getApartment().getId().equals(apartmentId))
+                .collect(Collectors.toMap(Dong::getId, Dong::getDongNo));
+        Map<Long, String> sensorNameById = sensorRepository.findAllById(sensorIdSet).stream()
+                .collect(Collectors.toMap(SafetySensor::getId, SafetySensor::getName));
+
         return logs.stream()
                 .map(log -> {
                     boolean isManual = log.isManual();
+                    Long facilityId = log.getFacilityId();
+                    Long dongId = log.getDongId();
+                    Long sensorId = log.getSafetySensor() == null ? null : log.getSafetySensor().getId();
                     return new SafetyEventLogResponse(
-                            log.getId(),
-                            log.getDongId(),
-                            log.getFacilityId(),
+                            dongId == null ? null : dongNoById.get(dongId),
+                            facilityId == null ? null : facilityNameById.get(facilityId),
                             isManual,
                             log.getRequestFrom(),
+                            sensorId == null ? null : sensorNameById.get(sensorId),
                             isManual ? null : log.getSensorType(),
                             isManual ? null : log.getValue(),
                             isManual ? null : log.getUnit(),
@@ -109,15 +142,73 @@ public class SafetyService {
         if (apartmentId == null || apartmentId <= 0) {
             return List.of();
         }
-        return sensorLogRepository.findBySafetySensor_Apartment_IdOrderByIdDesc(apartmentId).stream()
-                .map(log -> new SafetySensorLogResponse(
-                        log.getId(),
-                        log.getSafetySensor().getId(),
-                        log.getSafetySensor().getSensorType(),
-                        log.getValue(),
-                        log.getUnit(),
-                        log.getEventedAt()
-                ))
+        List<SafetySensorLog> logs = sensorLogRepository.findBySafetySensor_Apartment_IdOrderByIdDesc(apartmentId);
+        Set<Long> sensorIdSet = logs.stream()
+                .map(SafetySensorLog::getSafetySensor)
+                .filter(Objects::nonNull)
+                .map(SafetySensor::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, SafetySensor> sensorById = sensorRepository.findAllById(sensorIdSet).stream()
+                .collect(Collectors.toMap(SafetySensor::getId, sensor -> sensor));
+
+        Set<Long> facilityIdSet = sensorById.values().stream()
+                .map(SafetySensor::getSpace)
+                .filter(Objects::nonNull)
+                .map(space -> space.getFacility())
+                .filter(Objects::nonNull)
+                .map(Facility::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<Long> dongIdSet = sensorById.values().stream()
+                .map(SafetySensor::getHo)
+                .filter(Objects::nonNull)
+                .map(ho -> ho.getDong())
+                .filter(Objects::nonNull)
+                .map(Dong::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, String> facilityNameById = facilityRepository.findAllById(facilityIdSet).stream()
+                .filter(facility -> facility.getApartment().getId().equals(apartmentId))
+                .collect(Collectors.toMap(Facility::getId, Facility::getName));
+        Map<Long, String> dongNoById = dongRepository.findAllById(dongIdSet).stream()
+                .filter(dong -> dong.getApartment().getId().equals(apartmentId))
+                .collect(Collectors.toMap(Dong::getId, Dong::getDongNo));
+
+        return logs.stream()
+                .map(log -> {
+                    Long sensorId = log.getSafetySensor().getId();
+                    SafetySensor sensor = sensorById.get(sensorId);
+                    String sensorName = sensor == null ? null : sensor.getName();
+                    Long facilityId = null;
+                    String facilityName = null;
+                    Long dongId = null;
+                    String dongNo = null;
+
+                    if (sensor != null && sensor.getSpace() != null && sensor.getSpace().getFacility() != null) {
+                        Facility facility = sensor.getSpace().getFacility();
+                        facilityId = facility.getId();
+                        facilityName = facilityNameById.get(facilityId);
+                    }
+
+                    if (sensor != null && sensor.getHo() != null && sensor.getHo().getDong() != null) {
+                        Dong dong = sensor.getHo().getDong();
+                        dongId = dong.getId();
+                        dongNo = dongNoById.get(dongId);
+                    }
+
+                    return new SafetySensorLogResponse(
+                            sensorName,
+                            dongNo,
+                            facilityName,
+                            log.getSafetySensor().getSensorType(),
+                            log.getValue(),
+                            log.getUnit(),
+                            log.getEventedAt()
+                    );
+                })
                 .toList();
     }
 
@@ -166,7 +257,7 @@ public class SafetyService {
                 .build();
         safetyEventLogRepository.save(eventLog);
 
-        return new SafetyLockResponse(facility.getId(), reservationAvailable, statusTo, reason);
+        return new SafetyLockResponse(facility.getName(), reservationAvailable, statusTo, reason);
     }
 
     @Transactional

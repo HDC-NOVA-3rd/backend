@@ -6,11 +6,11 @@ import com.backend.nova.safety.enums.SensorType;
 import java.time.LocalDateTime;
 
 public record SafetyEventLogResponse(
-        Long id,
-        Long dongId,
-        Long facilityId,
+        String dongNo,
+        String facilityName,
         boolean manual,
         String requestFrom,
+        String sensorName,
         SensorType sensorType,
         Double value,
         String unit,
