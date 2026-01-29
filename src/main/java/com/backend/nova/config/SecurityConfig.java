@@ -134,23 +134,13 @@ public class SecurityConfig {
 
                 // Form Login 비활성화
                 .formLogin(AbstractHttpConfigurer::disable)
-
-                // 세션 사용 안 함
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-
-                // 요청별 권한 설정
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/api/member/login",
-                                "/api/member/signup",
-                                "/api/resident/verify"
-                        ).permitAll()
-                        .requestMatchers(
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**"
-                        ).permitAll()
+                // 세션 필터 설정 (STATELESS)
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // 인가 처리
+                .authorizeHttpRequests(authorize -> authorize
+                        .requestMatchers("/api/member/login", "/api/member/signup", "/api/resident/verify").permitAll()
+                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/safety/**").permitAll()
                         .anyRequest().authenticated()
                 )
 

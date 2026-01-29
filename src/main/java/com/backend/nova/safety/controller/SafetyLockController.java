@@ -20,10 +20,10 @@ public class SafetyLockController {
 
     private final SafetyService safetyService;
 
-    @Operation(summary = "시설 예약 차단/해제", description = "facilityId 기준 LOCK/UNLOCK을 수행합니다.")
+    @Operation(summary = "시설 예약 차단/해제", description = "facilityId 기준 reservationAvailable(true/false)을 설정합니다.")
     @PostMapping("/lock")
     public ResponseEntity<SafetyLockResponse> updateFacilityReservationLock(@RequestBody(required = false) SafetyLockRequest request) {
-        if (request == null || request.facilityId() == null || request.facilityId() <= 0 || request.command() == null) {
+        if (request == null || request.facilityId() == null || request.facilityId() <= 0 || request.reservationAvailable() == null) {
             return ResponseEntity.badRequest().build();
         }
         SafetyLockResponse response = safetyService.updateFacilityReservationLock(request);
