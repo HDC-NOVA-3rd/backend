@@ -1,15 +1,12 @@
 package com.backend.nova.admin.dto;
 
+import jakarta.validation.constraints.NotBlank;
+
 public record AdminLoginRequest(
+
+        @NotBlank(message = "loginId는 필수입니다.")
         String loginId,
+
+        @NotBlank(message = "password는 필수입니다.")
         String password
-) {
-    public AdminLoginRequest {
-        if (loginId == null || loginId.isBlank()) {
-            throw new IllegalArgumentException("loginId는 필수입니다.");
-        }
-        if (password == null || password.isBlank()) {
-            throw new IllegalArgumentException("password는 필수입니다.");
-        }
-    }
-}
+) {}
