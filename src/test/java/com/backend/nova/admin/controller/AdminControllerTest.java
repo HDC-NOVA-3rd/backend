@@ -13,6 +13,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import java.util.UUID;
 
@@ -70,14 +71,18 @@ class AdminControllerIntegrationTest {
                 new AdminLoginRequest("admin", "1234");
 
         // when & then
-        mockMvc.perform(post("/api/admin/login")
+        MvcResult result = mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andDo(print())   // json출력
+                //.andDo(print())   // json출력
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.adminId").isNumber())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty());
+                .andExpect(jsonPath("$.refreshToken").isNotEmpty()).andReturn();
+
+        //GitHub Actions 로그출력
+        System.out.println("RESPONSE BODY = " +
+                result.getResponse().getContentAsString());
     }
 
     // ----------------- 관리자 생성 -----------------
