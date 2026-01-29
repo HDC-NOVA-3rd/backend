@@ -46,8 +46,23 @@ public class OpenWeatherService {
         int humidity = ((Number) main.get("humidity")).intValue();
         String locationName = ((String) weather.get("name"));
 
+        //날씨 상태(눈/비/맑음)
+        List weatherList = (List) weather.get("weather");
+        Map w0 = (Map) weatherList.get(0);
+        String mainWeather = (String) w0.get("main"); // Clear, Clouds, Rain, Snow...
+
+        String condition = switch (mainWeather) {
+            case "Clear" -> "맑음";
+            case "Clouds" -> "구름";
+            case "Rain", "Drizzle" -> "비";
+            case "Snow" -> "눈";
+            case "Thunderstorm" -> "천둥번개";
+            case "Mist", "Fog", "Haze", "Smoke", "Dust", "Sand", "Ash", "Squall", "Tornado" -> "안개";
+            default -> "정보 없음";
+        };
+
         // OpenWeatherMap 공기질(AQI) API 호출
-        Map air = webClient.get() //GET 요청
+        Map air = webClient.get() //OpenWeather로 GET 요청
                 .uri(uriBuilder -> uriBuilder
                         .scheme("https")
                         .host("api.openweathermap.org")
@@ -73,6 +88,6 @@ public class OpenWeatherService {
             case 4 -> "매우 나쁨";
             default -> "정보 없음";
         };
-        return new OpenWeatherResponse(temperature, humidity, airQuality, locationName);
+        return new OpenWeatherResponse(temperature, humidity, airQuality, locationName, condition);
     }
 }

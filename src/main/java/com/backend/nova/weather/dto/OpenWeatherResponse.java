@@ -5,6 +5,7 @@ public record OpenWeatherResponse (
     Integer temperature,
     Integer humidity,
     String airQuality,
-    String locationName
+    String locationName,
+    String condition
 ){}
 
