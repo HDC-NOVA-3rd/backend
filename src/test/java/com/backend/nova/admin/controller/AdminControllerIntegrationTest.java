@@ -60,7 +60,6 @@ class AdminControllerIntegrationTest {
         Apartment apartment = Apartment.builder()
                 .name("테스트 아파트")
                 .address("서울시 테스트구 테스트동") //  필수
-                .zipcode("12345")
                 .build();
         return apartmentRepository.save(apartment);
     }
