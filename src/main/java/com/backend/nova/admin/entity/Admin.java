@@ -27,7 +27,7 @@ public class Admin {
     private Long id;
 
     /** 로그인 ID */
-    @Column(name = "login_id", nullable = false, length = 50, unique = true)
+    @Column(name = "login_id", nullable = false, length = 50)
     private String loginId;
 
     /** 비밀번호 해시 */
@@ -39,7 +39,7 @@ public class Admin {
     private String name;
 
     /** 이메일 (OTP 발송용) */
-    @Column(nullable = false, length = 255, unique = true)
+    @Column(nullable = false, length = 255)
     private String email;
 
     /** 계정 상태 */
