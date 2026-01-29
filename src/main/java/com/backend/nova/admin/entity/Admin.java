@@ -1,5 +1,6 @@
 package com.backend.nova.admin.entity;
 
+import com.backend.nova.apartment.entity.Apartment;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,7 +24,6 @@ public class Admin {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "admin_id")
     private Long id;
 
     /** 로그인 ID */
@@ -65,9 +65,11 @@ public class Admin {
     @Column(name = "profile_img", length = 500)
     private String profileImg;
 
-    /** 단지 ID */
-    @Column(name = "apartment_id", nullable = false, length = 50)
-    private String apartmentId;
+    /** 단지 */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "apartment_id", nullable = false)
+    private Apartment apartment;
+
 
     /** 로그인 실패 횟수 */
     @Column(name = "failed_login_count", nullable = false, columnDefinition = "int default 0")
