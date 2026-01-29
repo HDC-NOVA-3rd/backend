@@ -1,9 +1,9 @@
 package com.backend.nova.admin.dto;
 
 /**
- * 관리자 OTP 검증 요청 DTO
+ * 슈퍼 관리자 OTP 검증 요청 DTO
  */
-public record AdminOtpVerifyRequest(
+public record SuperAdminOtpVerifyRequest(
         /**
          * 관리자 로그인 ID
          */

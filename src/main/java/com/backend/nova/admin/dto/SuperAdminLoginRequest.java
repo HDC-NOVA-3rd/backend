@@ -1,10 +1,10 @@
 package com.backend.nova.admin.dto;
 
-public record AdminLoginOtpVerifyRequest(
+public record SuperAdminLoginRequest(
         String loginId,
         String otpCode
 ) {
-    public AdminLoginOtpVerifyRequest {
+    public SuperAdminLoginRequest {
         if (loginId == null || loginId.isBlank()) {
             throw new IllegalArgumentException("loginId는 필수입니다.");
         }

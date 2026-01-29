@@ -93,7 +93,7 @@ public class AdminAuthService {
         sendOtp(admin, OtpPurpose.LOGIN);
     }
 
-    public AdminLoginResponse verifyLoginOtp(AdminLoginOtpVerifyRequest request) {
+    public AdminLoginResponse verifyLoginOtp(SuperAdminLoginRequest request) {
         Admin admin = getAdminByLoginId(request.loginId());
         AdminMfaOtp otp = getLatestOtp(admin, OtpPurpose.LOGIN);
         validateOtp(otp, request.otpCode());
