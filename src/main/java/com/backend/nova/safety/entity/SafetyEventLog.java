@@ -31,6 +31,9 @@ public class SafetyEventLog {
     @Column(name = "facility_id")
     private Long facilityId;
 
+    @Column(name = "manual", nullable = false)
+    private boolean manual;
+
     @Column(name = "request_from", nullable = false)
     private String requestFrom;
 
@@ -60,6 +63,7 @@ public class SafetyEventLog {
             Apartment apartment,
             Long dongId,
             Long facilityId,
+            boolean manual,
             String requestFrom,
             Sensor sensor,
             SensorType sensorType,
@@ -71,6 +75,7 @@ public class SafetyEventLog {
         this.apartment = apartment;
         this.dongId = dongId;
         this.facilityId = facilityId;
+        this.manual = manual;
         this.requestFrom = requestFrom;
         this.sensor = sensor;
         this.sensorType = sensorType;
@@ -78,22 +83,5 @@ public class SafetyEventLog {
         this.unit = unit;
         this.statusTo = statusTo;
         this.eventAt = eventAt;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof SafetyEventLog other)) return false;
-        return id != null && Objects.equals(id, other.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return getClass().hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return "SafetyEventLog{id=" + id + "}";
     }
 }
