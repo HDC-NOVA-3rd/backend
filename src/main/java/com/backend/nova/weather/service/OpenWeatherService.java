@@ -7,7 +7,16 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.util.List;
 import java.util.Map;
-//OpenWeatherMap 서버에 HTTP 요청을 보내서 데이터를 가져오는 서비스
+
+/**
+ * OpenWeatherMap 외부 API 연동 서비스
+ *
+ * - 위도(lat), 경도(lon)를 받아 현재 날씨 + 공기질 정보 조회
+ * - 외부 API 응답을 우리 서비스 DTO(OpenWeatherResponse)로 변환
+ * - DB 저장 없이 실시간 조회 용도
+ */
+
+// 위도/경도를 기준으로 외부 날씨 및 공기질 정보 조회
 @Service
 public class OpenWeatherService {
     private final WebClient webClient = WebClient.create();
@@ -18,7 +27,7 @@ public class OpenWeatherService {
     // lat: 위도(latitude), lon: 경도(longitude)
     public OpenWeatherResponse getOpenWeather(double lat, double lon){
 
-        // 현재 날씨 (온도/습도)
+        // OpenWeatherMap 현재 날씨 API 호출 (온도, 습도, 지역명)
         Map weather = webClient.get() //GET 요청
                 .uri(uriBuilder -> uriBuilder
                         .scheme("https")
@@ -37,7 +46,7 @@ public class OpenWeatherService {
         int humidity = ((Number) main.get("humidity")).intValue();
         String locationName = ((String) weather.get("name"));
 
-        // 2) 공기질 (AQI: 1~5)
+        // OpenWeatherMap 공기질(AQI) API 호출
         Map air = webClient.get() //GET 요청
                 .uri(uriBuilder -> uriBuilder
                         .scheme("https")
