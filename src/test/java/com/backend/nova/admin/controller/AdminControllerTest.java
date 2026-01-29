@@ -44,20 +44,20 @@ class AdminControllerTest {
     @Test
     @DisplayName("관리자 로그인 성공 테스트")
     void adminLogin_Success() throws Exception {
-        // given
+        // given: 요청과 Mock 응답
         AdminLoginRequest request = new AdminLoginRequest("admin", "password");
-
         AdminLoginResponse response = new AdminLoginResponse(
-                1L,                        // adminId
-                "admin",                   // name
-                "admin-access-token",      // accessToken
-                "admin-refresh-token"      // refreshToken
+                1L,                     // adminId
+                "admin",                // name
+                "admin-access-token",   // accessToken
+                "admin-refresh-token"   // refreshToken
         );
 
-        // 모든 Service/Provider 의존성을 MockitoBean으로 Mock 처리
-        given(adminAuthService.login(any(AdminLoginRequest.class))).willReturn(response);
+        // Service만 Mock → Controller 단위 테스트
+        given(adminAuthService.login(any(AdminLoginRequest.class)))
+                .willReturn(response);
 
-        // when & then
+        // when & then: MockMvc로 요청
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
