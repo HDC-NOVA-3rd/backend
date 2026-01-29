@@ -18,7 +18,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -27,7 +26,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Transactional
 @TestPropertySource(properties = {
         "spring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL",
         "spring.datasource.driver-class-name=org.h2.Driver",
