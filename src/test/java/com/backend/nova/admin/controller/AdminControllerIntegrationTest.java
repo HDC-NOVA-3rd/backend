@@ -5,8 +5,10 @@ import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.entity.AdminRole;
 import com.backend.nova.admin.entity.AdminStatus;
 import com.backend.nova.admin.repository.AdminRepository;
+import com.backend.nova.apartment.controller.ApartmentWeatherController;
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.repository.ApartmentRepository;
+import com.backend.nova.weather.service.OpenWeatherService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.annotation.DirtiesContext;
@@ -45,6 +48,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class AdminControllerIntegrationTest {
 
+    @MockBean
+    private OpenWeatherService openWeatherService; // 실제 API 호출 막기
+
+    @Autowired
+    private ApartmentWeatherController controller;
+
     @Autowired
     MockMvc mockMvc;
 
@@ -60,16 +69,13 @@ class AdminControllerIntegrationTest {
     @Autowired
     PasswordEncoder passwordEncoder;
 
-    /** 테스트 DB 초기화 */
     @BeforeEach
     void cleanDb() {
-        apartmentRepository.deleteAllInBatch();
-        adminRepository.deleteAllInBatch();
+        adminRepository.deleteAllInBatch();      // delete Admins first
+        apartmentRepository.deleteAllInBatch();  // then delete Apartments
         System.out.println("===== 테스트 DB 초기화 완료 =====");
-        System.out.println("Admin count: " + adminRepository.count());
-        System.out.println("Apartment count: " + apartmentRepository.count());
-        System.out.println("================================");
     }
+
 
 
     /** 새로운 Apartment 생성 */
