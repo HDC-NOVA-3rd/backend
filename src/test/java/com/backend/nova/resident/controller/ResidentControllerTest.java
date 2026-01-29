@@ -7,12 +7,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-import static org.mockito.Mockito.mock;
 
 
 @WebMvcTest(ResidentController.class)
@@ -25,16 +23,8 @@ class ResidentControllerTest {
     @Autowired
     private ObjectMapper objectMapper;
 
-    @Autowired
+    @MockitoBean
     private ResidentService residentService;
-
-    @TestConfiguration
-    static class MockConfig {
-        @Bean
-        ResidentService residentService() {
-            return mock(ResidentService.class);
-        }
-    }
 
     @Test
     @DisplayName("입주민 인증 성공 테스트")
