@@ -27,7 +27,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-@Transactional
 @TestPropertySource(properties = {
         "spring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL",
         "spring.datasource.driver-class-name=org.h2.Driver",
