@@ -18,6 +18,14 @@ spring:
       hibernate:
         format_sql: true # 로그에 출력되는 SQL을 보기 좋게 포맷팅
 
+  ai:
+    google:
+      genai:
+        api-key: ${GOOGLE_API_KEY}
+        project-id: ${GOOGLE_PROJECT_ID}
+        chat:
+          options:
+            model: gemini-2.5-flash
 # Swagger (SpringDoc) 설정
 springdoc:
   swagger-ui:
@@ -28,3 +36,4 @@ springdoc:
 # jwt Token
 jwt:
   secret: ${JWT_TOKEN}
+

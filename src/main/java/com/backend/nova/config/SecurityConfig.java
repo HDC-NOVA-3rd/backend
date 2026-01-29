@@ -45,7 +45,7 @@ public class SecurityConfig {
                 // 인가 처리
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/member/login", "/api/member/signup", "/api/resident/verify").permitAll()
-                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/ai/chat/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .anyRequest().authenticated()
                 )
