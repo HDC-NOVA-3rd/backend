@@ -35,15 +35,21 @@ class ResidentControllerTest {
     @Test
     @DisplayName("입주민 인증 성공 테스트")
     void verifyResident_Success() throws Exception {
-        ResidentRequest request = new ResidentRequest(1L, "홍길동", "010-1234-5678");
-        ResidentVerifyResponse response = new ResidentVerifyResponse(true, 123L, "인증 성공");
-        given(residentService.verifyResident(any(ResidentRequest.class))).willReturn(response);
+
+        ResidentRequest request =
+                new ResidentRequest(1L, "홍길동", "010-1234-5678");
+
+        ResidentVerifyResponse response =
+                new ResidentVerifyResponse(true, 123L, "인증 성공");
+
+        given(residentService.verifyResident(any(ResidentRequest.class)))
+                .willReturn(response);
 
         mockMvc.perform(post("/api/resident/verify")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.isVerified").value(true))
+                .andExpect(jsonPath("$.verified").value(true))
                 .andExpect(jsonPath("$.residentId").value(123))
                 .andExpect(jsonPath("$.message").value("인증 성공"));
     }
@@ -51,15 +57,21 @@ class ResidentControllerTest {
     @Test
     @DisplayName("입주민 인증 실패 테스트")
     void verifyResident_Fail() throws Exception {
-        ResidentRequest request = new ResidentRequest(1L, "홍길동", "010-1234-5678");
-        ResidentVerifyResponse response = new ResidentVerifyResponse(false, null, "인증 실패");
-        given(residentService.verifyResident(any(ResidentRequest.class))).willReturn(response);
+
+        ResidentRequest request =
+                new ResidentRequest(1L, "홍길동", "010-1234-5678");
+
+        ResidentVerifyResponse response =
+                new ResidentVerifyResponse(false, null, "인증 실패");
+
+        given(residentService.verifyResident(any(ResidentRequest.class)))
+                .willReturn(response);
 
         mockMvc.perform(post("/api/resident/verify")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.isVerified").value(false))
+                .andExpect(jsonPath("$.verified").value(false))
                 .andExpect(jsonPath("$.residentId").doesNotExist())
                 .andExpect(jsonPath("$.message").value("인증 실패"));
     }

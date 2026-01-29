@@ -7,14 +7,26 @@ import com.backend.nova.member.service.MemberService;
 import com.backend.nova.resident.service.ResidentService;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.web.SecurityFilterChain;
 
 import static org.mockito.Mockito.mock;
 
 @TestConfiguration
 public class TestSecurityConfig {
 
+    /* ===== Security 완전 오픈 ===== */
+    @Bean
+    public SecurityFilterChain testSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .anyRequest().permitAll()
+                );
+        return http.build();
+    }
+
+    /* ===== JWT / Provider Mock ===== */
     @Bean
     public JwtProvider jwtProvider() {
         return mock(JwtProvider.class);
@@ -30,13 +42,7 @@ public class TestSecurityConfig {
         return mock(AdminAuthenticationProvider.class);
     }
 
-    @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration configuration
-    ) throws Exception {
-        return configuration.getAuthenticationManager();
-    }
-
+    /* ===== Service Mock ===== */
     @Bean
     public MemberService memberService() {
         return mock(MemberService.class);

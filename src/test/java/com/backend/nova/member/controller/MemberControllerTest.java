@@ -40,11 +40,21 @@ class MemberControllerTest {
     @Test
     @DisplayName("회원 가입 성공 테스트")
     void registerMember_Success() throws Exception {
+
         SignupRequest request = new SignupRequest(
-                1L, "user123", "password", "user@example.com", "홍길동", "010-1234-5678",
-                LocalDate.of(1990, 1, 1), LoginType.NORMAL, null
+                1L,
+                "user123",
+                "password",
+                "user@example.com",
+                "홍길동",
+                "010-1234-5678",
+                LocalDate.of(1990, 1, 1),
+                LoginType.NORMAL,
+                null
         );
-        given(memberService.registerMember(any(SignupRequest.class))).willReturn(1L);
+
+        given(memberService.registerMember(any(SignupRequest.class)))
+                .willReturn(1L);
 
         mockMvc.perform(post("/api/member/signup")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -56,14 +66,18 @@ class MemberControllerTest {
     @Test
     @DisplayName("로그인 성공 테스트")
     void login_Success() throws Exception {
-        LoginRequest loginRequest = new LoginRequest("user123", "password");
+
+        LoginRequest loginRequest =
+                new LoginRequest("user123", "password");
+
         TokenResponse tokenResponse = TokenResponse.builder()
                 .grantType("Bearer")
                 .accessToken("access-token")
                 .refreshToken("refresh-token")
                 .build();
 
-        given(memberService.login(any(LoginRequest.class))).willReturn(tokenResponse);
+        given(memberService.login(any(LoginRequest.class)))
+                .willReturn(tokenResponse);
 
         mockMvc.perform(post("/api/member/login")
                         .contentType(MediaType.APPLICATION_JSON)
