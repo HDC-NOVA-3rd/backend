@@ -26,11 +26,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
 
-        // Base64 인코딩된 문자열
-        "jwt.secret=dGVzdC1zZWNyZXQta2V5LXRlc3Qtc2VjcmV0LWtleQ==",
+        // 32바이트 이상 + Base64
+        "jwt.secret=MzJieXRlLXNlY3JldC1rZXktZm9yLWp3dC10ZXN0LSEhISE=",
         "jwt.access-token-expire-time=3600000",
         "jwt.refresh-token-expire-time=604800000"
 })
+
 
 class AdminControllerIntegrationTest {
 
