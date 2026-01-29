@@ -105,7 +105,8 @@ public class SafetyService {
                         log.getId(),
                         log.getSensor().getId(),
                         log.getSensor().getSensorType(),
-                        log.getValue()
+                        log.getValue(),
+                        log.getSensor().getCreatedAt()
                 ))
                 .toList();
     }

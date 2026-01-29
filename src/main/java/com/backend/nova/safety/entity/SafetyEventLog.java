@@ -84,21 +84,4 @@ public class SafetyEventLog {
         this.statusTo = statusTo;
         this.eventAt = eventAt;
     }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof SafetyEventLog other)) return false;
-        return id != null && Objects.equals(id, other.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return getClass().hashCode();
-    }
-
-    @Override
-    public String toString() {
-        return "SafetyEventLog{id=" + id + "}";
-    }
 }
