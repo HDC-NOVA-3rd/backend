@@ -65,13 +65,15 @@ class AdminControllerIntegrationTest {
 
     /** 새로운 Apartment 생성 */
     private Apartment createApartment() {
-        String uuid = UUID.randomUUID().toString();
         Apartment apartment = Apartment.builder()
-                .name("테스트 아파트-" + uuid)
+                .name("테스트 아파트-" + UUID.randomUUID())
                 .address("서울시 테스트구 테스트동")
+                .latitude(37.5665)     // 테스트용 위도
+                .longitude(126.9780)   // 테스트용 경도
                 .build();
         return apartmentRepository.saveAndFlush(apartment);
     }
+
 
     /** 새로운 Admin 생성 (UNIQUE 안전) */
     private Admin createAdminSafe() {
