@@ -17,6 +17,14 @@ spring:
   sql:
     init:
       mode: never
+  ai:
+    google:
+      genai:
+        api-key: ${GOOGLE_API_KEY}
+        project-id: ${GOOGLE_PROJECT_ID}
+        chat:
+          options:
+            model: gemini-2.5-flash
 
 jwt:
   secret: ${JWT_TOKEN}

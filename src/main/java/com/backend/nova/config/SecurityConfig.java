@@ -45,7 +45,8 @@ public class SecurityConfig {
                 // 인가 처리
                 .authorizeHttpRequests(authorize -> authorize
                         .requestMatchers("/api/member/login", "/api/member/signup", "/api/resident/verify", "/api/apartment/**").permitAll()
-                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/ai/chat/**").permitAll()
+                        .requestMatchers("/api/safety/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 // 커스텀 필터 설정 JwtFilter 선행 처리
