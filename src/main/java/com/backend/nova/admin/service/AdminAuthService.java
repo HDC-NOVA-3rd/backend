@@ -165,7 +165,7 @@ public class AdminAuthService {
         Admin admin = getCurrentAdmin();
 
         if (!passwordEncoder.matches(request.currentPassword(), admin.getPasswordHash())) {
-            throw new BusinessException(ErrorCode.INVALID_PASSWORD);
+            throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
         }
 
         admin.setPasswordHash(passwordEncoder.encode(request.newPassword()));
