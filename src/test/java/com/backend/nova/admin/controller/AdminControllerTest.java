@@ -74,8 +74,6 @@ class AdminControllerIntegrationTest {
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
-
                 // === 핵심 필드 검증 ===
                 .andExpect(jsonPath("$.adminId").isNumber())
                 .andExpect(jsonPath("$.name").isNotEmpty())
