@@ -17,9 +17,12 @@ public class Apartment {
     @Column(nullable = false, length = 50)
     private String name;
 
-    @Column(nullable = false, length = 50)
+    @Column(nullable = false, length = 100)
     private String address;
-
-    @Column(length = 50)
-    private String zipcode;
+    // 위도
+    @Column(nullable = false)
+    private Double latitude;
+    // 경도
+    @Column(nullable = false)
+    private Double longitude;
 }

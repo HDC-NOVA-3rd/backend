@@ -28,3 +28,6 @@ springdoc:
 # jwt Token
 jwt:
   secret: ${JWT_TOKEN}
+# openweather api key
+openweather:
+  api-key: ${OPENWEATHER_API_KEY}
