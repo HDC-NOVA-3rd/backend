@@ -70,7 +70,6 @@ public class Admin {
     @JoinColumn(name = "apartment_id", nullable = false)
     private Apartment apartment;
 
-
     /** 로그인 실패 횟수 */
     @Column(name = "failed_login_count", nullable = false, columnDefinition = "int default 0")
     private int failedLoginCount;

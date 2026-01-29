@@ -3,6 +3,8 @@ package com.backend.nova.admin.controller;
 import com.backend.nova.admin.dto.AdminLoginRequest;
 import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.repository.AdminRepository;
+import com.backend.nova.apartment.entity.Apartment;
+import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -17,7 +19,6 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -34,8 +35,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "jwt.access-token-expire-time=3600000",
         "jwt.refresh-token-expire-time=604800000"
 })
-
-
 class AdminControllerIntegrationTest {
 
     @Autowired
@@ -48,7 +47,20 @@ class AdminControllerIntegrationTest {
     AdminRepository adminRepository;
 
     @Autowired
+    ApartmentRepository apartmentRepository;
+
+    @Autowired
     PasswordEncoder passwordEncoder;
+
+    /**
+     * 테스트용 Apartment 생성
+     */
+    private Apartment createApartment() {
+        Apartment apartment = Apartment.builder()
+                .name("테스트 아파트")
+                .build();
+        return apartmentRepository.save(apartment);
+    }
 
     @Test
     @DisplayName("관리자 로그인 통합 테스트 - 성공")
@@ -56,19 +68,20 @@ class AdminControllerIntegrationTest {
         // given
         String loginId = "admin-" + UUID.randomUUID();
 
+        Apartment apartment = createApartment();
+
         Admin admin = Admin.builder()
                 .loginId(loginId)
                 .passwordHash(passwordEncoder.encode("1234"))
                 .name("테스트 관리자")
                 .email("admin-" + UUID.randomUUID() + "@test.com")
-                .apartmentId("APT-TEST")
+                .apartment(apartment)
                 .build();
 
         adminRepository.save(admin);
 
         AdminLoginRequest request =
                 new AdminLoginRequest(loginId, "1234");
-
 
         // when & then
         mockMvc.perform(post("/api/admin/login")
@@ -81,34 +94,23 @@ class AdminControllerIntegrationTest {
                 .andExpect(jsonPath("$.name").isNotEmpty())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty());
 
-                // refreshToken은 선택이니까 존재만 체크
-                //.andExpect(jsonPath("$.refreshToken").exists());
-
-//        MvcResult result = mockMvc.perform(post("/api/admin/login")
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(request)))
-//                //.andDo(print())   // json출력
-//                .andExpect(status().isOk())
-//                .andExpect(jsonPath("$.adminId").isNumber())
-//                .andExpect(jsonPath("$.accessToken").isNotEmpty())
-//                .andExpect(jsonPath("$.refreshToken").isNotEmpty()).andReturn();
-
-        //GitHub Actions 로그출력
-//        System.out.println("RESPONSE BODY = " +
-//                result.getResponse().getContentAsString());
+        // refreshToken은 선택이니까 존재만 체크
+        //.andExpect(jsonPath("$.refreshToken").exists());
     }
 
-    //관리자 로그인 실패 – 비밀번호 불일치
+    // 관리자 로그인 실패 – 비밀번호 불일치
     @Test
     @DisplayName("관리자 로그인 실패 - 비밀번호 불일치")
     void adminLogin_fail_wrongPassword() throws Exception {
         // given
+        Apartment apartment = createApartment();
+
         Admin admin = Admin.builder()
                 .loginId("admin-" + UUID.randomUUID())
                 .passwordHash(passwordEncoder.encode("1234"))
                 .name("테스트 관리자")
                 .email("admin-" + UUID.randomUUID() + "@test.com")
-                .apartmentId("APT-TEST")
+                .apartment(apartment)
                 .build();
 
         adminRepository.save(admin);
@@ -124,7 +126,7 @@ class AdminControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").exists());
     }
 
-    //관리자 로그인 실패 – 존재하지 않는 ID
+    // 관리자 로그인 실패 – 존재하지 않는 ID
     @Test
     @DisplayName("관리자 로그인 실패 - 존재하지 않는 관리자")
     void adminLogin_fail_notFound() throws Exception {
@@ -140,8 +142,7 @@ class AdminControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").exists());
     }
 
-
-    //요청값 검증 실패 – loginId 누락 (@Valid)
+    // 요청값 검증 실패 – loginId 누락 (@Valid)
     @Test
     @DisplayName("관리자 로그인 실패 - 요청값 검증 오류")
     void adminLogin_fail_validation() throws Exception {
@@ -159,8 +160,6 @@ class AdminControllerIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
     }
-
-
 
 
     // ----------------- 관리자 생성 -----------------
