@@ -2,6 +2,7 @@ package com.backend.nova.admin.controller;
 
 import com.backend.nova.admin.dto.AdminLoginRequest;
 import com.backend.nova.admin.entity.Admin;
+import com.backend.nova.admin.entity.AdminRole;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.repository.ApartmentRepository;
@@ -75,6 +76,7 @@ class AdminControllerIntegrationTest {
                 .passwordHash(passwordEncoder.encode("1234"))
                 .name("테스트 관리자")
                 .email("admin-" + UUID.randomUUID() + "@test.com")
+                .role(AdminRole.ADMIN)
                 .apartment(apartment)
                 .build();
 
@@ -110,6 +112,7 @@ class AdminControllerIntegrationTest {
                 .passwordHash(passwordEncoder.encode("1234"))
                 .name("테스트 관리자")
                 .email("admin-" + UUID.randomUUID() + "@test.com")
+                .role(AdminRole.ADMIN)
                 .apartment(apartment)
                 .build();
 
