@@ -57,6 +57,7 @@ class ResidentControllerTest {
 
         given(residentService.verifyResident(any()))
                 .willReturn(response);
+
         // when & then
         mockMvc.perform(post("/api/resident/verify")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -65,5 +66,28 @@ class ResidentControllerTest {
                 .andExpect(jsonPath("$.isVerified").value(true))
                 .andExpect(jsonPath("$.residentId").value(123))
                 .andExpect(jsonPath("$.message").value("인증 성공"));
+    }
+
+    @Test
+    @DisplayName("입주민 인증 실패 테스트")
+    void verifyResident_Fail() throws Exception {
+        // given
+        ResidentRequest request =
+                new ResidentRequest(1L, "홍길동", "010-1234-5678");
+
+        ResidentVerifyResponse response =
+                new ResidentVerifyResponse(false, null, "인증 실패");
+
+        given(residentService.verifyResident(any()))
+                .willReturn(response);
+
+        // when & then
+        mockMvc.perform(post("/api/resident/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.isVerified").value(false))
+                .andExpect(jsonPath("$.residentId").doesNotExist())
+                .andExpect(jsonPath("$.message").value("인증 실패"));
     }
 }
