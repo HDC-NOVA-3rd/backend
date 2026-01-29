@@ -4,6 +4,7 @@ import com.backend.nova.apartment.dto.ApartmentStructure.ApartmentResponse;
 import com.backend.nova.apartment.dto.ApartmentStructure.DongResponse;
 import com.backend.nova.apartment.dto.ApartmentStructure.HoResponse;
 import com.backend.nova.apartment.service.AptStructureService;
+import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.config.SecurityConfig;
@@ -39,6 +40,9 @@ class AptStructureControllerTest {
 
     @MockitoBean
     private MemberAuthenticationProvider memberAuthenticationProvider;
+
+    @MockitoBean
+    private AdminAuthenticationProvider adminAuthenticationProvider;
 
     @Test
     @DisplayName("아파트 목록 조회 성공 테스트")
