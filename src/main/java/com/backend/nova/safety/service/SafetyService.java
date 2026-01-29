@@ -9,13 +9,18 @@ import com.backend.nova.safety.dto.SafetySensorLogResponse;
 import com.backend.nova.safety.dto.SafetyStatusResponse;
 import com.backend.nova.safety.entity.SafetyEventLog;
 import com.backend.nova.safety.entity.SafetyStatusEntity;
-import com.backend.nova.safety.enums.SafetyLockCommand;
+import com.backend.nova.safety.entity.Sensor;
+import com.backend.nova.safety.entity.SensorLog;
 import com.backend.nova.safety.enums.SafetyReason;
 import com.backend.nova.safety.enums.SafetyStatus;
+import com.backend.nova.safety.enums.SensorType;
 import com.backend.nova.safety.repository.SafetyEventLogRepository;
 import com.backend.nova.safety.repository.SafetyStatusRepository;
 import com.backend.nova.safety.repository.SensorLogRepository;
+import com.backend.nova.safety.repository.SensorRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,10 +35,13 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class SafetyService {
+    private static final String REQUEST_FROM_UNKNOWN = "unknown";
+
     private final FacilityRepository facilityRepository;
     private final SafetyEventLogRepository safetyEventLogRepository;
     private final SafetyStatusRepository safetyStatusRepository;
     private final SensorLogRepository sensorLogRepository;
+    private final SensorRepository sensorRepository;
 
     public List<SafetyStatusResponse> listSafetyStatus(Long apartmentId) {
         if (apartmentId == null || apartmentId <= 0) {
@@ -71,11 +79,12 @@ public class SafetyService {
         List<SafetyEventLog> logs = safetyEventLogRepository.findByApartmentIdOrderByEventAtDesc(apartmentId);
         return logs.stream()
                 .map(log -> {
-                    boolean isManual = "MANUAL".equalsIgnoreCase(log.getRequestFrom());
+                    boolean isManual = log.isManual();
                     return new SafetyEventLogResponse(
                             log.getId(),
                             log.getDongId(),
                             log.getFacilityId(),
+                            isManual,
                             log.getRequestFrom(),
                             isManual ? null : log.getSensorType(),
                             isManual ? null : log.getValue(),
@@ -96,7 +105,8 @@ public class SafetyService {
                         log.getId(),
                         log.getSensor().getId(),
                         log.getSensor().getSensorType(),
-                        log.getValue()
+                        log.getValue(),
+                        log.getSensor().getCreatedAt()
                 ))
                 .toList();
     }
@@ -108,7 +118,7 @@ public class SafetyService {
             return null;
         }
 
-        boolean reservationAvailable = request.command() == SafetyLockCommand.UNLOCK;
+        boolean reservationAvailable = Boolean.TRUE.equals(request.reservationAvailable());
         facility.changeReservationAvailability(reservationAvailable);
 
         Long apartmentId = facility.getApartment().getId();
@@ -135,7 +145,8 @@ public class SafetyService {
                 .apartment(facility.getApartment())
                 .dongId(null)
                 .facilityId(facilityId)
-                .requestFrom("MANUAL")
+                .manual(true)
+                .requestFrom(currentAdminRequestFrom())
                 .sensor(null)
                 .sensorType(null)
                 .value(null)
@@ -146,6 +157,11 @@ public class SafetyService {
         safetyEventLogRepository.save(eventLog);
 
         return new SafetyLockResponse(facility.getId(), reservationAvailable, statusTo, reason);
+    }
+
+    private static String currentAdminRequestFrom() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication.getName();
     }
 
 }
