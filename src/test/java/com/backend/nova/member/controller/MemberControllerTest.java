@@ -3,6 +3,7 @@ package com.backend.nova.member.controller;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.config.SecurityConfig;
+import com.backend.nova.config.TestSecurityConfig;
 import com.backend.nova.member.dto.LoginRequest;
 import com.backend.nova.member.dto.SignupRequest;
 import com.backend.nova.member.dto.TokenResponse;
@@ -12,6 +13,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -28,7 +30,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(MemberController.class)
-@Import(SecurityConfig.class)
+@Import({SecurityConfig.class, TestSecurityConfig.class})
+@AutoConfigureMockMvc(addFilters = false)
 class MemberControllerTest {
 
     @Autowired
