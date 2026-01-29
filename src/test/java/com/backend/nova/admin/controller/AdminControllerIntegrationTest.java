@@ -3,10 +3,12 @@ package com.backend.nova.admin.controller;
 import com.backend.nova.admin.dto.AdminLoginRequest;
 import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.entity.AdminRole;
+import com.backend.nova.admin.entity.AdminStatus;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -24,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Transactional
 @TestPropertySource(properties = {
         "spring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL",
         "spring.datasource.driver-class-name=org.h2.Driver",
@@ -54,6 +58,15 @@ class AdminControllerIntegrationTest {
     PasswordEncoder passwordEncoder;
 
     /**
+     * 테스트 시작 전 DB 정리
+     */
+    @BeforeEach
+    void clean() {
+        adminRepository.deleteAll();
+        apartmentRepository.deleteAll();
+    }
+
+    /**
      * 테스트용 Apartment 생성
      */
     private Apartment createApartment() {
@@ -78,6 +91,7 @@ class AdminControllerIntegrationTest {
                 .name("테스트 관리자")
                 .email("admin-" + UUID.randomUUID() + "@test.com")
                 .role(AdminRole.ADMIN)
+                .status(AdminStatus.ACTIVE)
                 .apartment(apartment)
                 .build();
 
@@ -114,6 +128,7 @@ class AdminControllerIntegrationTest {
                 .name("테스트 관리자")
                 .email("admin-" + UUID.randomUUID() + "@test.com")
                 .role(AdminRole.ADMIN)
+                .status(AdminStatus.ACTIVE)
                 .apartment(apartment)
                 .build();
 
@@ -164,54 +179,4 @@ class AdminControllerIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
     }
-
-
-    // ----------------- 관리자 생성 -----------------
-//    @Test
-//    @DisplayName("관리자 생성 성공 테스트")
-//    void createAdmin_Success() throws Exception {
-//        AdminCreateRequest request = new AdminCreateRequest(
-//                "newAdmin", "password", "테스트 관리자", "newadmin@test.com", null
-//        );
-//
-//        given(adminAuthService.createAdmin(any(AdminCreateRequest.class)))
-//                .willReturn(2L);
-//
-//        mockMvc.perform(post("/api/admin")
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(request)))
-//                .andExpect(status().isCreated())
-//                .andExpect(header().string("Location", "/api/admin/2"));
-//    }
-
-    // ----------------- OTP 검증 -----------------
-//    @Test
-//    @DisplayName("OTP 검증 성공 테스트")
-//    void verifyOtp_Success() throws Exception {
-//        AdminOtpVerifyRequest request = new AdminOtpVerifyRequest("admin", "123456");
-//
-//        given(adminAuthService.verifyLoginOtp(any(AdminLoginOtpVerifyRequest.class)))
-//                .willReturn(true);
-//
-//        mockMvc.perform(post("/api/admin/login/verify-otp")
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(request)))
-//                .andExpect(status().isOk())
-//                .andExpect(jsonPath("$.verified").value(true));
-//    }
-//
-//    @Test
-//    @DisplayName("OTP 검증 실패 테스트")
-//    void verifyOtp_Fail() throws Exception {
-//        AdminOtpVerifyRequest request = new AdminOtpVerifyRequest("admin", "000000");
-//
-//        given(adminAuthService.verifyLoginOtp(any(AdminLoginOtpVerifyRequest.class)))
-//                .willReturn(false);
-//
-//        mockMvc.perform(post("/api/admin/login/verify-otp")
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(request)))
-//                .andExpect(status().isOk())
-//                .andExpect(jsonPath("$.verified").value(false));
-//    }
 }
