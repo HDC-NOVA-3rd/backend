@@ -59,25 +59,36 @@ public class AdminAuthService {
 
     /* ================= 관리자 로그인 ================= */
     public AdminLoginResponse login(AdminLoginRequest request) {
-        Admin admin = getAdminByLoginId(request.loginId());
 
+        // 1 관리자 조회 (존재하지 않아도 동일한 에러)
+        Admin admin = adminRepository.findByLoginId(request.loginId())
+                .orElseThrow(() ->
+                        new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED)
+                );
+
+        // 2 계정 상태 검증 (inactive / locked 등)
         validateAdminStatus(admin);
 
+        // 3 비밀번호 검증
         if (!passwordEncoder.matches(request.password(), admin.getPasswordHash())) {
             handleLoginFailure(admin);
-            throw new BusinessException(ErrorCode.INVALID_PASSWORD);
+            throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
         }
 
+        // 4 로그인 성공 처리 (실패 카운트 초기화 등)
         handleLoginSuccess(admin);
 
+        // 5 Authentication 생성
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 admin.getId().toString(),
                 null,
                 List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
         );
 
+        // 6 토큰 발급
         TokenResponse tokenResponse = jwtProvider.generateToken(authentication);
 
+        // 7 응답
         return new AdminLoginResponse(
                 admin.getId(),
                 admin.getName(),
@@ -85,6 +96,7 @@ public class AdminAuthService {
                 tokenResponse.refreshToken()
         );
     }
+
 
     /* ================= OTP 로그인 ================= */
     public void sendLoginOtp(String loginId) {

@@ -2,6 +2,7 @@ package com.backend.nova.admin.controller;
 
 import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.service.AdminAuthService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -34,7 +35,7 @@ public class AdminAuthController {
      * POST /api/admin/login
      */
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody AdminLoginRequest request) {
+    public ResponseEntity<?> login(@RequestBody @Valid AdminLoginRequest request) {
         AdminLoginResponse response = adminAuthService.login(request);
         return ResponseEntity.ok(response);
     }
