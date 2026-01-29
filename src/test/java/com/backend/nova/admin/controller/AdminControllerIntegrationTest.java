@@ -58,10 +58,9 @@ class AdminControllerIntegrationTest {
     /** 테스트 DB 초기화 */
     @BeforeEach
     void cleanDb() {
-        adminRepository.deleteAllInBatch();
         apartmentRepository.deleteAllInBatch();
-        adminRepository.flush();
-        apartmentRepository.flush();
+        adminRepository.deleteAllInBatch();
+
     }
 
     /** 새로운 Apartment 생성 */
