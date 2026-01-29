@@ -293,30 +293,26 @@ public class SafetyService {
         SafetyStatus statusTo = isDanger ? SafetyStatus.DANGER : SafetyStatus.SAFE;
         SafetyReason reason = sensorType == SensorType.SMOKE ? SafetyReason.FIRE_SMOKE : SafetyReason.HEAT;
 
-        SafetyStatusEntity statusEntity = scopeContext.facilityId() == null
+        var existingStatus = scopeContext.facilityId() == null
                 ? safetyStatusRepository.findByApartmentIdAndDongId(scopeContext.apartmentId(), scopeContext.dongId())
-                .orElseGet(() -> SafetyStatusEntity.builder()
-                        .apartment(scopeContext.apartment())
-                        .dongId(scopeContext.dongId())
-                        .facilityId(null)
-                        .updatedAt(eventedAt)
-                        .reason(reason)
-                        .safetyStatus(statusTo)
-                        .build())
-                : safetyStatusRepository.findByApartmentIdAndFacilityId(scopeContext.apartmentId(), scopeContext.facilityId())
-                .orElseGet(() -> SafetyStatusEntity.builder()
-                        .apartment(scopeContext.apartment())
-                        .dongId(null)
-                        .facilityId(scopeContext.facilityId())
-                        .updatedAt(eventedAt)
-                        .reason(reason)
-                        .safetyStatus(statusTo)
-                        .build());
+                : safetyStatusRepository.findByApartmentIdAndFacilityId(scopeContext.apartmentId(), scopeContext.facilityId());
+
+        SafetyStatus previousStatus = existingStatus.map(SafetyStatusEntity::getSafetyStatus).orElse(null);
+
+        SafetyStatusEntity statusEntity = existingStatus.orElseGet(() -> SafetyStatusEntity.builder()
+                .apartment(scopeContext.apartment())
+                .dongId(scopeContext.facilityId() == null ? scopeContext.dongId() : null)
+                .facilityId(scopeContext.facilityId())
+                .updatedAt(eventedAt)
+                .reason(reason)
+                .safetyStatus(statusTo)
+                .build());
 
         statusEntity.update(eventedAt, reason, statusTo);
         safetyStatusRepository.save(statusEntity);
 
-        if (isDanger) {
+        boolean statusChanged = previousStatus == null || previousStatus != statusTo;
+        if (statusChanged) {
             SafetyEventLog eventLog = SafetyEventLog.builder()
                     .apartment(scopeContext.apartment())
                     .dongId(scopeContext.dongId())
@@ -331,12 +327,11 @@ public class SafetyService {
                     .eventedAt(eventedAt)
                     .build();
             safetyEventLogRepository.save(eventLog);
+        }
 
-            if (scopeContext.facility() != null) {
-                scopeContext.facility().changeReservationAvailability(false);
-                facilityRepository.save(scopeContext.facility());
-            }
-
+        if (isDanger && scopeContext.facility() != null) {
+            scopeContext.facility().changeReservationAvailability(false);
+            facilityRepository.save(scopeContext.facility());
             log.info("Safety alert requested deviceId={}, scope={}", deviceId, scopeContext);
         }
     }
