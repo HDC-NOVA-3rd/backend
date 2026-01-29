@@ -33,10 +33,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
+        "spring.jpa.show-sql=true",                               // SQL 출력
+        "spring.jpa.properties.hibernate.format_sql=true",        // 보기 좋게 포맷
+        "logging.level.org.hibernate.SQL=DEBUG",                 // Hibernate SQL 로그
+        "logging.level.org.hibernate.type.descriptor.sql=TRACE", // 바인딩 값 출력
         "jwt.secret=MzJieXRlLXNlY3JldC1rZXktZm9yLWp3dC10ZXN0LSEhISE=",
         "jwt.access-token-expire-time=3600000",
         "jwt.refresh-token-expire-time=604800000"
 })
+
 
 class AdminControllerIntegrationTest {
 
@@ -60,8 +65,12 @@ class AdminControllerIntegrationTest {
     void cleanDb() {
         apartmentRepository.deleteAllInBatch();
         adminRepository.deleteAllInBatch();
-
+        System.out.println("===== 테스트 DB 초기화 완료 =====");
+        System.out.println("Admin count: " + adminRepository.count());
+        System.out.println("Apartment count: " + apartmentRepository.count());
+        System.out.println("================================");
     }
+
 
     /** 새로운 Apartment 생성 */
     private Apartment createApartment() {
@@ -89,8 +98,19 @@ class AdminControllerIntegrationTest {
                 .failedLoginCount(0)
                 .apartment(apartment)
                 .build();
-        return adminRepository.saveAndFlush(admin);
+
+        admin = adminRepository.saveAndFlush(admin);
+
+        // 콘솔 출력
+        System.out.println("===== Admin 생성 =====");
+        System.out.println("loginId: " + admin.getLoginId());
+        System.out.println("email: " + admin.getEmail());
+        System.out.println("apartmentId: " + apartment.getId());
+        System.out.println("======================");
+
+        return admin;
     }
+
 
     @Test
     @DisplayName("관리자 로그인 통합 테스트 - 성공")
