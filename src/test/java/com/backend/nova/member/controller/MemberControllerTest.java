@@ -2,7 +2,6 @@ package com.backend.nova.member.controller;
 
 import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import com.backend.nova.auth.jwt.JwtProvider;
-import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.config.SecurityConfig;
 import com.backend.nova.member.dto.LoginRequest;
 import com.backend.nova.member.dto.SignupRequest;
@@ -40,9 +39,6 @@ class MemberControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
-
-    @MockitoBean
-    private MemberAuthenticationProvider memberAuthenticationProvider;
 
     @MockitoBean
     private AdminAuthenticationProvider adminAuthenticationProvider;

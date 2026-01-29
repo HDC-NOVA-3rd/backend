@@ -3,7 +3,6 @@ package com.backend.nova.config;
 import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import com.backend.nova.auth.jwt.JwtAuthenticationFilter;
 import com.backend.nova.auth.jwt.JwtProvider;
-import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -30,7 +29,6 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtProvider jwtProvider;
-    private final MemberAuthenticationProvider memberAuthenticationProvider;
     private final AdminAuthenticationProvider adminAuthenticationProvider;
 
     /**
@@ -124,8 +122,6 @@ public class SecurityConfig {
                 // 관리자 Chain에 들어갈 경로를 제외한 모든 요청 처리
                 .securityMatcher("/**")
 
-                // MemberAuthenticationProvider 를 시큐리티 로직에 사용하도록 설정
-                .authenticationProvider(memberAuthenticationProvider)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // CSRF 보안 필터 disable
                 .csrf(AbstractHttpConfigurer::disable)

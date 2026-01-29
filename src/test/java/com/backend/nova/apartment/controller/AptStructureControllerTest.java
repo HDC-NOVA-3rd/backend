@@ -6,7 +6,6 @@ import com.backend.nova.apartment.dto.ApartmentStructure.HoResponse;
 import com.backend.nova.apartment.service.AptStructureService;
 import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import com.backend.nova.auth.jwt.JwtProvider;
-import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.config.SecurityConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,9 +36,6 @@ class AptStructureControllerTest {
     // SecurityConfig 로딩을 위해 필요한 빈들을 Mock 처리
     @MockitoBean
     private JwtProvider jwtProvider;
-
-    @MockitoBean
-    private MemberAuthenticationProvider memberAuthenticationProvider;
 
     @MockitoBean
     private AdminAuthenticationProvider adminAuthenticationProvider;

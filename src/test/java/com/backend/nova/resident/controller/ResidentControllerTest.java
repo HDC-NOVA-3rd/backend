@@ -2,7 +2,6 @@ package com.backend.nova.resident.controller;
 
 import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import com.backend.nova.auth.jwt.JwtProvider;
-import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.config.SecurityConfig;
 import com.backend.nova.resident.dto.ResidentRequest;
 import com.backend.nova.resident.dto.ResidentVerifyResponse;
@@ -35,9 +34,6 @@ class ResidentControllerTest {
 
     @MockitoBean
     private JwtProvider jwtProvider;
-
-    @MockitoBean
-    private MemberAuthenticationProvider memberAuthenticationProvider;
 
     @MockitoBean
     private AdminAuthenticationProvider adminAuthenticationProvider;

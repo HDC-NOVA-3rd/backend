@@ -9,12 +9,14 @@ import com.backend.nova.member.repository.MemberRepository;
 import com.backend.nova.resident.entity.Resident;
 import com.backend.nova.resident.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.Collections;
 
 @Service
 @RequiredArgsConstructor
@@ -24,15 +26,23 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final ResidentRepository residentRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;
     private final JwtProvider jwtProvider;
 
     @Transactional
     public TokenResponse login(LoginRequest loginRequest) {
-        // 입력된 ID, PW 기반으로 검증되지 않은 토큰 생성
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(loginRequest.loginId(), loginRequest.password());
-        // 시큐리티 내부 처리 : Manager -> Provider -> UserDetailsService
-        Authentication authentication = authenticationManager.authenticate(authenticationToken);
+        Member member = memberRepository.findByLoginId(loginRequest.loginId())
+                .orElseThrow(() -> new BadCredentialsException("아이디 또는 비밀번호가 올바르지 않습니다."));
+
+        if (!passwordEncoder.matches(loginRequest.password(), member.getPassword())) {
+            throw new BadCredentialsException("아이디 또는 비밀번호가 올바르지 않습니다.");
+        }
+
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                member.getLoginId(),
+                null,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_MEMBER"))
+        );
+
         return jwtProvider.generateToken(authentication);
     }
 
