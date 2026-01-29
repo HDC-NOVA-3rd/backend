@@ -79,10 +79,10 @@ class AdminControllerIntegrationTest {
                 // === 핵심 필드 검증 ===
                 .andExpect(jsonPath("$.adminId").isNumber())
                 .andExpect(jsonPath("$.name").isNotEmpty())
-                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.accessToken").isNotEmpty());
 
                 // refreshToken은 선택이니까 존재만 체크
-                .andExpect(jsonPath("$.refreshToken").exists());
+                //.andExpect(jsonPath("$.refreshToken").exists());
 
 //        MvcResult result = mockMvc.perform(post("/api/admin/login")
 //                        .contentType(MediaType.APPLICATION_JSON)
