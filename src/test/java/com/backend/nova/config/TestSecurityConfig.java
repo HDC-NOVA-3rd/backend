@@ -3,8 +3,6 @@ package com.backend.nova.config;
 import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
-import com.backend.nova.member.service.MemberService;
-import com.backend.nova.resident.service.ResidentService;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -42,14 +40,4 @@ public class TestSecurityConfig {
         return mock(AdminAuthenticationProvider.class);
     }
 
-    /* ===== Service Mock ===== */
-    @Bean
-    public MemberService memberService() {
-        return mock(MemberService.class);
-    }
-
-    @Bean
-    public ResidentService residentService() {
-        return mock(ResidentService.class);
-    }
 }
