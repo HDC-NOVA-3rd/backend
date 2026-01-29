@@ -115,7 +115,8 @@ public class SafetyService {
                         log.getSafetySensor().getId(),
                         log.getSafetySensor().getSensorType(),
                         log.getValue(),
-                        log.getSafetySensor().getCreatedAt()
+                        log.getUnit(),
+                        log.getEventedAt()
                 ))
                 .toList();
     }
@@ -192,6 +193,8 @@ public class SafetyService {
         SafetySensorLog sensorLog = SafetySensorLog.builder()
                 .safetySensor(safetySensor)
                 .value(payload.value())
+                .unit(payload.unit())
+                .eventedAt(eventedAt)
                 .build();
         sensorLogRepository.save(sensorLog);
 

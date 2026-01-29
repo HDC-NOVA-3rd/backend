@@ -9,6 +9,7 @@ public record SafetySensorLogResponse(
         Long sensorId,
         SensorType sensorType,
         Double value,
-        LocalDateTime createdAt
+        String unit,
+        LocalDateTime eventedAt
 ) {
 }
