@@ -37,7 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "jwt.access-token-expire-time=3600000",
         "jwt.refresh-token-expire-time=604800000"
 })
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
+
 class AdminControllerIntegrationTest {
 
     @Autowired
