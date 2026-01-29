@@ -82,7 +82,7 @@ class AdminControllerIntegrationTest {
         Admin admin = Admin.builder()
                 .loginId("admin-" + UUID.randomUUID())
                 .email("admin-" + UUID.randomUUID() + "@test.com")
-                .passwordHash(passwordEncoder.encode("1234"))
+                .passwordHash(passwordEncoder.encode("12345678"))
                 .name("테스트 관리자")
                 .role(AdminRole.ADMIN)
                 .status(AdminStatus.ACTIVE)
@@ -98,7 +98,7 @@ class AdminControllerIntegrationTest {
     void adminLogin_success() throws Exception {
         Admin admin = createAdminSafe();
 
-        AdminLoginRequest request = new AdminLoginRequest(admin.getLoginId(), "1234");
+        AdminLoginRequest request = new AdminLoginRequest(admin.getLoginId(), "12345678");
 
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -126,7 +126,7 @@ class AdminControllerIntegrationTest {
     @Test
     @DisplayName("관리자 로그인 실패 - 존재하지 않는 관리자")
     void adminLogin_fail_notFound() throws Exception {
-        AdminLoginRequest request = new AdminLoginRequest("not-exist-admin", "1234");
+        AdminLoginRequest request = new AdminLoginRequest("not-exist-admin", "12345678");
 
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
