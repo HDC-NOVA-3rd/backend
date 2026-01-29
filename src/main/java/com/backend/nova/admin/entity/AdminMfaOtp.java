@@ -43,7 +43,9 @@ public class AdminMfaOtp {
 
     /** 시도 횟수 */
     @Column(name = "attempt_count", nullable = false)
+    @Builder.Default
     private int attemptCount = 0;
+
 
     /** 검증 완료 시각 (null이면 미검증) */
     @Column(name = "verified_at")

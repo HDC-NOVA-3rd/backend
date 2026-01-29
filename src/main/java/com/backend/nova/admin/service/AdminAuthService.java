@@ -126,7 +126,7 @@ public class AdminAuthService {
         sendOtp(admin, OtpPurpose.PASSWORD_RESET);
     }
 
-    public void verifyPasswordOtp(PasswordOtpVerifyRequest request) {
+    public void passwordVerifyOtp(PasswordOtpVerifyRequest request) {
         Admin admin = getAdminByLoginId(request.loginId());
         AdminMfaOtp otp = getLatestOtp(admin, OtpPurpose.PASSWORD_RESET);
         validateOtp(otp, request.otp());
