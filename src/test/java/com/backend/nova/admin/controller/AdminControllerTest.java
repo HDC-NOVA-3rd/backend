@@ -42,22 +42,13 @@ class AdminControllerTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("관리자 로그인 성공 테스트")
     void adminLogin_Success() throws Exception {
-        // given: 요청과 Mock 응답
         AdminLoginRequest request = new AdminLoginRequest("admin", "password");
-        AdminLoginResponse response = new AdminLoginResponse(
-                1L,                     // adminId
-                "admin",                // name
-                "admin-access-token",   // accessToken
-                "admin-refresh-token"   // refreshToken
-        );
+        AdminLoginResponse response = new AdminLoginResponse(1L, "admin", "admin-access-token", "admin-refresh-token");
 
-        // Service만 Mock → Controller 단위 테스트
-        given(adminAuthService.login(any(AdminLoginRequest.class)))
-                .willReturn(response);
+        // 모든 Service/Provider Mock
+        given(adminAuthService.login(any(AdminLoginRequest.class))).willReturn(response);
 
-        // when & then: MockMvc로 요청
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -68,3 +59,4 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.refreshToken").value("admin-refresh-token"));
     }
 }
+
