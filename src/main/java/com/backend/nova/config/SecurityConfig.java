@@ -118,33 +118,40 @@ public class SecurityConfig {
     public SecurityFilterChain memberFilterChain(HttpSecurity http) throws Exception {
 
         http
-                // 입주민 / 멤버 API 경로 처리
-                .securityMatcher(
-                        "/api/member/**",
-                        "/api/resident/**",
-                        "/swagger-ui/**",
-                        "/v3/api-docs/**"
-                )
+                // 관리자 Chain에 들어갈 경로를 제외한 모든 요청 처리
+                .securityMatcher("/**")
 
-                // 멤버 AuthenticationProvider 사용
+                // MemberAuthenticationProvider 를 시큐리티 로직에 사용하도록 설정
                 .authenticationProvider(memberAuthenticationProvider)
 
-                // CSRF 비활성화
+                // CSRF 보안 필터 disable
                 .csrf(AbstractHttpConfigurer::disable)
 
-                // Form Login 비활성화
+                // 기본 Form 기반 인증 필터들 disable
                 .formLogin(AbstractHttpConfigurer::disable)
+
                 // 세션 필터 설정 (STATELESS)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                )
+
                 // 인가 처리
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/member/login", "/api/member/signup", "/api/resident/verify").permitAll()
-                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers(
+                                "/api/member/login",
+                                "/api/member/signup",
+                                "/api/resident/verify"
+                        ).permitAll()
+                        .requestMatchers(
+                                "/api",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .anyRequest().authenticated()
                 )
 
-                // JWT 인증 필터 등록
+                // 커스텀 필터 설정 JwtFilter 선행 처리
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtProvider),
                         UsernamePasswordAuthenticationFilter.class
