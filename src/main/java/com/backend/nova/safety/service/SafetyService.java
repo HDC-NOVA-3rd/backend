@@ -85,7 +85,7 @@ public class SafetyService {
         if (apartmentId == null || apartmentId <= 0) {
             return List.of();
         }
-        List<SafetyEventLog> logs = safetyEventLogRepository.findByApartmentIdOrderByEventAtDesc(apartmentId);
+        List<SafetyEventLog> logs = safetyEventLogRepository.findByApartmentIdOrderByEventedAtDesc(apartmentId);
         return logs.stream()
                 .map(log -> {
                     boolean isManual = log.isManual();
