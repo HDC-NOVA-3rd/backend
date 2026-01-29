@@ -40,13 +40,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 })
 class AdminControllerIntegrationTest {
 
+//    @BeforeEach
+//    void cleanDb() {
+//        adminRepository.deleteAll();
+//        apartmentRepository.deleteAll();
+//        apartmentRepository.flush();
+//        adminRepository.flush();
+//    }
     @BeforeEach
     void cleanDb() {
-        adminRepository.deleteAll();
-        apartmentRepository.deleteAll();
-        apartmentRepository.flush();
-        adminRepository.flush();
-    }
+        adminRepository.deleteAllInBatch();
+        apartmentRepository.deleteAllInBatch();
+
+}
+
 
 
 
