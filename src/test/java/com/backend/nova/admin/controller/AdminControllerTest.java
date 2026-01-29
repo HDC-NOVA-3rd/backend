@@ -50,12 +50,12 @@ class AdminControllerTest {
         AdminLoginResponse response = new AdminLoginResponse(
                 1L,                        // adminId
                 "admin",                   // name
-                "admin-access-token",       // accessToken
-                "admin-refresh-token"       // refreshToken
+                "admin-access-token",      // accessToken
+                "admin-refresh-token"      // refreshToken
         );
 
-        given(adminAuthService.login(any()))
-                .willReturn(response);
+        // 모든 Service/Provider 의존성을 MockitoBean으로 Mock 처리
+        given(adminAuthService.login(any(AdminLoginRequest.class))).willReturn(response);
 
         // when & then
         mockMvc.perform(post("/api/admin/login")
