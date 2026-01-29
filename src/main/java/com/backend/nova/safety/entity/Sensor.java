@@ -8,6 +8,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.Objects;
 
 @Entity
@@ -41,4 +42,7 @@ public class Sensor {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "apartment_id", nullable = false)
     private Apartment apartment;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt;
 }
