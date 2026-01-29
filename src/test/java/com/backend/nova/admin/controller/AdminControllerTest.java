@@ -14,6 +14,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.UUID;
+
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -52,11 +54,14 @@ class AdminControllerIntegrationTest {
     void adminLogin_success() throws Exception {
         // given
         Admin admin = Admin.builder()
-                .loginId("admin")
-                .passwordHash(passwordEncoder.encode("1234"))
+                .loginId("admin-" + UUID.randomUUID())   // UNIQUE 안전
+                .passwordHash(passwordEncoder.encode("1234")) //  필드명 정확
                 .name("테스트 관리자")
-                .email("admin@test.com")
+                .email("admin-" + UUID.randomUUID() + "@test.com") //  UNIQUE
+                .apartmentId("APT-TEST")                 //  NOT NULL
+                // status, role, createdAt 등은 @PrePersist가 처리
                 .build();
+
 
         adminRepository.save(admin);
 
