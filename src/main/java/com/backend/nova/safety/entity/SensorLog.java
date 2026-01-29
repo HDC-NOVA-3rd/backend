@@ -1,11 +1,9 @@
 package com.backend.nova.safety.entity;
 
-import com.backend.nova.apartment.entity.Apartment;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-
-import java.util.Objects;
 
 @Entity
 @Table(name = "sensor_log")
@@ -24,6 +22,10 @@ public class SensorLog {
     @Column(name = "value", nullable = false)
     private Double value;
 
-
+    @Builder
+    public SensorLog(Sensor sensor, Double value) {
+        this.sensor = sensor;
+        this.value = value;
+    }
 
 }
