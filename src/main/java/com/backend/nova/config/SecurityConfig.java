@@ -21,6 +21,9 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Collections;
+import java.util.List;
+
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
@@ -46,7 +49,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.addAllowedOrigin("http://localhost:5173");
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:8081"));
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
         config.setAllowCredentials(true);
@@ -123,7 +126,7 @@ public class SecurityConfig {
 
                 // MemberAuthenticationProvider 를 시큐리티 로직에 사용하도록 설정
                 .authenticationProvider(memberAuthenticationProvider)
-
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // CSRF 보안 필터 disable
                 .csrf(AbstractHttpConfigurer::disable)
 
@@ -140,6 +143,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/member/login", "/api/member/signup", "/api/resident/verify").permitAll()
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/ai/chat/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
+                        .requestMatchers("/api/apartment/**").permitAll()
                         .anyRequest().authenticated()
                 )
 
