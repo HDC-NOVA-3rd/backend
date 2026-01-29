@@ -99,6 +99,71 @@ class AdminControllerIntegrationTest {
 //                result.getResponse().getContentAsString());
     }
 
+    //관리자 로그인 실패 – 비밀번호 불일치
+    @Test
+    @DisplayName("관리자 로그인 실패 - 비밀번호 불일치")
+    void adminLogin_fail_wrongPassword() throws Exception {
+        // given
+        Admin admin = Admin.builder()
+                .loginId("admin-" + UUID.randomUUID())
+                .passwordHash(passwordEncoder.encode("1234"))
+                .name("테스트 관리자")
+                .email("admin-" + UUID.randomUUID() + "@test.com")
+                .apartmentId("APT-TEST")
+                .build();
+
+        adminRepository.save(admin);
+
+        AdminLoginRequest request =
+                new AdminLoginRequest(admin.getLoginId(), "wrong-password");
+
+        // when & then
+        mockMvc.perform(post("/api/admin/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    //관리자 로그인 실패 – 존재하지 않는 ID
+    @Test
+    @DisplayName("관리자 로그인 실패 - 존재하지 않는 관리자")
+    void adminLogin_fail_notFound() throws Exception {
+        // given
+        AdminLoginRequest request =
+                new AdminLoginRequest("not-exist-admin", "1234");
+
+        // when & then
+        mockMvc.perform(post("/api/admin/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+
+    //요청값 검증 실패 – loginId 누락 (@Valid)
+    @Test
+    @DisplayName("관리자 로그인 실패 - 요청값 검증 오류")
+    void adminLogin_fail_validation() throws Exception {
+        // given
+        String invalidJson = """
+        {
+          "password": "1234"
+        }
+        """;
+
+        // when & then
+        mockMvc.perform(post("/api/admin/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidJson))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+
+
+
     // ----------------- 관리자 생성 -----------------
 //    @Test
 //    @DisplayName("관리자 생성 성공 테스트")
