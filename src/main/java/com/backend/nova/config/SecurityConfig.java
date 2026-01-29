@@ -14,6 +14,12 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.Collections;
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -36,6 +42,7 @@ public class SecurityConfig {
                 .securityMatcher("/**")
                 // MemberAuthenticationProvider 를 시큐리티 로직에 사용하도록 설정
                 .authenticationProvider(memberAuthenticationProvider)
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 // CSRF 보안 필터 disable
                 .csrf(AbstractHttpConfigurer::disable)
                 // 기본 Form 기반 인증 필터들 disable
@@ -44,13 +51,28 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 // 인가 처리
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/member/login", "/api/member/signup", "/api/resident/verify").permitAll()
+                        .requestMatchers("/api/member/login", "/api/member/signup", "/api/resident/**").permitAll()
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        .requestMatchers("/api/apartment/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 // 커스텀 필터 설정 JwtFilter 선행 처리
                 .addFilterBefore(new JwtAuthenticationFilter(jwtProvider), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:8081"));
+        config.addAllowedMethod("*");
+        config.addAllowedHeader("*");
+        config.setAllowCredentials(true);
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 }
