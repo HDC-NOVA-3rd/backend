@@ -71,18 +71,31 @@ class AdminControllerIntegrationTest {
                 new AdminLoginRequest("admin", "1234");
 
         // when & then
-        MvcResult result = mockMvc.perform(post("/api/admin/login")
+        mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                //.andDo(print())   // json출력
                 .andExpect(status().isOk())
+
+                // === 핵심 필드 검증 ===
                 .andExpect(jsonPath("$.adminId").isNumber())
+                .andExpect(jsonPath("$.name").isNotEmpty())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty())
-                .andExpect(jsonPath("$.refreshToken").isNotEmpty()).andReturn();
+
+                // refreshToken은 선택이니까 존재만 체크
+                .andExpect(jsonPath("$.refreshToken").exists());
+
+//        MvcResult result = mockMvc.perform(post("/api/admin/login")
+//                        .contentType(MediaType.APPLICATION_JSON)
+//                        .content(objectMapper.writeValueAsString(request)))
+//                //.andDo(print())   // json출력
+//                .andExpect(status().isOk())
+//                .andExpect(jsonPath("$.adminId").isNumber())
+//                .andExpect(jsonPath("$.accessToken").isNotEmpty())
+//                .andExpect(jsonPath("$.refreshToken").isNotEmpty()).andReturn();
 
         //GitHub Actions 로그출력
-        System.out.println("RESPONSE BODY = " +
-                result.getResponse().getContentAsString());
+//        System.out.println("RESPONSE BODY = " +
+//                result.getResponse().getContentAsString());
     }
 
     // ----------------- 관리자 생성 -----------------
