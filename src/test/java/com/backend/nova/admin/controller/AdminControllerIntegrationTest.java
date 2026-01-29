@@ -44,7 +44,10 @@ class AdminControllerIntegrationTest {
     void cleanDb() {
         adminRepository.deleteAll();
         apartmentRepository.deleteAll();
+        apartmentRepository.flush();
+        adminRepository.flush();
     }
+
 
 
     @Autowired
@@ -68,28 +71,27 @@ class AdminControllerIntegrationTest {
                 .name("테스트 아파트-" + UUID.randomUUID())
                 .address("서울시 테스트구 테스트동")
                 .build();
-        return apartmentRepository.saveAndFlush(apartment);
+        Apartment saved = apartmentRepository.saveAndFlush(apartment); // 즉시 DB 반영
+        return saved;
     }
+
 
     /** 새로운 Admin 생성 (UNIQUE 제약 안전하게 처리) */
     private Admin createAdminSafe() {
         Apartment apartment = createApartment();
-        String loginId = "admin-" + UUID.randomUUID();
-        String email = "admin-" + UUID.randomUUID() + "@test.com";
-
         Admin admin = Admin.builder()
-                .loginId(loginId)
+                .loginId("admin-" + UUID.randomUUID())
+                .email("admin-" + UUID.randomUUID() + "@test.com")
                 .passwordHash(passwordEncoder.encode("1234"))
                 .name("테스트 관리자")
-                .email(email)
                 .role(AdminRole.ADMIN)
                 .status(AdminStatus.ACTIVE)
                 .failedLoginCount(0)
                 .apartment(apartment)
                 .build();
-
         return adminRepository.saveAndFlush(admin); // 즉시 DB 반영
     }
+
 
     @Test
     @DisplayName("관리자 로그인 통합 테스트 - 성공")
