@@ -74,6 +74,7 @@ public class ChatService {
         this.roomRepository = roomRepository;
         this.roomEnvLogRepository = roomEnvLogRepository;
         this.residentRepository = residentRepository;
+
     }
 
     public ChatResponse chat(ChatRequest req) {
