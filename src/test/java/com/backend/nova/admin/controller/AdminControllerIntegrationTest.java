@@ -16,8 +16,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
@@ -26,6 +28,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@Transactional
+@Rollback
 @TestPropertySource(properties = {
         "spring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL",
         "spring.datasource.driver-class-name=org.h2.Driver",
@@ -54,15 +58,6 @@ class AdminControllerIntegrationTest {
 
     @Autowired
     PasswordEncoder passwordEncoder;
-
-    /**
-     * 테스트 시작 전 DB 정리
-     */
-    @BeforeEach
-    void clean() {
-        adminRepository.deleteAll();
-        apartmentRepository.deleteAll();
-    }
 
     /**
      * 테스트용 Apartment 생성
