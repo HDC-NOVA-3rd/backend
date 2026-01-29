@@ -136,11 +136,11 @@ public class AdminAuthService {
 //    }
 
     public String passwordVerifyOtp(AdminOtpVerifyRequest request) {
-        Admin admin = getAdminByLoginId(request.getLoginId());
+        Admin admin = getAdminByLoginId(request.loginId());
 
         AdminMfaOtp otp = getLatestOtp(admin, OtpPurpose.LOGIN);
 
-        validateOtp(otp, request.getOtpCode());
+        validateOtp(otp, request.otpCode());
 
         markOtpVerified(otp);
 
@@ -160,7 +160,7 @@ public class AdminAuthService {
 
     public void requestPasswordReset(PasswordResetRequest request) {
         Admin admin = adminRepository
-                .findByLoginIdAndEmail(request.getLoginId(), request.getEmail())
+                .findByLoginIdAndEmail(request.loginId(), request.email())
                 .orElseThrow(() -> new IllegalArgumentException("관리자 정보 없음"));
 
         validateAdminStatus(admin);
@@ -169,17 +169,17 @@ public class AdminAuthService {
     }
 
     public void passwordVerifyOtp(PasswordOtpVerifyRequest request) {
-        Admin admin = getAdminByLoginId(request.getLoginId());
+        Admin admin = getAdminByLoginId(request.loginId());
 
         AdminMfaOtp otp = getLatestOtp(admin, OtpPurpose.PASSWORD_RESET);
 
-        validateOtp(otp, request.getOtp());
+        validateOtp(otp, request.otp());
 
         markOtpVerified(otp);
     }
 
     public void resetPassword(PasswordResetConfirmRequest request) {
-        Admin admin = getAdminByLoginId(request.getLoginId());
+        Admin admin = getAdminByLoginId(request.loginId());
 
         boolean verified = otpRepository
                 .existsByAdminAndPurposeAndVerifiedAtIsNotNull(
@@ -190,7 +190,7 @@ public class AdminAuthService {
             throw new IllegalStateException("OTP 검증 필요");
         }
 
-        admin.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        admin.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         adminRepository.save(admin);
     }
 
@@ -200,13 +200,13 @@ public class AdminAuthService {
         Admin admin = getCurrentAdmin();
 
         if (!passwordEncoder.matches(
-                request.getCurrentPassword(),
+                request.currentPassword(),
                 admin.getPasswordHash()
         )) {
             throw new IllegalArgumentException("현재 비밀번호 불일치");
         }
 
-        admin.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        admin.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         adminRepository.save(admin);
     }
 
