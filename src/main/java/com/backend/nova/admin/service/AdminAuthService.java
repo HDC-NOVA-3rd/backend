@@ -1,12 +1,11 @@
 package com.backend.nova.admin.service;
 
 import com.backend.nova.admin.dto.*;
-import com.backend.nova.admin.entity.Admin;
-import com.backend.nova.admin.entity.AdminMfaOtp;
-import com.backend.nova.admin.entity.AdminStatus;
-import com.backend.nova.admin.entity.OtpPurpose;
+import com.backend.nova.admin.entity.*;
 import com.backend.nova.admin.repository.AdminMfaOtpRepository;
 import com.backend.nova.admin.repository.AdminRepository;
+import com.backend.nova.apartment.entity.Apartment;
+import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
@@ -14,7 +13,6 @@ import com.backend.nova.member.dto.TokenResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -30,6 +28,7 @@ import java.util.List;
 public class AdminAuthService {
 
     private final AdminRepository adminRepository;
+    private final ApartmentRepository apartmentRepository;
     private final AdminMfaOtpRepository otpRepository;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
@@ -39,23 +38,41 @@ public class AdminAuthService {
     private static final int OTP_EXPIRE_MINUTES = 5;
 
     /* ================= 관리자 회원가입 ================= */
+    @Transactional
     public void createAdmin(AdminCreateRequest request) {
 
+        // 1. 로그인 ID 중복 체크
         if (adminRepository.findByLoginId(request.loginId()).isPresent()) {
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_ID_DUPLICATED);
         }
 
+        // 2. 이메일 중복 체크
+        if (adminRepository.findByEmail(request.email()).isPresent()) {
+            throw new BusinessException(ErrorCode.ADMIN_EMAIL_DUPLICATED);
+        }
+
+        // 3. 아파트 조회 (필수)
+        Apartment apartment = apartmentRepository.findById(request.apartmentId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.APARTMENT_NOT_FOUND));
+
+        // 4. 관리자 생성
         Admin admin = Admin.builder()
                 .loginId(request.loginId())
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .name(request.name())
                 .email(request.email())
-                .role(request.role())
+                .role(
+                        request.role() != null
+                                ? request.role()
+                                : AdminRole.ADMIN
+                )
                 .status(AdminStatus.ACTIVE)
+                .apartment(apartment)
                 .build();
 
         adminRepository.save(admin);
     }
+
 
     /* ================= 관리자 로그인 ================= */
     public AdminLoginResponse login(AdminLoginRequest request) {
@@ -82,8 +99,9 @@ public class AdminAuthService {
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 admin.getId().toString(),
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                List.of(admin.getRole())
         );
+
 
         // 6 토큰 발급
         TokenResponse tokenResponse = jwtProvider.generateToken(authentication);
@@ -114,8 +132,9 @@ public class AdminAuthService {
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 admin.getId().toString(),
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                List.of(admin.getRole())
         );
+
 
         TokenResponse tokenResponse = jwtProvider.generateToken(authentication);
 
@@ -165,7 +184,7 @@ public class AdminAuthService {
         Admin admin = getCurrentAdmin();
 
         if (!passwordEncoder.matches(request.currentPassword(), admin.getPasswordHash())) {
-            throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
+            throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
 
         admin.setPasswordHash(passwordEncoder.encode(request.newPassword()));
@@ -183,13 +202,13 @@ public class AdminAuthService {
     }
 
     private void validateAdminStatus(Admin admin) {
-        if (admin.getStatus() != AdminStatus.ACTIVE) {
-            throw new BusinessException(ErrorCode.ADMIN_INACTIVE);
-        }
-
         if (admin.getLockedUntil() != null &&
                 admin.getLockedUntil().isAfter(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.ADMIN_LOCKED);
+        }
+
+        if (admin.getStatus() != AdminStatus.ACTIVE) {
+            throw new BusinessException(ErrorCode.ADMIN_INACTIVE);
         }
     }
 
@@ -257,6 +276,7 @@ public class AdminAuthService {
         return String.format("%06d", new SecureRandom().nextInt(1_000_000));
     }
 
+    // 현재 principal은 adminId(String)로 설정됨
     private Admin getCurrentAdmin() {
         String adminIdStr = (String) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         Long adminId = Long.parseLong(adminIdStr);

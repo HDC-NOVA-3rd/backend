@@ -97,10 +97,15 @@ public class Admin {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
-        this.failedLoginCount = 0;
-        this.status = AdminStatus.ACTIVE;
-        this.role = AdminRole.ADMIN; // 기본은 일반 관리자
+
+        if (this.status == null) {
+            this.status = AdminStatus.ACTIVE;
+        }
+        if (this.role == null) {
+            this.role = AdminRole.ADMIN;
+        }
     }
+
 
     @PreUpdate
     protected void onUpdate() {
