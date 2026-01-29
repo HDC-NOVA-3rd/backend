@@ -48,7 +48,7 @@ class ResidentControllerTest {
     @Test
     @DisplayName("입주민 인증 성공 테스트")
     void verifyResident_Success() throws Exception {
-
+        // given
         ResidentRequest request =
                 new ResidentRequest(1L, "홍길동", "010-1234-5678");
 
@@ -57,7 +57,7 @@ class ResidentControllerTest {
 
         given(residentService.verifyResident(any()))
                 .willReturn(response);
-
+        // when & then
         mockMvc.perform(post("/api/resident/verify")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))

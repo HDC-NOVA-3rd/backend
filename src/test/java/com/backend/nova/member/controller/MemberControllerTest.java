@@ -50,7 +50,7 @@ class MemberControllerTest {
     @Test
     @DisplayName("회원 가입 성공 테스트")
     void registerMember_Success() throws Exception {
-
+        // given
         SignupRequest request = new SignupRequest(
                 1L, "user123", "password", "user@example.com", "홍길동",
                 "010-1234-5678",
@@ -61,7 +61,7 @@ class MemberControllerTest {
 
         given(memberService.registerMember(any()))
                 .willReturn(1L);
-
+        // when & then
         mockMvc.perform(post("/api/member/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
