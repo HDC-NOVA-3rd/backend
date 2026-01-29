@@ -54,23 +54,24 @@ class AdminControllerIntegrationTest {
     @Autowired
     PasswordEncoder passwordEncoder;
 
-    /** 테스트용 Apartment 생성 */
+    /** 새로운 Apartment 생성 */
     private Apartment createApartment() {
         Apartment apartment = Apartment.builder()
                 .name("테스트 아파트-" + UUID.randomUUID())
-                .address("서울시 테스트구 테스트동-" + UUID.randomUUID())
+                .address("서울시 테스트구 테스트동")
                 .build();
-        return apartmentRepository.save(apartment);
+        return apartmentRepository.saveAndFlush(apartment);
     }
 
-    /** 테스트용 Admin 생성 */
-    private Admin createAdmin(Apartment apartment, String password) {
+    /** 새로운 Admin 생성 (UNIQUE 제약 안전하게 처리) */
+    private Admin createAdminSafe() {
+        Apartment apartment = createApartment();
         String loginId = "admin-" + UUID.randomUUID();
         String email = "admin-" + UUID.randomUUID() + "@test.com";
 
         Admin admin = Admin.builder()
                 .loginId(loginId)
-                .passwordHash(passwordEncoder.encode(password))
+                .passwordHash(passwordEncoder.encode("1234"))
                 .name("테스트 관리자")
                 .email(email)
                 .role(AdminRole.ADMIN)
@@ -79,14 +80,13 @@ class AdminControllerIntegrationTest {
                 .apartment(apartment)
                 .build();
 
-        return adminRepository.save(admin);
+        return adminRepository.saveAndFlush(admin); // 즉시 DB 반영
     }
 
     @Test
     @DisplayName("관리자 로그인 통합 테스트 - 성공")
     void adminLogin_success() throws Exception {
-        Apartment apartment = createApartment();
-        Admin admin = createAdmin(apartment, "1234");
+        Admin admin = createAdminSafe();
 
         AdminLoginRequest request = new AdminLoginRequest(admin.getLoginId(), "1234");
 
@@ -102,8 +102,7 @@ class AdminControllerIntegrationTest {
     @Test
     @DisplayName("관리자 로그인 실패 - 비밀번호 불일치")
     void adminLogin_fail_wrongPassword() throws Exception {
-        Apartment apartment = createApartment();
-        Admin admin = createAdmin(apartment, "1234");
+        Admin admin = createAdminSafe();
 
         AdminLoginRequest request = new AdminLoginRequest(admin.getLoginId(), "wrong-password");
 
@@ -130,10 +129,10 @@ class AdminControllerIntegrationTest {
     @DisplayName("관리자 로그인 실패 - 요청값 검증 오류")
     void adminLogin_fail_validation() throws Exception {
         String invalidJson = """
-                {
-                  "password": "1234"
-                }
-                """;
+        {
+          "password": "1234"
+        }
+        """;
 
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -191,4 +190,5 @@ class AdminControllerIntegrationTest {
 //                .andExpect(status().isOk())
 //                .andExpect(jsonPath("$.verified").value(false));
 //    }
+
 }
