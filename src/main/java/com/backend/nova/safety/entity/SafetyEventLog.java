@@ -9,7 +9,6 @@ import lombok.Builder;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.Objects;
 
 @Entity
 @Table(name = "safety_event_log")
@@ -39,7 +38,7 @@ public class SafetyEventLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sensor_id")
-    private Sensor sensor;
+    private SafetySensor safetySensor;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "sensor_type", length = 20)
@@ -55,8 +54,8 @@ public class SafetyEventLog {
     @Column(name = "status_to", nullable = false, length = 20)
     private SafetyStatus statusTo;
 
-    @Column(name = "event_at", nullable = false)
-    private LocalDateTime eventAt;
+    @Column(name = "evented_at", nullable = false)
+    private LocalDateTime eventedAt;
 
     @Builder
     public SafetyEventLog(
@@ -65,23 +64,23 @@ public class SafetyEventLog {
             Long facilityId,
             boolean manual,
             String requestFrom,
-            Sensor sensor,
+            SafetySensor safetySensor,
             SensorType sensorType,
             Double value,
             String unit,
             SafetyStatus statusTo,
-            LocalDateTime eventAt
+            LocalDateTime eventedAt
     ) {
         this.apartment = apartment;
         this.dongId = dongId;
         this.facilityId = facilityId;
         this.manual = manual;
         this.requestFrom = requestFrom;
-        this.sensor = sensor;
+        this.safetySensor = safetySensor;
         this.sensorType = sensorType;
         this.value = value;
         this.unit = unit;
         this.statusTo = statusTo;
-        this.eventAt = eventAt;
+        this.eventedAt = eventedAt;
     }
 }

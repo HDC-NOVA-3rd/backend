@@ -46,4 +46,3 @@ INSERT INTO space (facility_id, name, max_capacity, min_capacity, price)
 VALUES
     (2, '스터디룸 A', 6, 1, 0),
     (2, '스터디룸 B', 8, 1, 0);
-

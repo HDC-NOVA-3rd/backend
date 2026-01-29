@@ -9,15 +9,20 @@ spring:
     password: ${DB_PW} # DB 비밀번호
   sql:
     init:
-      mode: never # 애플리케이션 시작 시 SQL 스크립트 실행 모드 (always: 항상 실행, never: 실행 x)
+      mode: always # 애플리케이션 시작 시 SQL 스크립트 실행 모드 (always: 항상 실행, never: 실행 x)
   jpa:
+    defer-datasource-initialization: true
     show-sql: true # 실행되는 SQL 쿼리를 콘솔에 출력
     hibernate:
-      ddl-auto: none # DDL 자동 생성 전략 (none / create / validate / update)
+      ddl-auto: create # DDL 자동 생성 전략 (none / create / validate / update)
     properties:
       hibernate:
         format_sql: true # 로그에 출력되는 SQL을 보기 좋게 포맷팅
-
+  mqtt:
+    url: tcp://${MQTT_BROKER_IP}:${MQTT_PORT}
+    client-id: ${CLIENT_ID}
+    topic:
+      sensor: hdc/device/+/safety/data
   ai:
     google:
       genai:
@@ -36,4 +41,3 @@ springdoc:
 # jwt Token
 jwt:
   secret: ${JWT_TOKEN}
-

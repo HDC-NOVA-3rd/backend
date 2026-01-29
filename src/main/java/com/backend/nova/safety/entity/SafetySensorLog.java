@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Table(name = "sensor_log")
 @Getter
 @NoArgsConstructor
-public class SensorLog {
+public class SafetySensorLog {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -17,14 +17,14 @@ public class SensorLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sensor_id", nullable = false)
-    private Sensor sensor;
+    private SafetySensor safetySensor;
 
     @Column(name = "value", nullable = false)
     private Double value;
 
     @Builder
-    public SensorLog(Sensor sensor, Double value) {
-        this.sensor = sensor;
+    public SafetySensorLog(SafetySensor safetySensor, Double value) {
+        this.safetySensor = safetySensor;
         this.value = value;
     }
 
