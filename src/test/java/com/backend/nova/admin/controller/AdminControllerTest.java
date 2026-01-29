@@ -55,25 +55,28 @@ class AdminControllerIntegrationTest {
     @DisplayName("관리자 로그인 통합 테스트 - 성공")
     void adminLogin_success() throws Exception {
         // given
-        Admin admin = Admin.builder()
-                .loginId("admin-" + UUID.randomUUID())   // UNIQUE 안전
-                .passwordHash(passwordEncoder.encode("1234")) //  필드명 정확
-                .name("테스트 관리자")
-                .email("admin-" + UUID.randomUUID() + "@test.com") //  UNIQUE
-                .apartmentId("APT-TEST")                 //  NOT NULL
-                // status, role, createdAt 등은 @PrePersist가 처리
-                .build();
+        String loginId = "admin-" + UUID.randomUUID();
 
+        Admin admin = Admin.builder()
+                .loginId(loginId)
+                .passwordHash(passwordEncoder.encode("1234"))
+                .name("테스트 관리자")
+                .email("admin-" + UUID.randomUUID() + "@test.com")
+                .apartmentId("APT-TEST")
+                .build();
 
         adminRepository.save(admin);
 
         AdminLoginRequest request =
-                new AdminLoginRequest("admin", "1234");
+                new AdminLoginRequest(loginId, "1234");
+
 
         // when & then
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+
                 // === 핵심 필드 검증 ===
                 .andExpect(jsonPath("$.adminId").isNumber())
                 .andExpect(jsonPath("$.name").isNotEmpty())
