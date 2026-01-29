@@ -38,7 +38,6 @@ public class AdminAuthService {
     private static final int OTP_EXPIRE_MINUTES = 5;
 
     /* ================= 관리자 회원가입 ================= */
-    @Transactional
     public void createAdmin(AdminCreateRequest request) {
 
         // 1. 로그인 ID 중복 체크
@@ -220,15 +219,12 @@ public class AdminAuthService {
             admin.setLockedUntil(LocalDateTime.now().plusMinutes(30));
             admin.setFailedLoginCount(0);
         }
-
-        adminRepository.save(admin);
     }
 
     private void handleLoginSuccess(Admin admin) {
         admin.setFailedLoginCount(0);
         admin.setLockedUntil(null);
         admin.setLastLoginAt(LocalDateTime.now());
-        adminRepository.save(admin);
     }
 
     private void sendOtp(Admin admin, OtpPurpose purpose) {
