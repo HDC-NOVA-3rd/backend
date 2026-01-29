@@ -92,6 +92,7 @@ class AdminControllerIntegrationTest {
                 .email("admin-" + UUID.randomUUID() + "@test.com")
                 .role(AdminRole.ADMIN)
                 .status(AdminStatus.ACTIVE)
+                .failedLoginCount(0)
                 .apartment(apartment)
                 .build();
 
@@ -120,19 +121,23 @@ class AdminControllerIntegrationTest {
     @DisplayName("관리자 로그인 실패 - 비밀번호 불일치")
     void adminLogin_fail_wrongPassword() throws Exception {
         // given
+        String loginId = "admin-" + UUID.randomUUID();
+
         Apartment apartment = createApartment();
 
         Admin admin = Admin.builder()
-                .loginId("admin-" + UUID.randomUUID())
+                .loginId(loginId)
                 .passwordHash(passwordEncoder.encode("1234"))
                 .name("테스트 관리자")
                 .email("admin-" + UUID.randomUUID() + "@test.com")
                 .role(AdminRole.ADMIN)
                 .status(AdminStatus.ACTIVE)
+                .failedLoginCount(0)
                 .apartment(apartment)
                 .build();
 
         adminRepository.save(admin);
+
 
         AdminLoginRequest request =
                 new AdminLoginRequest(admin.getLoginId(), "wrong-password");
