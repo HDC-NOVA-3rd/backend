@@ -1,5 +1,6 @@
 package com.backend.nova.member.controller;
 
+import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.config.SecurityConfig;
@@ -43,6 +44,9 @@ class MemberControllerTest {
     @MockitoBean
     private MemberAuthenticationProvider memberAuthenticationProvider;
 
+    @MockitoBean
+    private AdminAuthenticationProvider adminAuthenticationProvider;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -51,9 +55,19 @@ class MemberControllerTest {
     void registerMember_Success() throws Exception {
         // given
         SignupRequest request = new SignupRequest(
-                1L, "user123", "password", "user@example.com", "홍길동", "010-1234-5678",
-                LocalDate.of(1990, 1, 1), LoginType.NORMAL, null);
-        given(memberService.registerMember(any(SignupRequest.class))).willReturn(1L);
+                1L,
+                "user123",
+                "password",
+                "user@example.com",
+                "홍길동",
+                "010-1234-5678",
+                LocalDate.of(1990, 1, 1),
+                LoginType.NORMAL,
+                null
+        );
+
+        given(memberService.registerMember(any()))
+                .willReturn(1L);
 
         // when & then
         mockMvc.perform(post("/api/member/signup")
@@ -68,13 +82,15 @@ class MemberControllerTest {
     void login_Success() throws Exception {
         // given
         LoginRequest loginRequest = new LoginRequest("user123", "password");
+
         TokenResponse tokenResponse = TokenResponse.builder()
                 .grantType("Bearer")
                 .accessToken("access-token")
                 .refreshToken("refresh-token")
                 .build();
 
-        given(memberService.login(any(LoginRequest.class))).willReturn(tokenResponse);
+        given(memberService.login(any()))
+                .willReturn(tokenResponse);
 
         // when & then
         mockMvc.perform(post("/api/member/login")
