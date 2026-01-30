@@ -1,5 +1,6 @@
 package com.backend.nova.resident.controller;
 
+import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.config.SecurityConfig;
@@ -38,6 +39,9 @@ class ResidentControllerTest {
     @MockitoBean
     private MemberAuthenticationProvider memberAuthenticationProvider;
 
+    @MockitoBean
+    private AdminAuthenticationProvider adminAuthenticationProvider;
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -45,13 +49,17 @@ class ResidentControllerTest {
     @DisplayName("입주민 인증 성공 테스트")
     void verifyResident_Success() throws Exception {
         // given
-        ResidentRequest request = new ResidentRequest(1L, "홍길동", "010-1234-5678");
-        ResidentVerifyResponse response = new ResidentVerifyResponse(true, 123L, "인증 성공");
-        given(residentService.verifyResident(any(ResidentRequest.class))).willReturn(response);
+        ResidentRequest request =
+                new ResidentRequest(1L, "홍길동", "010-1234-5678");
+
+        ResidentVerifyResponse response =
+                new ResidentVerifyResponse(true, 123L, "인증 성공");
+
+        given(residentService.verifyResident(any()))
+                .willReturn(response);
 
         // when & then
-        mockMvc.perform(
-                post("/api/resident/verify")
+        mockMvc.perform(post("/api/resident/verify")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
@@ -64,9 +72,14 @@ class ResidentControllerTest {
     @DisplayName("입주민 인증 실패 테스트")
     void verifyResident_Fail() throws Exception {
         // given
-        ResidentRequest request = new ResidentRequest(1L, "홍길동", "010-1234-5678");
-        ResidentVerifyResponse response = new ResidentVerifyResponse(false, null, "인증 실패");
-        given(residentService.verifyResident(any(ResidentRequest.class))).willReturn(response);
+        ResidentRequest request =
+                new ResidentRequest(1L, "홍길동", "010-1234-5678");
+
+        ResidentVerifyResponse response =
+                new ResidentVerifyResponse(false, null, "인증 실패");
+
+        given(residentService.verifyResident(any()))
+                .willReturn(response);
 
         // when & then
         mockMvc.perform(post("/api/resident/verify")

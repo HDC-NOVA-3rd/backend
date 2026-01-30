@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Component
 public class JwtProvider {
+
     private final SecretKey secretKey; // 토큰 서명(암호화/복호화)에 사용할 비밀키 객체
     private final Long accessTokenExpires;
     private final Long refreshTokenExpires;

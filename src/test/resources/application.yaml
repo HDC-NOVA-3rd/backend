@@ -33,3 +33,6 @@ spring:
 
 jwt:
   secret: ${JWT_TOKEN}
+
+openweather:
+  api-key: ${OPENWEATHER_API_KEY}
