@@ -19,7 +19,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -173,4 +172,57 @@ class AdminControllerIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
     }
+
+
+
+
+
+    // ----------------- 관리자 생성 -----------------
+//    @Test
+//    @DisplayName("관리자 생성 성공 테스트")
+//    void createAdmin_Success() throws Exception {
+//        AdminCreateRequest request = new AdminCreateRequest(
+//                "newAdmin", "password", "테스트 관리자", "newadmin@test.com", null
+//        );
+//
+//        given(adminAuthService.createAdmin(any(AdminCreateRequest.class)))
+//                .willReturn(2L);
+//
+//        mockMvc.perform(post("/api/admin")
+//                        .contentType(MediaType.APPLICATION_JSON)
+//                        .content(objectMapper.writeValueAsString(request)))
+//                .andExpect(status().isCreated())
+//                .andExpect(header().string("Location", "/api/admin/2"));
+//    }
+
+    // ----------------- OTP 검증 -----------------
+//    @Test
+//    @DisplayName("OTP 검증 성공 테스트")
+//    void verifyOtp_Success() throws Exception {
+//        AdminOtpVerifyRequest request = new AdminOtpVerifyRequest("admin", "123456");
+//
+//        given(adminAuthService.verifyLoginOtp(any(AdminLoginOtpVerifyRequest.class)))
+//                .willReturn(true);
+//
+//        mockMvc.perform(post("/api/admin/login/verify-otp")
+//                        .contentType(MediaType.APPLICATION_JSON)
+//                        .content(objectMapper.writeValueAsString(request)))
+//                .andExpect(status().isOk())
+//                .andExpect(jsonPath("$.verified").value(true));
+//    }
+//
+//    @Test
+//    @DisplayName("OTP 검증 실패 테스트")
+//    void verifyOtp_Fail() throws Exception {
+//        AdminOtpVerifyRequest request = new AdminOtpVerifyRequest("admin", "000000");
+//
+//        given(adminAuthService.verifyLoginOtp(any(AdminLoginOtpVerifyRequest.class)))
+//                .willReturn(false);
+//
+//        mockMvc.perform(post("/api/admin/login/verify-otp")
+//                        .contentType(MediaType.APPLICATION_JSON)
+//                        .content(objectMapper.writeValueAsString(request)))
+//                .andExpect(status().isOk())
+//                .andExpect(jsonPath("$.verified").value(false));
+//    }
 }
