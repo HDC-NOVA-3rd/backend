@@ -1,6 +1,6 @@
 package com.backend.nova.chat.controller;
 
-// ✅ Controller는 "HTTP 요청/응답"만 담당한다.
+//  Controller는 "HTTP 요청/응답"만 담당한다.
 //    - 실제 비즈니스 로직(LLM 호출, DB 조회 등)은 Service 계층으로 위임한다.
 //    - 요청/응답 데이터 구조는 DTO로 분리한다.
 
