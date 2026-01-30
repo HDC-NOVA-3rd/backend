@@ -2,6 +2,7 @@ package com.backend.nova.safety.service;
 
 import com.backend.nova.apartment.entity.Dong;
 import com.backend.nova.apartment.entity.Facility;
+import com.backend.nova.apartment.repository.DongRepository;
 import com.backend.nova.apartment.repository.FacilityRepository;
 import com.backend.nova.safety.dto.SafetySensorInboundPayload;
 import com.backend.nova.safety.dto.SafetyEventLogResponse;
@@ -41,12 +42,12 @@ import java.time.format.DateTimeParseException;
 @Slf4j
 @Transactional(readOnly = true)
 public class SafetyService {
-    private static final String REQUEST_FROM_UNKNOWN = "unknown";
     private static final String REQUEST_FROM_MQTT = "mqtt";
     private static final double SMOKE_DANGER_THRESHOLD = 500.0;
     private static final double HEAT_DANGER_THRESHOLD = 70.0;
 
     private final FacilityRepository facilityRepository;
+    private final DongRepository dongRepository;
     private final SafetyEventLogRepository safetyEventLogRepository;
     private final SafetyStatusRepository safetyStatusRepository;
     private final SensorLogRepository sensorLogRepository;
@@ -61,16 +62,24 @@ public class SafetyService {
                 .map(SafetyStatusEntity::getFacilityId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+        Set<Long> dongIdSet = statusEntityList.stream()
+                .map(SafetyStatusEntity::getDongId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
 
         Map<Long, String> facilityNameById = facilityRepository.findAllById(facilityIdSet).stream()
                 .filter(facility -> facility.getApartment().getId().equals(apartmentId))
                 .collect(Collectors.toMap(Facility::getId, Facility::getName));
+        Map<Long, String> dongNoById = dongRepository.findAllById(dongIdSet).stream()
+                .filter(dong -> dong.getApartment().getId().equals(apartmentId))
+                .collect(Collectors.toMap(Dong::getId, Dong::getDongNo));
 
         return statusEntityList.stream()
                 .map(entity -> {
+                    String dongNo = entity.getDongId() == null ? null : dongNoById.get(entity.getDongId());
                     String facilityName = entity.getFacilityId() == null ? null : facilityNameById.get(entity.getFacilityId());
                     return new SafetyStatusResponse(
-                            entity.getDongId(),
+                            dongNo,
                             entity.getFacilityId(),
                             facilityName,
                             entity.getSafetyStatus(),
@@ -86,13 +95,31 @@ public class SafetyService {
             return List.of();
         }
         List<SafetyEventLog> logs = safetyEventLogRepository.findByApartmentIdOrderByEventedAtDesc(apartmentId);
+        Set<Long> facilityIdSet = logs.stream()
+                .map(SafetyEventLog::getFacilityId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<Long> dongIdSet = logs.stream()
+                .map(SafetyEventLog::getDongId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, String> facilityNameById = facilityRepository.findAllById(facilityIdSet).stream()
+                .filter(facility -> facility.getApartment().getId().equals(apartmentId))
+                .collect(Collectors.toMap(Facility::getId, Facility::getName));
+        Map<Long, String> dongNoById = dongRepository.findAllById(dongIdSet).stream()
+                .filter(dong -> dong.getApartment().getId().equals(apartmentId))
+                .collect(Collectors.toMap(Dong::getId, Dong::getDongNo));
+
         return logs.stream()
                 .map(log -> {
                     boolean isManual = log.isManual();
+                    String dongNo = log.getDongId() == null ? null : dongNoById.get(log.getDongId());
+                    String facilityName = log.getFacilityId() == null ? null : facilityNameById.get(log.getFacilityId());
                     return new SafetyEventLogResponse(
                             log.getId(),
-                            log.getDongId(),
-                            log.getFacilityId(),
+                            dongNo,
+                            facilityName,
                             isManual,
                             log.getRequestFrom(),
                             isManual ? null : log.getSensorType(),
@@ -115,7 +142,7 @@ public class SafetyService {
                         log.getSafetySensor().getId(),
                         log.getSafetySensor().getSensorType(),
                         log.getValue(),
-                        log.getSafetySensor().getCreatedAt()
+                        log.getRecordedAt()
                 ))
                 .toList();
     }
@@ -171,27 +198,14 @@ public class SafetyService {
     @Transactional
     public void handleSafetySensor(String deviceId, SafetySensorInboundPayload payload) {
         SafetySensor safetySensor = resolveSafetySensor(deviceId);
-        if (safetySensor == null) {
-            log.warn("Safety sensor not found for deviceId={}", deviceId);
-            return;
-        }
-
         ScopeContext scopeContext = resolveScope(safetySensor);
-        if (scopeContext == null) {
-            log.warn("Safety scope not found for deviceId={}", deviceId);
-            return;
-        }
-
         SensorType sensorType = parseSensorType(payload.sensorType());
-        if (sensorType == null) {
-            log.warn("Unsupported sensorType={} deviceId={}", payload.sensorType(), deviceId);
-            return;
-        }
 
         LocalDateTime eventedAt = parseEventedAt(payload.ts());
         SafetySensorLog sensorLog = SafetySensorLog.builder()
                 .safetySensor(safetySensor)
                 .value(payload.value())
+                .recordedAt(eventedAt)
                 .build();
         sensorLogRepository.save(sensorLog);
 

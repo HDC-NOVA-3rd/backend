@@ -7,8 +7,8 @@ import java.time.LocalDateTime;
 
 public record SafetyEventLogResponse(
         Long id,
-        Long dongId,
-        Long facilityId,
+        String dongNo,
+        String facilityName,
         boolean manual,
         String requestFrom,
         SensorType sensorType,

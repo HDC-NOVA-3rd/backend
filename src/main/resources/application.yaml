@@ -22,7 +22,7 @@ spring:
     url: tcp://${MQTT_BROKER_IP}:${MQTT_PORT}
     client-id: ${CLIENT_ID}
     topic:
-      sensor: hdc/device/+/safety/data
+      device: hdc/device/+/safety/data, hdc/device/+/env/data, hdc/+/assistant/execute/res
   ai:
     google:
       genai:

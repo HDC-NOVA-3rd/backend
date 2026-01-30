@@ -19,7 +19,11 @@ public class MqttInboundHandler {
     private static final String PREFIX = "hdc";
     private static final String DEVICE_SEGMENT = "device";
     private static final String SAFETY_SEGMENT = "safety";
+    private static final String ENV_SEGMENT = "env";
     private static final String DATA_SEGMENT = "data";
+    private static final String ASSISTANT_SEGMENT = "assistant";
+    private static final String EXECUTE_SEGMENT = "execute";
+    private static final String RES_SEGMENT = "res";
 
     private final ObjectMapper objectMapper;
     private final SafetyService safetyService;
@@ -31,55 +35,58 @@ public class MqttInboundHandler {
 
         log.info("MQTT inbound topic={}, payload={}", topic, payload);
 
-        TopicDevice topicDevice = parseTopic(topic);
-        if (topicDevice == null) {
+        TopicContext context = parseTopic(topic);
+        if (context == null) {
             log.warn("MQTT inbound ignored: invalid topic={}", topic);
             return;
         }
 
-        SafetySensorInboundPayload inboundPayload = parsePayload(payload);
-        if (inboundPayload == null || !inboundPayload.isValid()) {
-            log.warn("MQTT inbound ignored: invalid payload topic={}, payload={}", topic, payload);
+        if (context.isSensorData()) {
+            handleSensorData(context, payload, topic);
             return;
         }
 
-        if (!topicDevice.deviceId().equals(inboundPayload.deviceId())) {
-            log.warn("MQTT inbound ignored: topic deviceId mismatch topic={}, payloadDeviceId={}",
-                    topic, inboundPayload.deviceId());
+        if (context.isAssistantExecuteResult()) {
+            handleAssistantExecuteResult(context, payload, topic);
             return;
         }
 
-        safetyService.handleSafetySensor(topicDevice.deviceId(), inboundPayload);
+        log.warn("MQTT inbound ignored: unsupported topic pattern={}", topic);
     }
 
-    private TopicDevice parseTopic(String topic) {
+    private TopicContext parseTopic(String topic) {
         if (topic == null || topic.isBlank()) {
             return null;
         }
         String[] parts = topic.split("/");
-        if (parts.length != 5) {
-            return null;
-        }
         if (!PREFIX.equalsIgnoreCase(parts[0])) {
             return null;
         }
-        if (!DEVICE_SEGMENT.equalsIgnoreCase(parts[1])) {
-            return null;
+
+        if (parts.length == 5 && DEVICE_SEGMENT.equalsIgnoreCase(parts[1]) && DATA_SEGMENT.equalsIgnoreCase(parts[4])) {
+            String deviceId = parts[2];
+            String domain = parts[3];
+            if (deviceId == null || deviceId.isBlank() || domain == null || domain.isBlank()) {
+                return null;
+            }
+            return TopicContext.sensor(deviceId, domain);
         }
-        if (!SAFETY_SEGMENT.equalsIgnoreCase(parts[3])) {
-            return null;
+
+        if (parts.length == 5
+                && ASSISTANT_SEGMENT.equalsIgnoreCase(parts[2])
+                && EXECUTE_SEGMENT.equalsIgnoreCase(parts[3])
+                && RES_SEGMENT.equalsIgnoreCase(parts[4])) {
+            String hoId = parts[1];
+            if (hoId == null || hoId.isBlank()) {
+                return null;
+            }
+            return TopicContext.assistantResult(hoId);
         }
-        if (!DATA_SEGMENT.equalsIgnoreCase(parts[4])) {
-            return null;
-        }
-        String deviceId = parts[2];
-        if (deviceId == null || deviceId.isBlank()) {
-            return null;
-        }
-        return new TopicDevice(deviceId);
+
+        return null;
     }
 
-    private SafetySensorInboundPayload parsePayload(String payload) {
+    private SafetySensorInboundPayload parseSafetyPayload(String payload) {
         try {
             return objectMapper.readValue(payload, SafetySensorInboundPayload.class);
         } catch (JsonProcessingException e) {
@@ -88,6 +95,52 @@ public class MqttInboundHandler {
         }
     }
 
-    private record TopicDevice(String deviceId) {
+    private void handleSensorData(TopicContext context, String payload, String topic) {
+        if (SAFETY_SEGMENT.equalsIgnoreCase(context.domain())) {
+            SafetySensorInboundPayload inboundPayload = parseSafetyPayload(payload);
+            if (inboundPayload == null || !inboundPayload.isValid()) {
+                log.warn("MQTT safety ignored: invalid payload topic={}, payload={}", topic, payload);
+                return;
+            }
+            safetyService.handleSafetySensor(context.deviceId(), inboundPayload);
+            return;
+        }
+
+        if (ENV_SEGMENT.equalsIgnoreCase(context.domain())) {
+            if (payload == null || payload.isBlank()) {
+                log.warn("MQTT env ignored: empty payload topic={}", topic);
+                return;
+            }
+            log.info("MQTT env received deviceId={} topic={}", context.deviceId(), topic);
+            return;
+        }
+
+        log.warn("MQTT inbound ignored: unsupported sensor domain={} topic={}", context.domain(), topic);
+    }
+
+    private void handleAssistantExecuteResult(TopicContext context, String payload, String topic) {
+        if (payload == null || payload.isBlank()) {
+            log.warn("MQTT assistant ignored: empty payload topic={}", topic);
+            return;
+        }
+        log.info("MQTT assistant execute result received hoId={} topic={}", context.hoId(), topic);
+    }
+
+    private record TopicContext(String deviceId, String domain, String hoId, boolean sensorData, boolean assistantExecuteResult) {
+        static TopicContext sensor(String deviceId, String domain) {
+            return new TopicContext(deviceId, domain, null, true, false);
+        }
+
+        static TopicContext assistantResult(String hoId) {
+            return new TopicContext(null, null, hoId, false, true);
+        }
+
+        boolean isSensorData() {
+            return sensorData;
+        }
+
+        boolean isAssistantExecuteResult() {
+            return assistantExecuteResult;
+        }
     }
 }

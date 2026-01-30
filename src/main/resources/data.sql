@@ -46,3 +46,24 @@ INSERT INTO space (facility_id, name, max_capacity, min_capacity, price)
 VALUES
     (2, '스터디룸 A', 6, 1, 0),
     (2, '스터디룸 B', 8, 1, 0);
+
+-- safety: 센서/로그/상태 더미 데이터
+INSERT INTO sensor (id, name, type, sensor_type, ho_id, space_id, apartment_id, created_at)
+VALUES
+    (1, 'dev-101-smoke', 'MQTT', 'SMOKE', 1, NULL, 1, NOW(6)),
+    (2, 'dev-study-heat', 'MQTT', 'HEAT', NULL, 1, 1, NOW(6));
+
+INSERT INTO sensor_log (sensor_id, value, recorded_at)
+VALUES
+    (1, 120.0, DATE_SUB(NOW(6), INTERVAL 10 MINUTE)),
+    (1, 650.0, DATE_SUB(NOW(6), INTERVAL 2 MINUTE)),
+    (2, 55.0, DATE_SUB(NOW(6), INTERVAL 5 MINUTE));
+
+INSERT INTO safety_status (apartment_id, dong_id, facility_id, updated_at, reason, safety_status)
+VALUES
+    (1, 1, NULL, DATE_SUB(NOW(6), INTERVAL 2 MINUTE), 'FIRE_SMOKE', 'DANGER'),
+    (1, NULL, 2, DATE_SUB(NOW(6), INTERVAL 30 MINUTE), 'MANUAL_UNLOCK', 'SAFE');
+
+INSERT INTO safety_event_log (apartment_id, dong_id, facility_id, manual, request_from, sensor_id, sensor_type, value, unit, status_to, evented_at)
+VALUES
+    (1, 1, NULL, 0, 'mqtt', 1, 'SMOKE', 650.0, 'ppm', 'DANGER', DATE_SUB(NOW(6), INTERVAL 2 MINUTE));

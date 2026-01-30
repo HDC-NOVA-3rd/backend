@@ -6,7 +6,7 @@ import com.backend.nova.safety.enums.SafetyStatus;
 import java.time.LocalDateTime;
 
 public record SafetyStatusResponse(
-        Long dongId,
+        String dongNo,
         Long facilityId,
         String facilityName,
         SafetyStatus status,
