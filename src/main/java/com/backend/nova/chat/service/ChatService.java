@@ -6,6 +6,11 @@ import com.backend.nova.apartment.repository.FacilityRepository;
 import com.backend.nova.chat.dto.ChatRequest;
 import com.backend.nova.chat.dto.ChatResponse;
 import com.backend.nova.chat.dto.LlmCommand;
+import com.backend.nova.chat.entity.ChatMessage;
+import com.backend.nova.chat.entity.ChatSession;
+import com.backend.nova.chat.entity.Role;
+import com.backend.nova.chat.repository.ChatMessageRepository;
+import com.backend.nova.chat.repository.ChatSessionRepository;
 import com.backend.nova.homeEnvironment.entity.Room;
 import com.backend.nova.homeEnvironment.entity.RoomEnvLog;
 import com.backend.nova.homeEnvironment.repository.RoomEnvLogRepository;
@@ -14,14 +19,20 @@ import com.backend.nova.resident.entity.Resident;
 import com.backend.nova.resident.repository.ResidentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.UUID;
+import java.time.LocalDateTime;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -36,6 +47,8 @@ public class ChatService {
     private final RoomRepository roomRepository;
     private final RoomEnvLogRepository roomEnvLogRepository;
     private final ResidentRepository residentRepository;
+    private final ChatSessionRepository chatSessionRepository;
+    private final ChatMessageRepository chatMessageRepository;
 
     // -------------------------
     // Caches (요청량 절감 핵심)
@@ -47,6 +60,31 @@ public class ChatService {
 
     private final ConcurrentHashMap<String, CacheEntry> llmCache = new ConcurrentHashMap<>();
     //같은 사람이 같은 질문을 반복하면 LLM을 또 호출하지 않게 하는 캐시.
+    private static final int HISTORY_LIMIT = 20;
+
+    private List<Message> buildHistoryMessages(String sessionId, String systemPrompt) {
+        // 1) DB에서 최신 N개 조회(최신순)
+        List<ChatMessage> latest = chatMessageRepository
+                .findByChatSession_SessionIdOrderByCreatedAtDesc(sessionId, PageRequest.of(0, HISTORY_LIMIT));
+
+        //2) 오래된 -> 최신순으로 뒤집기
+        Collections.reverse(latest);
+
+        //3) Spring Ai Message 리스트로 변환
+        List<Message>messages = new ArrayList<>();
+        messages.add(new SystemMessage(systemPrompt));//항상 맨앞
+
+        for (ChatMessage m : latest) {
+            if (m.getRole() == null) continue;
+
+            switch (m.getRole()) {
+                case USER -> messages.add(new UserMessage(m.getContent()));
+                case ASSISTANT -> messages.add(new AssistantMessage(m.getContent()));
+                case SYSTEM -> messages.add(new SystemMessage(m.getContent())); // 보통 DB엔 거의 없음
+            }
+        }
+        return messages;
+    }
 
     private static class CacheEntry {
         final long expiresAt; //캐시 만료 시간
@@ -65,7 +103,7 @@ public class ChatService {
             FacilityRepository facilityRepository,
             RoomRepository roomRepository,
             RoomEnvLogRepository roomEnvLogRepository,
-            ResidentRepository residentRepository //필요한 의존성을 만들어서 필드에 저장
+            ResidentRepository residentRepository, ChatSessionRepository chatSessionRepository, ChatMessageRepository chatMessageRepository //필요한 의존성을 만들어서 필드에 저장
     ) {
         this.chatClient = builder.build();
         this.objectMapper = objectMapper;
@@ -74,63 +112,58 @@ public class ChatService {
         this.roomRepository = roomRepository;
         this.roomEnvLogRepository = roomEnvLogRepository;
         this.residentRepository = residentRepository;
+        this.chatSessionRepository = chatSessionRepository;
+        this.chatMessageRepository = chatMessageRepository;
     }
 
+
+    @Transactional
     public ChatResponse chat(ChatRequest req) {
-        String sessionId = (req.sessionId() == null || req.sessionId().isBlank())
-                ? UUID.randomUUID().toString()
-                : req.sessionId();
 
-        String message = req.message() == null ? "" : req.message().trim(); //null 방지 + 앞뒤 공백 제거.
+        // 0) 세션 확보
+        ChatSession session = getOrCreateSession(req.sessionId(), req.residentId());
+        String sessionId = session.getSessionId();
 
-        // 1) 룰 기반으로 바로 처리 가능한 케이스는 LLM 호출 0회
+        String message = req.message() == null ? "" : req.message().trim();
+
+        // 1) USER 메시지 저장 (대화 로그)
+        saveMessage(session, Role.USER, message);
+
+        // 2) 기존 로직 그대로 (룰 → 캐시 → LLM)
         LlmCommand ruled = ruleBasedCommand(message);
         if (ruled != null) {
-            return routeByIntent(sessionId, req, ruled);
+            ChatResponse res = routeByIntent(sessionId, req, ruled);
+            saveMessage(session, Role.ASSISTANT, res.answer()); //  응답 저장
+            return res;
         }
 
-        // 2) 짧은 캐시(예: 60초)로 동일 질문 반복 시 LLM 호출 0회
         String cacheKey = makeCacheKey(req.residentId(), message);
         LlmCommand cached = getCached(cacheKey);
         if (cached != null) {
-            return routeByIntent(sessionId, req, cached);
+            ChatResponse res = routeByIntent(sessionId, req, cached);
+            saveMessage(session, Role.ASSISTANT, res.answer());
+            return res;
         }
 
-        // 3) 룰도 아니고 캐시도 없으면 그때만 LLM 1회 호출
         String system = readSystemPromptCached();
 
-        String llmRaw;
-        try {
-            llmRaw = chatClient.prompt()
-                    .system(system)
-                    .user(message)
-                    .call()
-                    .content(); //Gemini에게 “system 규칙 + 사용자 message”를 보내고
-        } catch (RuntimeException e) {
-
-            // 여기서 429(Quota) 같은 케이스를 서비스에서 잡아서 사용자에게 "잠시 후"를 안내해줄 수 있음
-            // (정식으로는 @ControllerAdvice에서 429로 변환 추천)
-            String cause = (e.getCause() == null) ? "" : e.getCause().toString();
-            if (cause.contains("429") && (cause.contains("Quota exceeded") || cause.contains("rate"))) {
-                return new ChatResponse(
-                        sessionId,
-                        "요청이 너무 많아 잠시 후 다시 시도해 주세요. (API 요청 제한/쿼터)",
-                        "RATE_LIMIT",
-                        Map.of("retry", "true")
-                );
-            }
-            throw e; //아니면 그냥 예외를 다시 던짐(서버 에러로 올라감).
-        }
+        //history 포함 메시지 만들기
+        List<Message> messages = buildHistoryMessages(sessionId, system);
+        // 1) messages() 지원 버전
+        String llmRaw = chatClient.prompt()
+                .messages(messages)
+                .call()
+                .content();
 
         LlmCommand cmd = parseOrFallback(llmRaw);
-        /*json 코드블록 제거하고
-        ObjectMapper로 LlmCommand로 변환.
-        실패하면 UNKNOWN + needs_clarification=true로 fallback.*/
+        putCache(cacheKey, cmd, 60_000);
 
-        // 캐시 저장(TTL 60초: 팀 프로젝트 테스트 시 중복 질문 방지에 효과 큼)
-        putCache(cacheKey, cmd, 60_000); //60초 동안은 같은 질문이면 LLM 재호출 안 함.
+        ChatResponse res = routeByIntent(sessionId, req, cmd);
 
-        return routeByIntent(sessionId, req, cmd);
+        // 3) ASSISTANT 메시지 저장
+        saveMessage(session, Role.ASSISTANT, res.answer());
+
+        return res;
     }
 
     // =========================
@@ -153,6 +186,53 @@ public class ChatService {
             default -> new ChatResponse(sessionId, cmd.reply(), cmd.intent(), cmd.slots());
         };
     }
+    private ChatSession getOrCreateSession(String sessionId, Long residentId) {
+
+        // 1) sessionId가 있으면: 기존 세션 조회
+        if (sessionId != null && !sessionId.isBlank()) {
+            return chatSessionRepository.findById(sessionId)
+                    .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 sessionId 입니다: " + sessionId));
+        }
+
+        // 2) sessionId가 없으면: 새 세션 생성
+        if (residentId == null || residentId <= 0) {
+            throw new IllegalArgumentException("새 세션 생성에는 residentId가 필요합니다.");
+        }
+
+        Resident resident = residentRepository.findById(residentId)
+                .orElseThrow(() -> new IllegalArgumentException("입주민을 찾을 수 없습니다: " + residentId));
+
+        ChatSession s = new ChatSession();
+        s.setSessionId(UUID.randomUUID().toString());
+        s.setResident(resident);
+        s.setStatus("ACTIVE");
+
+        LocalDateTime now = LocalDateTime.now();
+        s.setCreatedAt(now);
+        s.setUpdatedAt(now);
+        s.setLastMessageAt(now);
+
+        return chatSessionRepository.save(s);
+    }
+
+
+    private void saveMessage(ChatSession session, Role role, String content){
+        ChatMessage m = new ChatMessage();
+        m.setChatSession(session);
+        m.setRole(role);
+        m.setContent(content);
+        m.setCreatedAt(LocalDateTime.now());
+        chatMessageRepository.save(m);
+
+        //세션 활동 시간 갱신
+        LocalDateTime now = LocalDateTime.now();
+        session.setLastMessageAt(now);
+        session.setUpdatedAt(now);
+        if (session.getStatus() == null)
+            session.setStatus("ACTIVE");
+        chatSessionRepository.save(session);
+    }
+
 
     // =========================
     // Rule-based (LLM 0회 처리)
@@ -167,6 +247,8 @@ public class ChatService {
                 true,
                 "예: '헬스장 운영시간 알려줘', '거실 온도 알려줘'"
         );
+
+
 
         // ---- ENV_STATUS 룰 ----
         // 방 이름(필요하면 추가)

@@ -17,6 +17,13 @@ spring:
   sql:
     init:
       mode: never
+  mqtt:
+    url: tcp://localhost:1883
+    client-id: test-client
+    topic:
+      safety: hdc/device/+/safety/data
+      env: hdc/device/+/env/data
+      assistant: hdc/+/assistant/execute/res
   ai:
     google:
       genai:
