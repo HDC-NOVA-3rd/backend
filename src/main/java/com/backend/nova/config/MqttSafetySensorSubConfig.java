@@ -34,7 +34,7 @@ public class MqttSafetySensorSubConfig {
             throw new IllegalStateException("MQTT safety subscription topics are empty");
         }
         MqttPahoMessageDrivenChannelAdapter adapter =
-                new MqttPahoMessageDrivenChannelAdapter(clientId + "_sub" + UUID.randomUUID().toString(),
+                new MqttPahoMessageDrivenChannelAdapter(clientId + "_safety_sub_" + UUID.randomUUID(),
                         mqttPahoClientFactory,
                         topics);
 

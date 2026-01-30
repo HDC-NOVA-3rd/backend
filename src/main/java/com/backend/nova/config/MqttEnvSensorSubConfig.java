@@ -29,7 +29,7 @@ public class MqttEnvSensorSubConfig {
             throw new IllegalStateException("MQTT env subscription topics are empty");
         }
         MqttPahoMessageDrivenChannelAdapter adapter =
-                new MqttPahoMessageDrivenChannelAdapter(clientId + "_sub" + UUID.randomUUID().toString(),
+                new MqttPahoMessageDrivenChannelAdapter(clientId + "_env_sub_" + UUID.randomUUID(),
                         mqttPahoClientFactory,
                         topics);
 

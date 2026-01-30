@@ -33,7 +33,9 @@ public class MqttAssistantResultSubConfig {
             throw new IllegalStateException("MQTT assistant subscription topics are empty");
         }
         MqttPahoMessageDrivenChannelAdapter adapter =
-                new MqttPahoMessageDrivenChannelAdapter(clientId + "_sub" + UUID.randomUUID().toString(), mqttPahoClientFactory, topics);
+                new MqttPahoMessageDrivenChannelAdapter(clientId + "_assistant_sub_" + UUID.randomUUID(),
+                        mqttPahoClientFactory,
+                        topics);
 
         adapter.setCompletionTimeout(5000);
         adapter.setConverter(new DefaultPahoMessageConverter());
