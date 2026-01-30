@@ -65,7 +65,7 @@ VALUES
     (1, 1, NULL, NOW(6), 'HEAT', 'SAFE'),
     (1, NULL, 2, NOW(6), 'FIRE_SMOKE', 'SAFE');
 
-INSERT INTO safety_event_log (apartment_id, dong_id, facility_id, manual, request_from, sensor_id, sensor_type, value, unit, status_to, evented_at)
+INSERT INTO safety_event_log (apartment_id, dong_id, facility_id, manual, request_from, sensor_id, sensor_type, value, unit, status_to, event_at)
 VALUES
     (1, 1, NULL, 0, 'seed', 124, 'HEAT', 75.0, 'C', 'DANGER', NOW(6)),
     (1, NULL, 2, 0, 'seed', 123, 'SMOKE', 650.0, 'ppm', 'DANGER', NOW(6));

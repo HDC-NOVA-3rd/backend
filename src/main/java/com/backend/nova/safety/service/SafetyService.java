@@ -133,7 +133,7 @@ public class SafetyService {
                             isManual ? null : log.getValue(),
                             isManual ? null : log.getUnit(),
                             log.getStatusTo(),
-                            log.getEventedAt()
+                            log.getEventAt()
                     );
                 })
                 .toList();
@@ -254,7 +254,7 @@ public class SafetyService {
                 .value(null)
                 .unit(null)
                 .statusTo(statusTo)
-                .eventedAt(now)
+                .eventAt(now)
                 .build();
         safetyEventLogRepository.save(eventLog);
 
@@ -267,12 +267,12 @@ public class SafetyService {
         ScopeContext scopeContext = resolveScope(safetySensor);
         SensorType sensorType = parseSensorType(payload.sensorType());
 
-        LocalDateTime eventedAt = parseEventedAt(payload.ts());
+        LocalDateTime eventAt = parseEventAt(payload.ts());
         SafetySensorLog sensorLog = SafetySensorLog.builder()
                 .safetySensor(safetySensor)
                 .value(payload.value())
                 .unit(payload.unit())
-                .recordedAt(eventedAt)
+                .recordedAt(eventAt)
                 .build();
         sensorLogRepository.save(sensorLog);
 
@@ -290,12 +290,12 @@ public class SafetyService {
                 .apartment(scopeContext.apartment())
                 .dongId(scopeContext.facilityId() == null ? scopeContext.dongId() : null)
                 .facilityId(scopeContext.facilityId())
-                .updatedAt(eventedAt)
+                .updatedAt(eventAt)
                 .reason(reason)
                 .safetyStatus(statusTo)
                 .build());
 
-        statusEntity.update(eventedAt, reason, statusTo);
+        statusEntity.update(eventAt, reason, statusTo);
         safetyStatusRepository.save(statusEntity);
 
         boolean statusChanged = previousStatus == null || previousStatus != statusTo;
@@ -311,7 +311,7 @@ public class SafetyService {
                     .value(payload.value())
                     .unit(payload.unit())
                     .statusTo(statusTo)
-                    .eventedAt(eventedAt)
+                    .eventAt(eventAt)
                     .build();
             safetyEventLogRepository.save(eventLog);
         }
@@ -377,7 +377,7 @@ public class SafetyService {
         }
     }
 
-    private LocalDateTime parseEventedAt(String ts) {
+    private LocalDateTime parseEventAt(String ts) {
         if (ts == null || ts.isBlank()) {
             return LocalDateTime.now();
         }

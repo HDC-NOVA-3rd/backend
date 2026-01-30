@@ -54,8 +54,8 @@ public class SafetyEventLog {
     @Column(name = "status_to", nullable = false, length = 20)
     private SafetyStatus statusTo;
 
-    @Column(name = "evented_at", nullable = false)
-    private LocalDateTime eventedAt;
+    @Column(name = "event_at", nullable = false)
+    private LocalDateTime eventAt;
 
     @Builder
     public SafetyEventLog(
@@ -69,7 +69,7 @@ public class SafetyEventLog {
             Double value,
             String unit,
             SafetyStatus statusTo,
-            LocalDateTime eventedAt
+            LocalDateTime eventAt
     ) {
         this.apartment = apartment;
         this.dongId = dongId;
@@ -81,6 +81,6 @@ public class SafetyEventLog {
         this.value = value;
         this.unit = unit;
         this.statusTo = statusTo;
-        this.eventedAt = eventedAt;
+        this.eventAt = eventAt;
     }
 }
