@@ -27,7 +27,7 @@ public class ChatController {
     @Operation(summary = "대화용 챗봇", description = "챗봇과 대화해 intent/slots 기반으로 처리")
 
     //  POST /ai/chat 으로 들어오는 요청을 이 메서드가 처리한다.
-    @PostMapping("/ai/chat")
+    @PostMapping("/api/chat")
     public ChatResponse chat(
             //  @RequestBody는 HTTP Body(JSON)를 ChatRequest 객체로 변환해준다.
             // - (Spring이 Jackson 같은 라이브러리로 JSON → 객체 매핑)
