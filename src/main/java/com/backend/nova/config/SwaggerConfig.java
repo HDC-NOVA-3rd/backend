@@ -11,24 +11,24 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class SwaggerConfig {
     @Bean
-
     public OpenAPI openAPI() {
-        // 1. Security 스키마 설정 (JWT 설정)
-        String jwtSchemeName = "jwtAuth";
-        SecurityRequirement securityRequirement = new SecurityRequirement().addList(jwtSchemeName);
+        // 1. Security 스키마 설정 (JWT 토큰 방식 정의)
+        SecurityScheme securityScheme = new SecurityScheme()
+                .type(SecurityScheme.Type.HTTP)
+                .scheme("bearer")
+                .bearerFormat("JWT")
+                .in(SecurityScheme.In.HEADER)
+                .name("Authorization");
 
-        Components components = new Components()
-                .addSecuritySchemes(jwtSchemeName, new SecurityScheme()
-                        .name(jwtSchemeName)
-                        .type(SecurityScheme.Type.HTTP) // HTTP 방식
-                        .scheme("bearer")
-                        .bearerFormat("JWT")); // 토큰 형식을 지정
+        // 2. Security 요구사항 설정 (모든 API에 이 보안 스키마 적용)
+        SecurityRequirement securityRequirement = new SecurityRequirement().addList("bearerAuth");
 
-        // 2. OpenAPI 객체 빌드
         return new OpenAPI()
+                .components(new Components().addSecuritySchemes("bearerAuth", securityScheme))
+                .addSecurityItem(securityRequirement)
                 .info(new Info()
-                        .title("3rd Project API Document")
-                        .description("REST API 명세서입니다.")
-                        .version("v0.0.1"));
+                        .title("NOVA API Document")
+                        .version("1.0.0")
+                        .description("NOVA 아파트 입주민 관리 서비스 API 명세서"));
     }
 }
