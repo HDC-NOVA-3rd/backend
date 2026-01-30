@@ -10,7 +10,6 @@ import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannel
 import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
 import org.springframework.messaging.MessageChannel;
 
-import java.util.Arrays;
 import java.util.UUID;
 
 @Configuration
@@ -28,29 +27,18 @@ public class MqttAssistantResultSubConfig {
 
     @Bean
     public MessageProducer mqttAssistantInboundAdapter(MqttPahoClientFactory mqttPahoClientFactory) {
-        String[] topics = resolveTopics();
-        if (topics.length == 0) {
-            throw new IllegalStateException("MQTT assistant subscription topics are empty");
+        if (assistantTopic == null || assistantTopic.isBlank()) {
+            throw new IllegalStateException("MQTT assistant subscription topic is empty");
         }
         MqttPahoMessageDrivenChannelAdapter adapter =
                 new MqttPahoMessageDrivenChannelAdapter(clientId + "_assistant_sub_" + UUID.randomUUID(),
                         mqttPahoClientFactory,
-                        topics);
+                        assistantTopic);
 
         adapter.setCompletionTimeout(5000);
         adapter.setConverter(new DefaultPahoMessageConverter());
         adapter.setQos(1);
         adapter.setOutputChannel(mqttAssistantInputChannel());
         return adapter;
-    }
-
-    private String[] resolveTopics() {
-        if (assistantTopic == null || assistantTopic.isBlank()) {
-            return new String[0];
-        }
-        return Arrays.stream(assistantTopic.split(","))
-                .map(String::trim)
-                .filter(topic -> !topic.isBlank())
-                .toArray(String[]::new);
     }
 }

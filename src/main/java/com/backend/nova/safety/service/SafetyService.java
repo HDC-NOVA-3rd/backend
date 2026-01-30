@@ -93,7 +93,7 @@ public class SafetyService {
         if (apartmentId == null || apartmentId <= 0) {
             return List.of();
         }
-        List<SafetyEventLog> logs = safetyEventLogRepository.findByApartmentIdOrderByEventedAtDesc(apartmentId);
+        List<SafetyEventLog> logs = safetyEventLogRepository.findByApartmentIdOrderByEventAtDesc(apartmentId);
         Set<Long> facilityIdSet = logs.stream()
                 .map(SafetyEventLog::getFacilityId)
                 .filter(Objects::nonNull)
