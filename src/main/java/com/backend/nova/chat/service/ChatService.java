@@ -19,16 +19,20 @@ import com.backend.nova.resident.entity.Resident;
 import com.backend.nova.resident.repository.ResidentRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.SystemMessage;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StreamUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
@@ -56,6 +60,31 @@ public class ChatService {
 
     private final ConcurrentHashMap<String, CacheEntry> llmCache = new ConcurrentHashMap<>();
     //같은 사람이 같은 질문을 반복하면 LLM을 또 호출하지 않게 하는 캐시.
+    private static final int HISTORY_LIMIT = 20;
+
+    private List<Message> buildHistoryMessages(String sessionId, String systemPrompt) {
+        // 1) DB에서 최신 N개 조회(최신순)
+        List<ChatMessage> latest = chatMessageRepository
+                .findByChatSession_SessionIdOrderByCreatedAtDesc(sessionId, PageRequest.of(0, HISTORY_LIMIT));
+
+        //2) 오래된 -> 최신순으로 뒤집기
+        Collections.reverse(latest);
+
+        //3) Spring Ai Message 리스트로 변환
+        List<Message>messages = new ArrayList<>();
+        messages.add(new SystemMessage(systemPrompt));//항상 맨앞
+
+        for (ChatMessage m : latest) {
+            if (m.getRole() == null) continue;
+
+            switch (m.getRole()) {
+                case USER -> messages.add(new UserMessage(m.getContent()));
+                case ASSISTANT -> messages.add(new AssistantMessage(m.getContent()));
+                case SYSTEM -> messages.add(new SystemMessage(m.getContent())); // 보통 DB엔 거의 없음
+            }
+        }
+        return messages;
+    }
 
     private static class CacheEntry {
         final long expiresAt; //캐시 만료 시간
@@ -118,9 +147,11 @@ public class ChatService {
 
         String system = readSystemPromptCached();
 
+        //history 포함 메시지 만들기
+        List<Message> messages = buildHistoryMessages(sessionId, system);
+        // 1) messages() 지원 버전
         String llmRaw = chatClient.prompt()
-                .system(system)
-                .user(message)
+                .messages(messages)
                 .call()
                 .content();
 
