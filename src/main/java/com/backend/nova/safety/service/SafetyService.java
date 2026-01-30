@@ -31,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
@@ -279,7 +280,7 @@ public class SafetyService {
         SafetyStatus statusTo = isDanger ? SafetyStatus.DANGER : SafetyStatus.SAFE;
         SafetyReason reason = sensorType == SensorType.SMOKE ? SafetyReason.FIRE_SMOKE : SafetyReason.HEAT;
 
-        var existingStatus = scopeContext.facilityId() == null
+        Optional<SafetyStatusEntity> existingStatus = scopeContext.facilityId() == null
                 ? safetyStatusRepository.findByApartmentIdAndDongId(scopeContext.apartmentId(), scopeContext.dongId())
                 : safetyStatusRepository.findByApartmentIdAndFacilityId(scopeContext.apartmentId(), scopeContext.facilityId());
 
