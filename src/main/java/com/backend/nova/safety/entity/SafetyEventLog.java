@@ -24,8 +24,6 @@ public class SafetyEventLog {
     @JoinColumn(name = "apartment_id", nullable = false)
     private Apartment apartment;
 
-    @Column(name = "area", nullable = false)
-    private String area;
     @Column(name = "dong_id")
     private Long dongId;
 
@@ -43,7 +41,6 @@ public class SafetyEventLog {
     private SafetySensor safetySensor;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "sensor_type", nullable = false, length = 20)
     @Column(name = "sensor_type", length = 20)
     private SensorType sensorType;
 
