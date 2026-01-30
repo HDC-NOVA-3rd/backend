@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface ChatMessageRepository extends JpaRepository<ChatMessage, String> {
-        List<ChatMessage> findByChatSession_SessionIdOrderByCreatedAtDesc(String sessionId, Pageable pageable);
+    // 최신 N개 (최신순)
+    List<ChatMessage> findByChatSession_SessionIdOrderByCreatedAtDesc(String sessionId, Pageable pageable);
 }
