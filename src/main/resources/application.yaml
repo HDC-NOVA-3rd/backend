@@ -9,7 +9,7 @@ spring:
     password: ${DB_PW} # DB 비밀번호
   sql:
     init:
-      mode: always # 애플리케이션 시작 시 SQL 스크립트 실행 모드 (always: 항상 실행, never: 실행 x)
+      mode: never # 애플리케이션 시작 시 SQL 스크립트 실행 모드 (always: 항상 실행, never: 실행 x)
   jpa:
     defer-datasource-initialization: true
     show-sql: true # 실행되는 SQL 쿼리를 콘솔에 출력
