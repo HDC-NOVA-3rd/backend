@@ -4,7 +4,7 @@ import com.backend.nova.safety.enums.SafetyReason;
 import com.backend.nova.safety.enums.SafetyStatus;
 
 public record SafetyLockResponse(
-        Long facilityId,
+        String facilityName,
         Boolean reservationAvailable,
         SafetyStatus status,
         SafetyReason reason
