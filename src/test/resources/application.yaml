@@ -1,4 +1,6 @@
 spring:
+  config:
+    import: optional:classpath:config/secrets.yaml #secrets.yaml 파일로 값 읽어오기
   datasource:
     url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1 # 테스트 전용 메모리 DB
     username: sa
@@ -15,3 +17,17 @@ spring:
   sql:
     init:
       mode: never
+  ai:
+    google:
+      genai:
+        api-key: ${GOOGLE_API_KEY}
+        project-id: ${GOOGLE_PROJECT_ID}
+        chat:
+          options:
+            model: gemini-2.5-flash
+
+jwt:
+  secret: ${JWT_TOKEN}
+
+openweather:
+  api-key: ${OPENWEATHER_API_KEY}

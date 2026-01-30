@@ -4,10 +4,12 @@ import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.safety.enums.SafetyReason;
 import com.backend.nova.safety.enums.SafetyStatus;
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 @Entity
 @Table(name = "safety_status")
@@ -23,6 +25,12 @@ public class SafetyStatusEntity {
     @JoinColumn(name = "apartment_id", nullable = false)
     private Apartment apartment;
 
+    @Column(name = "dong_id")
+    private Long dongId;
+
+    @Column(name = "facility_id")
+    private Long facilityId;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
@@ -36,4 +44,27 @@ public class SafetyStatusEntity {
 
     @Column(name = "area", nullable = false)
     private String area;
+    @Builder
+    public SafetyStatusEntity(
+            Apartment apartment,
+            Long dongId,
+            Long facilityId,
+            LocalDateTime updatedAt,
+            SafetyReason reason,
+            SafetyStatus safetyStatus
+    ) {
+        this.apartment = apartment;
+        this.dongId = dongId;
+        this.facilityId = facilityId;
+        this.updatedAt = updatedAt;
+        this.reason = reason;
+        this.safetyStatus = safetyStatus;
+    }
+
+    public void update(LocalDateTime updatedAt, SafetyReason reason, SafetyStatus safetyStatus) {
+        this.updatedAt = updatedAt;
+        this.reason = reason;
+        this.safetyStatus = safetyStatus;
+    }
+
 }

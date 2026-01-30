@@ -2,6 +2,8 @@ package com.backend.nova.safety.repository;
 
 import com.backend.nova.safety.entity.SensorLog;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -11,6 +13,7 @@ public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
 
     /**
      * 센서별 로그 조회 (최신순 - ID 역순)
+     * 아파트별 센서 로그 조회 (최신순 - ID 역순)
      */
     List<SensorLog> findBySensorIdOrderByIdDesc(Long sensorId);
 
@@ -18,4 +21,5 @@ public interface SensorLogRepository extends JpaRepository<SensorLog, Long> {
      * 센서별 최근 N개 로그 조회
      */
     List<SensorLog> findTop10BySensorIdOrderByIdDesc(Long sensorId);
+    List<SensorLog> findBySensor_Apartment_IdOrderByIdDesc(Long apartmentId);
 }

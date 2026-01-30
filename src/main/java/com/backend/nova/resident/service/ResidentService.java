@@ -2,8 +2,9 @@ package com.backend.nova.resident.service;
 
 import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.apartment.repository.HoRepository;
-import com.backend.nova.resident.dto.ResidentRequestDto;
-import com.backend.nova.resident.dto.ResidentResponseDto;
+import com.backend.nova.resident.dto.ResidentRequest;
+import com.backend.nova.resident.dto.ResidentResponse;
+import com.backend.nova.resident.dto.ResidentVerifyResponse;
 import com.backend.nova.resident.entity.Resident;
 import com.backend.nova.resident.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,32 +22,39 @@ public class ResidentService {
     private final HoRepository hoRepository;
 
     @Transactional
-    public Long createResident(ResidentRequestDto requestDto) {
-        Ho ho = hoRepository.findById(requestDto.hoId())
-                .orElseThrow(() -> new IllegalArgumentException("해당 호가 없습니다. id=" + requestDto.hoId()));
-        Resident resident = new Resident(ho, requestDto.name(), requestDto.phone());
+    public Long createResident(ResidentRequest request) {
+        Ho ho = hoRepository.findById(request.hoId())
+                .orElseThrow(() -> new IllegalArgumentException("해당 호가 없습니다. id=" + request.hoId()));
+        
+        Resident resident = Resident.builder()
+                .ho(ho)
+                .name(request.name())
+                .phone(request.phone())
+                .build();
+                
         return residentRepository.save(resident).getId();
     }
 
-    public ResidentResponseDto getResident(Long residentId) {
+    public ResidentResponse getResident(Long residentId) {
         Resident resident = residentRepository.findById(residentId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 입주민이 없습니다. id=" + residentId));
-        return new ResidentResponseDto(resident);
+        
+        return ResidentResponse.fromEntity(resident);
     }
 
-    public List<ResidentResponseDto> getAllResidents(Long apartmentId) {
+    public List<ResidentResponse> getAllResidents(Long apartmentId) {
         return residentRepository.findByHo_Dong_Apartment_Id(apartmentId).stream()
-                .map(ResidentResponseDto::new)
+                .map(ResidentResponse::fromEntity)
                 .collect(Collectors.toList());
     }
 
     @Transactional
-    public void updateResident(Long residentId, ResidentRequestDto requestDto) {
+    public void updateResident(Long residentId, ResidentRequest request) {
         Resident resident = residentRepository.findById(residentId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 입주민이 없습니다. id=" + residentId));
-        Ho ho = hoRepository.findById(requestDto.hoId())
-                .orElseThrow(() -> new IllegalArgumentException("해당 호가 없습니다. id=" + requestDto.hoId()));
-        resident.update(ho, requestDto.name(), requestDto.phone());
+        Ho ho = hoRepository.findById(request.hoId())
+                .orElseThrow(() -> new IllegalArgumentException("해당 호가 없습니다. id=" + request.hoId()));
+        resident.update(ho, request.name(), request.phone());
     }
 
     @Transactional
@@ -59,5 +67,11 @@ public class ResidentService {
             throw new IllegalArgumentException("해당 호가 없습니다. id=" + hoId);
         }
         residentRepository.deleteByHoId(hoId);
+    }
+
+    public ResidentVerifyResponse verifyResident(ResidentRequest request) {
+        return residentRepository.findByHo_IdAndNameAndPhone(request.hoId(), request.name(), request.phone())
+                .map(resident -> new ResidentVerifyResponse(true, resident.getId(), "인증 성공"))
+                .orElseGet(() -> new ResidentVerifyResponse(false, null, "인증 실패"));
     }
 }

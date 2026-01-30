@@ -33,5 +33,10 @@ public class Facility {
     private LocalTime endHour;
 
     @Column(name = "reservation_available", nullable = false)
+    private boolean reservationAvailable;
+
+    public void changeReservationAvailability(boolean available) {
+        this.reservationAvailable = available;
+    }
     private Boolean reservationAvailable;
 }
