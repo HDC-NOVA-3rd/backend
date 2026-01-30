@@ -1,5 +1,6 @@
 package com.backend.nova.admin.entity;
 
+import com.backend.nova.apartment.entity.Apartment;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -23,11 +24,10 @@ public class Admin {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "admin_id")
     private Long id;
 
     /** 로그인 ID */
-    @Column(name = "login_id", nullable = false, length = 50, unique = true)
+    @Column(name = "login_id", nullable = false, length = 50)
     private String loginId;
 
     /** 비밀번호 해시 */
@@ -39,7 +39,7 @@ public class Admin {
     private String name;
 
     /** 이메일 (OTP 발송용) */
-    @Column(nullable = false, length = 255, unique = true)
+    @Column(nullable = false, length = 255)
     private String email;
 
     /** 계정 상태 */
@@ -65,9 +65,11 @@ public class Admin {
     @Column(name = "profile_img", length = 500)
     private String profileImg;
 
-    /** 단지 ID */
-    @Column(name = "apartment_id", nullable = false, length = 50)
-    private String apartmentId;
+    /** 단지 */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "apartment_id", nullable = false)
+    private Apartment apartment;
+
 
     /** 로그인 실패 횟수 */
     @Column(name = "failed_login_count", nullable = false, columnDefinition = "int default 0")
@@ -96,10 +98,15 @@ public class Admin {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
-        this.failedLoginCount = 0;
-        this.status = AdminStatus.ACTIVE;
-        this.role = AdminRole.ADMIN; // 기본은 일반 관리자
+
+        if (this.status == null) {
+            this.status = AdminStatus.ACTIVE;
+        }
+        if (this.role == null) {
+            this.role = AdminRole.ADMIN;
+        }
     }
+
 
     @PreUpdate
     protected void onUpdate() {

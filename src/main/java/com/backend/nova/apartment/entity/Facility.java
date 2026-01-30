@@ -38,5 +38,4 @@ public class Facility {
     public void changeReservationAvailability(boolean available) {
         this.reservationAvailable = available;
     }
-    private Boolean reservationAvailable;
 }

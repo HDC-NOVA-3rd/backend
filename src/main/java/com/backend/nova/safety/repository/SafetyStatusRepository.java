@@ -32,5 +32,10 @@ public interface SafetyStatusRepository extends JpaRepository<SafetyStatusEntity
      * 아파트별 위험 상태인 구역 조회
      */
     Optional<SafetyStatusEntity> findByApartmentIdAndFacilityId(Long apartmentId, Long facilityId);
+
+    /**
+     * 특정 구역(DONG)의 안전 상태 조회
+     */
+    Optional<SafetyStatusEntity> findByApartmentIdAndDongId(Long apartmentId, Long dongId);
     List<SafetyStatusEntity> findByApartmentIdAndSafetyStatus(Long apartmentId, SafetyStatus safetyStatus);
 }

@@ -2,13 +2,21 @@ package com.backend.nova.admin.controller;
 
 import com.backend.nova.admin.dto.AdminLoginRequest;
 import com.backend.nova.admin.entity.Admin;
+import com.backend.nova.admin.entity.AdminRole;
+import com.backend.nova.admin.entity.AdminStatus;
 import com.backend.nova.admin.repository.AdminRepository;
+import com.backend.nova.apartment.controller.ApartmentWeatherController;
+import com.backend.nova.apartment.entity.Apartment;
+import com.backend.nova.apartment.repository.ApartmentRepository;
+import com.backend.nova.weather.service.OpenWeatherService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.TestPropertySource;
@@ -17,19 +25,20 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(properties = {
-        "spring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL",
+        "spring.datasource.url=jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1",
         "spring.datasource.driver-class-name=org.h2.Driver",
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=create-drop",
-
-        // 32바이트 이상 + Base64
+        "spring.jpa.show-sql=true",                               // SQL 출력
+        "spring.jpa.properties.hibernate.format_sql=true",        // 보기 좋게 포맷
+        "logging.level.org.hibernate.SQL=DEBUG",                 // Hibernate SQL 로그
+        "logging.level.org.hibernate.type.descriptor.sql=TRACE", // 바인딩 값 출력
         "jwt.secret=MzJieXRlLXNlY3JldC1rZXktZm9yLWp3dC10ZXN0LSEhISE=",
         "jwt.access-token-expire-time=3600000",
         "jwt.refresh-token-expire-time=604800000"
@@ -37,6 +46,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 
 class AdminControllerIntegrationTest {
+
+    @MockBean
+    private OpenWeatherService openWeatherService; // 실제 API 호출 막기
+
+    @Autowired
+    private ApartmentWeatherController controller;
 
     @Autowired
     MockMvc mockMvc;
@@ -48,75 +63,81 @@ class AdminControllerIntegrationTest {
     AdminRepository adminRepository;
 
     @Autowired
+    ApartmentRepository apartmentRepository;
+
+    @Autowired
     PasswordEncoder passwordEncoder;
+
+    @BeforeEach
+    void cleanDb() {
+        adminRepository.deleteAllInBatch();      // delete Admins first
+        apartmentRepository.deleteAllInBatch();  // then delete Apartments
+        System.out.println("===== 테스트 DB 초기화 완료 =====");
+    }
+
+
+
+    /** 새로운 Apartment 생성 */
+    private Apartment createApartment() {
+        Apartment apartment = Apartment.builder()
+                .name("테스트 아파트-" + UUID.randomUUID())
+                .address("서울시 테스트구 테스트동")
+                .latitude(37.5665)     // 테스트용 위도
+                .longitude(126.9780)   // 테스트용 경도
+                .build();
+        return apartmentRepository.saveAndFlush(apartment);
+    }
+
+
+    /** 새로운 Admin 생성 (UNIQUE 안전) */
+    private Admin createAdminSafe() {
+        Apartment apartment = createApartment();
+        String uuid = UUID.randomUUID().toString();
+        Admin admin = Admin.builder()
+                .loginId("admin-" + uuid)
+                .email("admin-" + uuid + "@test.com")
+                .passwordHash(passwordEncoder.encode("12345678"))
+                .name("테스트 관리자")
+                .role(AdminRole.ADMIN)
+                .status(AdminStatus.ACTIVE)
+                .failedLoginCount(0)
+                .apartment(apartment)
+                .build();
+
+        admin = adminRepository.saveAndFlush(admin);
+
+        // 콘솔 출력
+        System.out.println("===== Admin 생성 =====");
+        System.out.println("loginId: " + admin.getLoginId());
+        System.out.println("email: " + admin.getEmail());
+        System.out.println("apartmentId: " + apartment.getId());
+        System.out.println("======================");
+
+        return admin;
+    }
+
 
     @Test
     @DisplayName("관리자 로그인 통합 테스트 - 성공")
     void adminLogin_success() throws Exception {
-        // given
-        String loginId = "admin-" + UUID.randomUUID();
+        Admin admin = createAdminSafe();
+        AdminLoginRequest request = new AdminLoginRequest(admin.getLoginId(), "12345678");
 
-        Admin admin = Admin.builder()
-                .loginId(loginId)
-                .passwordHash(passwordEncoder.encode("1234"))
-                .name("테스트 관리자")
-                .email("admin-" + UUID.randomUUID() + "@test.com")
-                .apartmentId("APT-TEST")
-                .build();
-
-        adminRepository.save(admin);
-
-        AdminLoginRequest request =
-                new AdminLoginRequest(loginId, "1234");
-
-
-        // when & then
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
-
-                // === 핵심 필드 검증 ===
                 .andExpect(jsonPath("$.adminId").isNumber())
                 .andExpect(jsonPath("$.name").isNotEmpty())
                 .andExpect(jsonPath("$.accessToken").isNotEmpty());
-
-                // refreshToken은 선택이니까 존재만 체크
-                //.andExpect(jsonPath("$.refreshToken").exists());
-
-//        MvcResult result = mockMvc.perform(post("/api/admin/login")
-//                        .contentType(MediaType.APPLICATION_JSON)
-//                        .content(objectMapper.writeValueAsString(request)))
-//                //.andDo(print())   // json출력
-//                .andExpect(status().isOk())
-//                .andExpect(jsonPath("$.adminId").isNumber())
-//                .andExpect(jsonPath("$.accessToken").isNotEmpty())
-//                .andExpect(jsonPath("$.refreshToken").isNotEmpty()).andReturn();
-
-        //GitHub Actions 로그출력
-//        System.out.println("RESPONSE BODY = " +
-//                result.getResponse().getContentAsString());
     }
 
-    //관리자 로그인 실패 – 비밀번호 불일치
     @Test
     @DisplayName("관리자 로그인 실패 - 비밀번호 불일치")
     void adminLogin_fail_wrongPassword() throws Exception {
-        // given
-        Admin admin = Admin.builder()
-                .loginId("admin-" + UUID.randomUUID())
-                .passwordHash(passwordEncoder.encode("1234"))
-                .name("테스트 관리자")
-                .email("admin-" + UUID.randomUUID() + "@test.com")
-                .apartmentId("APT-TEST")
-                .build();
+        Admin admin = createAdminSafe();
+        AdminLoginRequest request = new AdminLoginRequest(admin.getLoginId(), "wrong-password");
 
-        adminRepository.save(admin);
-
-        AdminLoginRequest request =
-                new AdminLoginRequest(admin.getLoginId(), "wrong-password");
-
-        // when & then
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -124,15 +145,11 @@ class AdminControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").exists());
     }
 
-    //관리자 로그인 실패 – 존재하지 않는 ID
     @Test
     @DisplayName("관리자 로그인 실패 - 존재하지 않는 관리자")
     void adminLogin_fail_notFound() throws Exception {
-        // given
-        AdminLoginRequest request =
-                new AdminLoginRequest("not-exist-admin", "1234");
+        AdminLoginRequest request = new AdminLoginRequest("not-exist-admin", "12345678");
 
-        // when & then
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
@@ -140,25 +157,22 @@ class AdminControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").exists());
     }
 
-
-    //요청값 검증 실패 – loginId 누락 (@Valid)
     @Test
     @DisplayName("관리자 로그인 실패 - 요청값 검증 오류")
     void adminLogin_fail_validation() throws Exception {
-        // given
         String invalidJson = """
         {
           "password": "1234"
         }
         """;
 
-        // when & then
         mockMvc.perform(post("/api/admin/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(invalidJson))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").exists());
     }
+
 
 
 
