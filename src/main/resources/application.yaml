@@ -14,7 +14,7 @@ spring:
     defer-datasource-initialization: true
     show-sql: true # 실행되는 SQL 쿼리를 콘솔에 출력
     hibernate:
-      ddl-auto: update # DDL 자동 생성 전략 (none / create / validate / update)
+      ddl-auto: none # DDL 자동 생성 전략 (none / create / validate / update)
     properties:
       hibernate:
         format_sql: true # 로그에 출력되는 SQL을 보기 좋게 포맷팅
