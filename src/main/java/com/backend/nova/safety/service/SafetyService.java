@@ -35,7 +35,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.time.format.DateTimeParseException;
 
 @Service
 @RequiredArgsConstructor
@@ -329,63 +328,29 @@ public class SafetyService {
     }
 
     private SafetySensor resolveSafetySensor(String deviceId) {
-        try {
-            Long id = Long.parseLong(deviceId);
-            return sensorRepository.findById(id).orElseGet(() -> sensorRepository.findByName(deviceId).orElse(null));
-        } catch (NumberFormatException e) {
-            return sensorRepository.findByName(deviceId).orElse(null);
-        }
+        Long id = Long.parseLong(deviceId);
+        return sensorRepository.findById(id).orElse(null);
     }
 
     private ScopeContext resolveScope(SafetySensor safetySensor) {
-        Facility facility = null;
-        Long facilityId = null;
-        Long dongId = null;
-        com.backend.nova.apartment.entity.Apartment apartment = safetySensor.getApartment();
+        Facility facility = safetySensor.getSpace() != null
+                ? safetySensor.getSpace().getFacility()
+                : null;
 
-        if (safetySensor.getSpace() != null) {
-            facility = safetySensor.getSpace().getFacility();
-            if (facility != null) {
-                facilityId = facility.getId();
-                apartment = facility.getApartment();
-            }
+        if (facility != null) {
+            return new ScopeContext(facility.getApartment(), null, facility.getId(), facility);
         }
 
-        if (facilityId == null && safetySensor.getHo() != null) {
-            Dong dong = safetySensor.getHo().getDong();
-            if (dong != null) {
-                dongId = dong.getId();
-                apartment = dong.getApartment();
-            }
-        }
-
-        if (facilityId == null && dongId == null) {
-            return null;
-        }
-
-        return new ScopeContext(apartment, dongId, facilityId, facility);
+        Dong dong = safetySensor.getHo().getDong();
+        return new ScopeContext(dong.getApartment(), dong.getId(), null, null);
     }
 
     private SensorType parseSensorType(String sensorType) {
-        if (sensorType == null || sensorType.isBlank()) {
-            return null;
-        }
-        try {
-            return SensorType.valueOf(sensorType.trim().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        return SensorType.valueOf(sensorType.trim().toUpperCase());
     }
 
     private LocalDateTime parseEventAt(String ts) {
-        if (ts == null || ts.isBlank()) {
-            return LocalDateTime.now();
-        }
-        try {
-            return OffsetDateTime.parse(ts).toLocalDateTime();
-        } catch (DateTimeParseException e) {
-            return LocalDateTime.now();
-        }
+        return OffsetDateTime.parse(ts).toLocalDateTime();
     }
 
     private boolean isDanger(SensorType sensorType, Double value) {
