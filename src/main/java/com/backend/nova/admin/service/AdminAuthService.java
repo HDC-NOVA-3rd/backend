@@ -7,9 +7,9 @@ import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.backend.nova.auth.jwt.JwtProvider;
+import com.backend.nova.auth.jwt.JwtToken;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
-import com.backend.nova.member.dto.TokenResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -72,7 +72,6 @@ public class AdminAuthService {
         adminRepository.save(admin);
     }
 
-
     /* ================= 관리자 로그인 ================= */
     public AdminLoginResponse login(AdminLoginRequest request) {
 
@@ -101,9 +100,8 @@ public class AdminAuthService {
                 List.of(admin.getRole())
         );
 
-
         // 6 토큰 발급
-        TokenResponse tokenResponse = jwtProvider.generateToken(authentication);
+        JwtToken tokenResponse = jwtProvider.generateToken(authentication);
 
         // 7 응답
         return new AdminLoginResponse(
@@ -134,8 +132,7 @@ public class AdminAuthService {
                 List.of(admin.getRole())
         );
 
-
-        TokenResponse tokenResponse = jwtProvider.generateToken(authentication);
+        JwtToken tokenResponse = jwtProvider.generateToken(authentication);
 
         return new AdminLoginResponse(
                 admin.getId(),
