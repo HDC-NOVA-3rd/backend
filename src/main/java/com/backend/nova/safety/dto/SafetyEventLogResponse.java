@@ -11,6 +11,7 @@ public record SafetyEventLogResponse(
         String facilityName,
         boolean manual,
         String requestFrom,
+        String sensorName,
         SensorType sensorType,
         Double value,
         String unit,

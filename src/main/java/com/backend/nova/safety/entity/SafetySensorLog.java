@@ -23,13 +23,17 @@ public class SafetySensorLog {
     @Column(name = "value", nullable = false)
     private Double value;
 
+    @Column(name = "unit", nullable = false)
+    private String unit;
+
     @Column(name = "recorded_at", nullable = false)
     private LocalDateTime recordedAt;
 
     @Builder
-    public SafetySensorLog(SafetySensor safetySensor, Double value, LocalDateTime recordedAt) {
+    public SafetySensorLog(SafetySensor safetySensor, Double value, String unit, LocalDateTime recordedAt) {
         this.safetySensor = safetySensor;
         this.value = value;
+        this.unit = unit;
         this.recordedAt = recordedAt;
     }
 

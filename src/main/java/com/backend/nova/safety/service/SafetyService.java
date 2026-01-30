@@ -2,8 +2,8 @@ package com.backend.nova.safety.service;
 
 import com.backend.nova.apartment.entity.Dong;
 import com.backend.nova.apartment.entity.Facility;
-import com.backend.nova.apartment.repository.DongRepository;
 import com.backend.nova.apartment.repository.FacilityRepository;
+import com.backend.nova.apartment.repository.DongRepository;
 import com.backend.nova.safety.dto.SafetySensorInboundPayload;
 import com.backend.nova.safety.dto.SafetyEventLogResponse;
 import com.backend.nova.safety.dto.SafetyLockRequest;
@@ -80,7 +80,6 @@ public class SafetyService {
                     String facilityName = entity.getFacilityId() == null ? null : facilityNameById.get(entity.getFacilityId());
                     return new SafetyStatusResponse(
                             dongNo,
-                            entity.getFacilityId(),
                             facilityName,
                             entity.getSafetyStatus(),
                             entity.getReason(),
@@ -103,6 +102,11 @@ public class SafetyService {
                 .map(SafetyEventLog::getDongId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
+        Set<Long> sensorIdSet = logs.stream()
+                .map(SafetyEventLog::getSafetySensor)
+                .filter(Objects::nonNull)
+                .map(SafetySensor::getId)
+                .collect(Collectors.toSet());
 
         Map<Long, String> facilityNameById = facilityRepository.findAllById(facilityIdSet).stream()
                 .filter(facility -> facility.getApartment().getId().equals(apartmentId))
@@ -110,6 +114,8 @@ public class SafetyService {
         Map<Long, String> dongNoById = dongRepository.findAllById(dongIdSet).stream()
                 .filter(dong -> dong.getApartment().getId().equals(apartmentId))
                 .collect(Collectors.toMap(Dong::getId, Dong::getDongNo));
+        Map<Long, String> sensorNameById = sensorRepository.findAllById(sensorIdSet).stream()
+                .collect(Collectors.toMap(SafetySensor::getId, SafetySensor::getName));
 
         return logs.stream()
                 .map(log -> {
@@ -122,6 +128,7 @@ public class SafetyService {
                             facilityName,
                             isManual,
                             log.getRequestFrom(),
+                            log.getSafetySensor() == null ? null : sensorNameById.get(log.getSafetySensor().getId()),
                             isManual ? null : log.getSensorType(),
                             isManual ? null : log.getValue(),
                             isManual ? null : log.getUnit(),
@@ -136,14 +143,73 @@ public class SafetyService {
         if (apartmentId == null || apartmentId <= 0) {
             return List.of();
         }
-        return sensorLogRepository.findBySafetySensor_Apartment_IdOrderByIdDesc(apartmentId).stream()
-                .map(log -> new SafetySensorLogResponse(
-                        log.getId(),
-                        log.getSafetySensor().getId(),
-                        log.getSafetySensor().getSensorType(),
-                        log.getValue(),
-                        log.getRecordedAt()
-                ))
+        List<SafetySensorLog> logs = sensorLogRepository.findBySafetySensor_Apartment_IdOrderByIdDesc(apartmentId);
+        Set<Long> sensorIdSet = logs.stream()
+                .map(SafetySensorLog::getSafetySensor)
+                .filter(Objects::nonNull)
+                .map(SafetySensor::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, SafetySensor> sensorById = sensorRepository.findAllById(sensorIdSet).stream()
+                .collect(Collectors.toMap(SafetySensor::getId, sensor -> sensor));
+
+        Set<Long> facilityIdSet = sensorById.values().stream()
+                .map(SafetySensor::getSpace)
+                .filter(Objects::nonNull)
+                .map(space -> space.getFacility())
+                .filter(Objects::nonNull)
+                .map(Facility::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Set<Long> dongIdSet = sensorById.values().stream()
+                .map(SafetySensor::getHo)
+                .filter(Objects::nonNull)
+                .map(ho -> ho.getDong())
+                .filter(Objects::nonNull)
+                .map(Dong::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        Map<Long, String> facilityNameById = facilityRepository.findAllById(facilityIdSet).stream()
+                .filter(facility -> facility.getApartment().getId().equals(apartmentId))
+                .collect(Collectors.toMap(Facility::getId, Facility::getName));
+        Map<Long, String> dongNoById = dongRepository.findAllById(dongIdSet).stream()
+                .filter(dong -> dong.getApartment().getId().equals(apartmentId))
+                .collect(Collectors.toMap(Dong::getId, Dong::getDongNo));
+
+        return logs.stream()
+                .map(log -> {
+                    Long sensorId = log.getSafetySensor().getId();
+                    SafetySensor sensor = sensorById.get(sensorId);
+                    String sensorName = sensor == null ? null : sensor.getName();
+                    Long facilityId = null;
+                    String facilityName = null;
+                    Long dongId = null;
+                    String dongNo = null;
+
+                    if (sensor != null && sensor.getSpace() != null && sensor.getSpace().getFacility() != null) {
+                        Facility facility = sensor.getSpace().getFacility();
+                        facilityId = facility.getId();
+                        facilityName = facilityNameById.get(facilityId);
+                    }
+
+                    if (sensor != null && sensor.getHo() != null && sensor.getHo().getDong() != null) {
+                        Dong dong = sensor.getHo().getDong();
+                        dongId = dong.getId();
+                        dongNo = dongNoById.get(dongId);
+                    }
+
+                    return new SafetySensorLogResponse(
+                            sensorName,
+                            dongNo,
+                            facilityName,
+                            log.getSafetySensor().getSensorType(),
+                            log.getValue(),
+                            log.getUnit(),
+                            log.getRecordedAt()
+                    );
+                })
                 .toList();
     }
 
@@ -192,7 +258,7 @@ public class SafetyService {
                 .build();
         safetyEventLogRepository.save(eventLog);
 
-        return new SafetyLockResponse(facility.getId(), reservationAvailable, statusTo, reason);
+        return new SafetyLockResponse(facility.getName(), reservationAvailable, statusTo, reason);
     }
 
     @Transactional
@@ -205,6 +271,7 @@ public class SafetyService {
         SafetySensorLog sensorLog = SafetySensorLog.builder()
                 .safetySensor(safetySensor)
                 .value(payload.value())
+                .unit(payload.unit())
                 .recordedAt(eventedAt)
                 .build();
         sensorLogRepository.save(sensorLog);
@@ -213,30 +280,26 @@ public class SafetyService {
         SafetyStatus statusTo = isDanger ? SafetyStatus.DANGER : SafetyStatus.SAFE;
         SafetyReason reason = sensorType == SensorType.SMOKE ? SafetyReason.FIRE_SMOKE : SafetyReason.HEAT;
 
-        SafetyStatusEntity statusEntity = scopeContext.facilityId() == null
+        var existingStatus = scopeContext.facilityId() == null
                 ? safetyStatusRepository.findByApartmentIdAndDongId(scopeContext.apartmentId(), scopeContext.dongId())
-                .orElseGet(() -> SafetyStatusEntity.builder()
-                        .apartment(scopeContext.apartment())
-                        .dongId(scopeContext.dongId())
-                        .facilityId(null)
-                        .updatedAt(eventedAt)
-                        .reason(reason)
-                        .safetyStatus(statusTo)
-                        .build())
-                : safetyStatusRepository.findByApartmentIdAndFacilityId(scopeContext.apartmentId(), scopeContext.facilityId())
-                .orElseGet(() -> SafetyStatusEntity.builder()
-                        .apartment(scopeContext.apartment())
-                        .dongId(null)
-                        .facilityId(scopeContext.facilityId())
-                        .updatedAt(eventedAt)
-                        .reason(reason)
-                        .safetyStatus(statusTo)
-                        .build());
+                : safetyStatusRepository.findByApartmentIdAndFacilityId(scopeContext.apartmentId(), scopeContext.facilityId());
+
+        SafetyStatus previousStatus = existingStatus.map(SafetyStatusEntity::getSafetyStatus).orElse(null);
+
+        SafetyStatusEntity statusEntity = existingStatus.orElseGet(() -> SafetyStatusEntity.builder()
+                .apartment(scopeContext.apartment())
+                .dongId(scopeContext.facilityId() == null ? scopeContext.dongId() : null)
+                .facilityId(scopeContext.facilityId())
+                .updatedAt(eventedAt)
+                .reason(reason)
+                .safetyStatus(statusTo)
+                .build());
 
         statusEntity.update(eventedAt, reason, statusTo);
         safetyStatusRepository.save(statusEntity);
 
-        if (isDanger) {
+        boolean statusChanged = previousStatus == null || previousStatus != statusTo;
+        if (statusChanged) {
             SafetyEventLog eventLog = SafetyEventLog.builder()
                     .apartment(scopeContext.apartment())
                     .dongId(scopeContext.dongId())
@@ -251,12 +314,11 @@ public class SafetyService {
                     .eventedAt(eventedAt)
                     .build();
             safetyEventLogRepository.save(eventLog);
+        }
 
-            if (scopeContext.facility() != null) {
-                scopeContext.facility().changeReservationAvailability(false);
-                facilityRepository.save(scopeContext.facility());
-            }
-
+        if (isDanger && scopeContext.facility() != null) {
+            scopeContext.facility().changeReservationAvailability(false);
+            facilityRepository.save(scopeContext.facility());
             log.info("Safety alert requested deviceId={}, scope={}", deviceId, scopeContext);
         }
     }

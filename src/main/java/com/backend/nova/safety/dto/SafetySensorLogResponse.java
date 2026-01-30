@@ -5,10 +5,12 @@ import com.backend.nova.safety.enums.SensorType;
 import java.time.LocalDateTime;
 
 public record SafetySensorLogResponse(
-        Long id,
-        Long sensorId,
+        String sensorName,
+        String dongNo,
+        String facilityName,
         SensorType sensorType,
         Double value,
+        String unit,
         LocalDateTime recordedAt
 ) {
 }

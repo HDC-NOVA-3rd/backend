@@ -7,7 +7,6 @@ import java.time.LocalDateTime;
 
 public record SafetyStatusResponse(
         String dongNo,
-        Long facilityId,
         String facilityName,
         SafetyStatus status,
         SafetyReason reason,
