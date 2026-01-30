@@ -1,5 +1,7 @@
 package com.backend.nova.complaint.controller;
 
+import com.backend.nova.auth.admin.AdminDetails;
+import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.complaint.dto.*;
 import com.backend.nova.complaint.entity.ComplaintStatus;
 import com.backend.nova.complaint.service.ComplaintService;
@@ -25,10 +27,10 @@ public class ComplaintController {
     @PostMapping
     @PreAuthorize("hasRole('MEMBER')")
     public ResponseEntity<Void> createComplaint(
-            @AuthenticationPrincipal Long memberId,
+            @AuthenticationPrincipal MemberDetails memberDetails,
             @RequestBody ComplaintCreateRequest request) {
 
-        complaintService.createComplaint(memberId, request);
+        complaintService.createComplaint(memberDetails.getMemberId(), request);
         return ResponseEntity.ok().build();
     }
 
@@ -38,10 +40,10 @@ public class ComplaintController {
     @PreAuthorize("hasRole('MEMBER')")
     public ResponseEntity<Void> updateComplaint(
             @PathVariable("complaintId") Long complaintId,
-            @AuthenticationPrincipal Long memberId,
+            @AuthenticationPrincipal MemberDetails memberDetails,
             @RequestBody ComplaintUpdateRequest request) {
 
-        complaintService.updateComplaint(complaintId, memberId, request);
+        complaintService.updateComplaint(complaintId, memberDetails.getMemberId(), request);
         return ResponseEntity.ok().build();
     }
 
@@ -49,23 +51,32 @@ public class ComplaintController {
     @Operation(summary = "민원 삭제", description = "민원 ID로 민원을 삭제합니다.")
     @DeleteMapping("/{complaintId}")
     @PreAuthorize("hasRole('MEMBER')")
-    public ResponseEntity<Void> deleteComplaint(
-            @PathVariable("complaintId") Long complaintId,
-            @AuthenticationPrincipal Long memberId) {
-
+    public void deleteComplaint(
+            @PathVariable Long complaintId,
+            @AuthenticationPrincipal MemberDetails memberDetails
+    ) {
+        Long memberId = memberDetails.getMemberId();
         complaintService.deleteComplaint(complaintId, memberId);
-        return ResponseEntity.ok().build();
     }
+
+
+//    public ResponseEntity<Void> deleteComplaint(
+//            @PathVariable("complaintId") Long complaintId,
+//            @AuthenticationPrincipal MemberDetails memberDetails) {
+//
+//        complaintService.deleteComplaint(complaintId, memberId);
+//        return ResponseEntity.ok().build();
+//    }
 
     /* ================= 관리자 배정 (관리자) ================= */
     @PostMapping("/{complaintId}/assign")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> assignAdmin(
             @PathVariable Long complaintId,
-            @AuthenticationPrincipal Long adminId,
+            @AuthenticationPrincipal AdminDetails adminDetails,
             @RequestParam Long targetAdminId) {
 
-        complaintService.assignAdmin(complaintId, adminId, targetAdminId);
+        complaintService.assignAdmin(complaintId, adminDetails.getAdmin().getId(), targetAdminId);
         return ResponseEntity.ok().build();
     }
 
@@ -73,10 +84,10 @@ public class ComplaintController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> changeStatus(
             @PathVariable("complaintId") Long complaintId,
-            @AuthenticationPrincipal Long adminId,
+            @AuthenticationPrincipal AdminDetails adminDetails,
             @RequestParam ComplaintStatus status) {
 
-        complaintService.changeStatusByAdmin(complaintId, adminId, status);
+        complaintService.changeStatusByAdmin(complaintId, adminDetails.getAdmin().getId(), status);
         return ResponseEntity.ok().build();
     }
 
@@ -86,10 +97,10 @@ public class ComplaintController {
     @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
     public ResponseEntity<Void> createAnswer(
             @PathVariable("complaintId") Long complaintId,
-            @AuthenticationPrincipal Long adminId,
+            @AuthenticationPrincipal AdminDetails adminDetails,
             @RequestBody ComplaintAnswerCreateRequest request) {
 
-        complaintService.createAnswer(complaintId, adminId, request);
+        complaintService.createAnswer(complaintId, adminDetails.getAdmin().getId(), request);
         return ResponseEntity.ok().build();
     }
 
@@ -98,9 +109,9 @@ public class ComplaintController {
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> completeComplaint(
             @PathVariable("complaintId") Long complaintId,
-            @AuthenticationPrincipal Long adminId) {
+            @AuthenticationPrincipal AdminDetails adminDetails) {
 
-        complaintService.completeComplaint(complaintId, adminId);
+        complaintService.completeComplaint(complaintId, adminDetails.getAdmin().getId());
         return ResponseEntity.ok().build();
     }
 
@@ -110,10 +121,10 @@ public class ComplaintController {
     @PreAuthorize("hasRole('MEMBER')")
     public ResponseEntity<Void> createFeedback(
             @PathVariable("complaintId") Long complaintId,
-            @AuthenticationPrincipal Long memberId,
+            @AuthenticationPrincipal MemberDetails memberDetails,
             @RequestBody ComplaintFeedbackCreateRequest request) {
 
-        complaintService.createFeedback(complaintId, memberId, request);
+        complaintService.createFeedback(complaintId, memberDetails.getMemberId(), request);
         return ResponseEntity.ok().build();
     }
 
