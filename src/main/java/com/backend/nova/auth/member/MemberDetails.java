@@ -1,4 +1,5 @@
 package com.backend.nova.auth.member;
+import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.member.entity.Member;
 import lombok.Getter;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -9,16 +10,25 @@ import java.util.List;
 @Getter
 public class MemberDetails extends User {
 
-    // 인증 객체에 담을 추가 정보
     private final Long memberId;
     private final String name;
+    private final Long hoId;     // 세대 ID
+    private final String hoNo;   // 세대 번호 (예: 101호)
+    private final Integer floor; // 층수
+    private final Long dongId;   // 동 ID
 
     public MemberDetails(Member member) {
-        // 부모(User) 생성자 호출: (아이디, 비밀번호, 권한리스트)
-        super(member.getLoginId(), member.getPassword(), List.of(new SimpleGrantedAuthority("MEMBER")));
+        super(member.getLoginId(), member.getPassword(),
+                List.of(new SimpleGrantedAuthority("ROLE_MEMBER")));
 
-        // 추가 정보 초기화
         this.memberId = member.getId();
         this.name = member.getName();
+
+        // Resident → Ho → Dong
+        Ho ho = member.getResident().getHo();
+        this.hoId = ho.getId();
+        this.hoNo = ho.getHoNo();
+        this.floor = ho.getFloor();
+        this.dongId = ho.getDong().getId();
     }
 }

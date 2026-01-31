@@ -57,7 +57,7 @@ public class AdminAuthService {
         // 4. 관리자 생성
         Admin admin = Admin.builder()
                 .loginId(request.loginId())
-                .passwordHash(passwordEncoder.encode(request.password()))
+                .password(passwordEncoder.encode(request.password()))
                 .name(request.name())
                 .email(request.email())
                 .role(
@@ -85,7 +85,7 @@ public class AdminAuthService {
         validateAdminStatus(admin);
 
         // 3 비밀번호 검증
-        if (!passwordEncoder.matches(request.password(), admin.getPasswordHash())) {
+        if (!passwordEncoder.matches(request.password(), admin.getPassword())) {
             handleLoginFailure(admin);
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
         }
@@ -172,18 +172,18 @@ public class AdminAuthService {
             throw new BusinessException(ErrorCode.OTP_NOT_VERIFIED);
         }
 
-        admin.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        admin.setPassword(passwordEncoder.encode(request.newPassword()));
         adminRepository.save(admin);
     }
 
     public void changePassword(PasswordChangeRequest request) {
         Admin admin = getCurrentAdmin();
 
-        if (!passwordEncoder.matches(request.currentPassword(), admin.getPasswordHash())) {
+        if (!passwordEncoder.matches(request.currentPassword(), admin.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
         }
 
-        admin.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        admin.setPassword(passwordEncoder.encode(request.newPassword()));
         adminRepository.save(admin);
     }
 
