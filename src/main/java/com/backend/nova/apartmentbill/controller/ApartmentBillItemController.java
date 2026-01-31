@@ -12,11 +12,9 @@ import java.util.List;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/api/billItem")
-//@RequestMapping("/api/bill-item")
+@RequestMapping("/api/bill-item")
 public class ApartmentBillItemController {
 
-    //ApartmentBillItem vs BillItem 고민중
     private final ApartmentBillItemService apartmentBillItemService;
 
     /* ===== 단지별 관리비 항목 조회 ===== */
