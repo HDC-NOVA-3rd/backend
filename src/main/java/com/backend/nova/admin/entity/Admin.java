@@ -32,7 +32,7 @@ public class Admin {
 
     /** 비밀번호 해시 */
     @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
+    private String password;
 
     /** 관리자 이름 */
     @Column(nullable = false, length = 100)
