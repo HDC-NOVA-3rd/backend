@@ -10,7 +10,7 @@ package com.backend.nova.chat.dto;
 public record ChatResponse(
 
 
-        String sessionId,
+        String sessionId,//사용자와 챗봇 서버 간의 일시적인 대화 연결을 식별하는 고유한 ID
 
         String answer, // 사용자에게 직접 보여줄 텍스트 응답
 

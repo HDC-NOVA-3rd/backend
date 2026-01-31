@@ -31,38 +31,48 @@ public class JwtProvider {
     public JwtProvider(@Value("${jwt.secret}") String secretStr) {
         byte[] keyBytes = Decoders.BASE64.decode(secretStr); //secretStr을 BASE64로 Decode
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
-        accessTokenExpires = 3600 * 1000L; // 1시간
+        accessTokenExpires = 300 * 1000L; // 5분
         refreshTokenExpires = 604800 * 1000L; // 7일
     }
 
-    // 로그인 성공 시 new 토큰 생성 (Access + Refresh)
-    public TokenResponse generateToken(Authentication authentication) {
-        // 1. 권한 가져오기: 로그인한 사용자의 권한 리스트를 스트림으로 순회하며 ","로 구분된 문자열로 만듦
-        String authorities = authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.joining(","));
+    public JwtToken generateToken(Authentication authentication) {
+        String accessToken = createAccessToken(authentication);
+        String refreshToken = createRefreshToken(authentication);
 
-        long now = new Date().getTime();
-        Date accessTokenExpiresIn = new Date(now + accessTokenExpires);
-        Date refreshTokenExpiresIn = new Date(now + refreshTokenExpires);
-
-        String accessToken = Jwts.builder()
-                .subject(authentication.getName()) //사용자ID
-                .claim("auth", authorities) //권한정보(claim)
-                .expiration(accessTokenExpiresIn)
-                .signWith(secretKey) // 비밀키 서명
-                .compact();
-
-        String refreshToken = Jwts.builder()
-                .expiration(refreshTokenExpiresIn)
-                .signWith(secretKey)
-                .compact();
-
-        return TokenResponse.builder()
+        return JwtToken.builder()
                 .grantType("Bearer")
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .build();
+    }
+
+    // [신규] Access Token만 생성 (Refresh 요청 시 사용)
+    public String createAccessToken(Authentication authentication) {
+        String authorities = authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.joining(","));
+
+        long now = (new Date()).getTime();
+        Date accessTokenExpiresIn = new Date(now + accessTokenExpires);
+
+        return Jwts.builder()
+                .subject(authentication.getName())
+                .claim("auth", authorities)
+                .expiration(accessTokenExpiresIn)
+                .signWith(secretKey)
+                .compact();
+    }
+
+    // [신규] Refresh Token만 생성 (내부 호출용)
+    public String createRefreshToken(Authentication authentication) {
+        long now = (new Date()).getTime();
+        Date refreshTokenExpiresIn = new Date(now + refreshTokenExpires);
+
+        return Jwts.builder()
+                .subject(authentication.getName())
+                .expiration(refreshTokenExpiresIn)
+                .signWith(secretKey)
+                .compact();
     }
 
     // 검증된 토큰에서 인증 정보(Authentication) 추출 -> validateToken() 이후 실행
@@ -102,6 +112,11 @@ public class JwtProvider {
         }
         return false;
     }
+    // 토큰에서 Subject(사용자 ID) 추출
+    public String getSubject(String token) {
+        return parseClaims(token).getSubject();
+    }
+
     // accessToken Payload(Claims)를 반환하는 메서드
     private Claims parseClaims(String accessToken) {
         try {

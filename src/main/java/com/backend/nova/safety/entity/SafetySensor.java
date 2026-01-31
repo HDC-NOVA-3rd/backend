@@ -9,13 +9,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.Objects;
 
 @Entity
 @Table(name = "sensor")
 @Getter
 @NoArgsConstructor
-public class Sensor {
+public class SafetySensor {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

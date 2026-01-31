@@ -22,8 +22,8 @@ INSERT INTO ho (dong_id, ho_no, floor) VALUES (2, '103호', 1);
 -- resident: 101동 101호, 102호에 사람 넣기
 INSERT INTO resident (ho_id, name, phone)
 VALUES
-    (1, '홍길동', '010-1111-2222'),
-    (2, '김영희', '010-3333-4444');
+    (1, '홍길동', '01011112222'),
+    (2, '김영희', '01033334444');
 
 -- room: ho_id=1 (101동 101호)에 거실/침실 생성
 INSERT INTO room (ho_id, name)
@@ -49,3 +49,24 @@ VALUES
     (2, '스터디룸 A', 6, 1, 0),
     (2, '스터디룸 B', 8, 1, 0);
 
+-- safety: MQTT 테스트용 센서/로그/상태 더미 데이터
+-- deviceId=123 으로 MQTT 수신 테스트 시 매칭되는 센서
+INSERT INTO sensor (id, apartment_id, ho_id, space_id, name, type, sensor_type, created_at)
+VALUES
+    (123, 1, NULL, 1, 'FACILITY_SMOKE_123', 'MQTT', 'SMOKE', NOW(6)),
+    (124, 1, 1, NULL, 'DONG_HEAT_124', 'MQTT', 'HEAT', NOW(6));
+
+INSERT INTO sensor_log (sensor_id, value, unit, recorded_at)
+VALUES
+    (123, 120.0, 'ppm', NOW(6)),
+    (124, 45.0, 'C', NOW(6));
+
+INSERT INTO safety_status (apartment_id, dong_id, facility_id, updated_at, reason, safety_status)
+VALUES
+    (1, 1, NULL, NOW(6), 'HEAT', 'SAFE'),
+    (1, NULL, 2, NOW(6), 'FIRE_SMOKE', 'SAFE');
+
+INSERT INTO safety_event_log (apartment_id, dong_id, facility_id, manual, request_from, sensor_id, sensor_type, value, unit, status_to, event_at)
+VALUES
+    (1, 1, NULL, 0, 'seed', 124, 'HEAT', 75.0, 'C', 'DANGER', NOW(6)),
+    (1, NULL, 2, 0, 'seed', 123, 'SMOKE', 650.0, 'ppm', 'DANGER', NOW(6));
