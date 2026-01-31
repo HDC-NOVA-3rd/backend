@@ -45,4 +45,17 @@ public class Member {
 
     @Column(name = "profile_img")
     private String profileImg;
+
+    public void updateOAuthInfo(String provider, String providerId, String profileImage) {
+
+        // 일반 가입자도 소셜 로그인을 허용하고, 타입 정보를 갱신한다.
+        if (this.loginType == LoginType.NORMAL) {
+            this.loginType = LoginType.valueOf(provider.toUpperCase());
+            // 프로필 이미지 업데이트 로직 추가
+            // 정책: 소셜 쪽 프로필 이미지가 존재하면 내 정보도 최신화한다.
+            if (profileImage != null && !profileImage.isEmpty()) {
+                this.profileImg = profileImage;
+            }
+        }
+    }
 }

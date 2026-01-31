@@ -84,7 +84,7 @@ public class MemberService {
     }
 
     @Transactional
-    public Long registerMember(SignupRequest request) {
+    public TokenResponse registerMember(SignupRequest request) {
         if (memberRepository.existsByLoginId(request.loginId())) {
             throw new IllegalArgumentException("이미 존재하는 아이디입니다.");
         }
@@ -95,7 +95,23 @@ public class MemberService {
         String encodedPassword = passwordEncoder.encode(request.password());
         Member member = request.toEntity(resident, encodedPassword);
 
-        return memberRepository.save(member).getId();
+        Member savedMember = memberRepository.save(member);
+
+        // 회원가입 후 자동 로그인을 위한 토큰 생성
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                savedMember.getLoginId(),
+                null,
+                Collections.singletonList(new SimpleGrantedAuthority("MEMBER"))
+        );
+
+        JwtToken jwtToken = jwtProvider.generateToken(authentication);
+
+        return TokenResponse.builder()
+                .accessToken(jwtToken.accessToken())
+                .refreshToken(jwtToken.refreshToken())
+                .memberId(savedMember.getId())
+                .name(savedMember.getName())
+                .build();
     }
 
     public MemberInfoResponse getMemberInfo(String loginId) {

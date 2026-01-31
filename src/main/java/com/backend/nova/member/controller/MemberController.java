@@ -29,9 +29,9 @@ public class MemberController {
 
     @Operation(summary = "회원 가입", description = "새로운 회원을 등록합니다.")
     @PostMapping("/signup")
-    public ResponseEntity<Void> registerMember(@RequestBody SignupRequest request) {
-        Long memberId = memberService.registerMember(request);
-        return ResponseEntity.created(URI.create("/api/member/" + memberId)).build();
+    public ResponseEntity<TokenResponse> registerMember(@RequestBody SignupRequest request) {
+        TokenResponse tokenResponse = memberService.registerMember(request);
+        return ResponseEntity.ok(tokenResponse);
     }
 
     @Operation(summary = "내 정보 조회", description = "현재 로그인한 회원의 상세 정보를 조회합니다.")

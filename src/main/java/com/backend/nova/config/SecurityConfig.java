@@ -4,6 +4,9 @@ import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import com.backend.nova.auth.jwt.JwtAuthenticationFilter;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
+import com.backend.nova.oauth2.handler.OAuthSuccessHandler;
+import com.backend.nova.oauth2.repository.OAuthRedirectCookieRepository;
+import com.backend.nova.oauth2.service.CustomOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -31,6 +34,9 @@ public class SecurityConfig {
     private final JwtProvider jwtProvider;
     private final MemberAuthenticationProvider memberAuthenticationProvider;
     private final AdminAuthenticationProvider adminAuthenticationProvider;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuthSuccessHandler oAuthSuccessHandler;
+    private final OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
 
     /**
      * AuthenticationManager Bean
@@ -123,12 +129,23 @@ public class SecurityConfig {
 
                 // MemberAuthenticationProvider 를 시큐리티 로직에 사용하도록 설정
                 .authenticationProvider(memberAuthenticationProvider)
+
+                // CORS 설정
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+
                 // CSRF 보안 필터 disable
                 .csrf(AbstractHttpConfigurer::disable)
 
                 // 기본 Form 기반 인증 필터들 disable
                 .formLogin(AbstractHttpConfigurer::disable)
+
+                // OAuth2
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfoEndpointConfig -> userInfoEndpointConfig
+                                .userService(customOAuth2UserService))
+                        .authorizationEndpoint(authorization -> authorization
+                                .authorizationRequestRepository(oAuthRedirectCookieRepository))
+                        .successHandler(oAuthSuccessHandler))
 
                 // 세션 필터 설정 (STATELESS)
                 .sessionManagement(session ->
