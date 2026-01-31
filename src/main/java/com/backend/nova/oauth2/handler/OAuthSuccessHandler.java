@@ -12,11 +12,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
+import com.backend.nova.auth.member.MemberDetails;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,7 +53,7 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
         // 만약 쿠키에도 없고 기본값도 없으면 에러가 날 수 있으니 기본값 설정 (개발용)
         if (!StringUtils.hasText(targetUri)) {
-            targetUri = "exp://192.168.14.116:8081/--/oauth/callback";
+            targetUri = "exp://192.168.14.116:8081/--/";
         }
 
         String targetUrl;
@@ -66,8 +68,19 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
             existMember.updateOAuthInfo(provider, providerId,profileImg);
             memberRepository.save(existMember);
 
-            // access 토큰 발급
-            String token = jwtProvider.generateToken(authentication);
+            // [수정 핵심!] OAuth 인증 객체 대신, 우리 DB의 회원 정보로 새로운 Authentication 생성
+            // 이유: 이렇게 해야 토큰의 Subject에 'loginId'가 들어갑니다.
+            MemberDetails memberDetails = new MemberDetails(existMember); // MemberDetails 생성자가 있다고 가정
+
+            Authentication newAuth = new UsernamePasswordAuthenticationToken(
+                    memberDetails,
+                    null,
+                    memberDetails.getAuthorities() // 또는 Collections.singleton(new SimpleGrantedAuthority("MEMBER"))
+            );
+
+            // access + refresh 토큰 발급
+            String accessToken = jwtProvider.createAccessToken(newAuth);
+            String refreshToken = jwtProvider.createRefreshToken(newAuth);
 
 
 
