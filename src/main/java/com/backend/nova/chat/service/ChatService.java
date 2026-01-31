@@ -322,12 +322,16 @@ public class ChatService {
         Facility facility = facilityRepository
                 .findByApartmentIdAndName(apartmentId, facilityName)
                 .orElseThrow(() -> new IllegalArgumentException("시설 정보를 찾을 수 없습니다: " + facilityName));
+        boolean reservable = facility.isReservationAvailable();
+
+        String reservableText = reservable ? "현재 예약 가능합니다." : "현재 예약이 불가능합니다.";
 
         String answer = String.format(
                 "%s 운영 시간은 %s ~ %s 입니다.",
                 facility.getName(),
                 facility.getStartHour(),
-                facility.getEndHour()
+                facility.getEndHour(),
+                reservableText
         );
 
         return new ChatResponse(
