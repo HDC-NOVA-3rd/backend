@@ -10,7 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -20,8 +20,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
@@ -37,10 +36,8 @@ public class SecurityConfig {
      * AuthenticationManager Bean
      */
     @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration authenticationConfiguration
-    ) throws Exception {
-        return authenticationConfiguration.getAuthenticationManager();
+    public AuthenticationManager authenticationManager() throws Exception {
+        return new ProviderManager(Arrays.asList(memberAuthenticationProvider, adminAuthenticationProvider));
     }
 
     /**
@@ -140,7 +137,7 @@ public class SecurityConfig {
 
                 // 인가 처리
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/member/login", "/api/member/signup", "/api/resident/verify", "/api/apartment/**").permitAll()
+                        .requestMatchers("/api/member/login", "/api/member/signup", "/api/member/refresh", "/api/resident/verify", "/api/apartment/**").permitAll()
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()

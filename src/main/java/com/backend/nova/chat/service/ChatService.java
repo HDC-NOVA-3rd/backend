@@ -32,6 +32,7 @@ import org.springframework.util.StreamUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -305,6 +306,8 @@ public class ChatService {
     // intent handlers
     // =========================
 
+
+
     private ChatResponse handleFacilityInfo(String sessionId, ChatRequest req, LlmCommand cmd) {
         Ho ho = resolveHo(req.residentId());
         Long apartmentId = resolveApartmentId(ho);
@@ -313,9 +316,9 @@ public class ChatService {
         if (facilityName.isBlank()) {
             return new ChatResponse(
                     sessionId,
-                    "어떤 시설 운영시간을 조회할까요? (예: 헬스장, 수영장)",
+                    "어느 시설을 확인할까요? (헬스장/스터디룸/수영장...)",
                     "FACILITY_INFO",
-                    Map.of("needs", "facility")
+                    Map.of("facility", "UNKNOWN", "info_type", "UNKNOWN")
             );
         }
 
@@ -323,11 +326,32 @@ public class ChatService {
                 .findByApartmentIdAndName(apartmentId, facilityName)
                 .orElseThrow(() -> new IllegalArgumentException("시설 정보를 찾을 수 없습니다: " + facilityName));
 
+        //  1) 운영중 여부
+        LocalTime now = LocalTime.now();
+        LocalTime start = facility.getStartHour();
+        LocalTime end = facility.getEndHour();
+
+        boolean isOpenNow;
+        // end가 start보다 작으면(예: 22:00~06:00) 자정 넘어가는 케이스 처리
+        if (end.isAfter(start) || end.equals(start)) {
+            isOpenNow = !now.isBefore(start) && !now.isAfter(end);
+        } else {
+            isOpenNow = !now.isBefore(start) || !now.isAfter(end);
+        }
+
+        //  2) 예약 기능 가능 여부(컬럼)
+        boolean reservationAvailable = facility.isReservationAvailable(); // getter 맞춰서 수정
+
+        //  3) “지금 예약 가능” 결론
+        boolean reservableNow = isOpenNow && reservationAvailable;
+
         String answer = String.format(
-                "%s 운영 시간은 %s ~ %s 입니다.",
+                "%s 운영시간은 %s~%s이고, 지금은 %s입니다. %s",
                 facility.getName(),
-                facility.getStartHour(),
-                facility.getEndHour()
+                start,
+                end,
+                isOpenNow ? "운영 중" : "운영 시간이 아니에요",
+                reservableNow ? "현재 예약 가능합니다." : "현재 예약이 불가능합니다."
         );
 
         return new ChatResponse(
@@ -336,13 +360,18 @@ public class ChatService {
                 "FACILITY_INFO",
                 Map.of(
                         "facility", facility.getName(),
-                        "startHour", facility.getStartHour(),
-                        "endHour", facility.getEndHour(),
+                        "info_type", "AVAILABLE",
+                        "startHour", start,
+                        "endHour", end,
+                        "isOpenNow", isOpenNow,
+                        "reservationAvailable", reservationAvailable,
+                        "reservableNow", reservableNow,
                         "apartmentId", apartmentId,
                         "description", facility.getDescription()
                 )
         );
     }
+
 
     private ChatResponse handleEnvStatus(String sessionId, ChatRequest req, LlmCommand cmd) {
         Ho ho = resolveHo(req.residentId());

@@ -84,7 +84,6 @@ class MemberControllerTest {
         LoginRequest loginRequest = new LoginRequest("user123", "password");
 
         TokenResponse tokenResponse = TokenResponse.builder()
-                .grantType("Bearer")
                 .accessToken("access-token")
                 .refreshToken("refresh-token")
                 .build();
@@ -97,7 +96,6 @@ class MemberControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.grantType").value("Bearer"))
                 .andExpect(jsonPath("$.accessToken").value("access-token"))
                 .andExpect(jsonPath("$.refreshToken").value("refresh-token"));
     }
