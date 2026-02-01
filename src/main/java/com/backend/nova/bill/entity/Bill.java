@@ -68,6 +68,9 @@ public class Bill {
         this.totalPrice += item.getPrice();
     }
 
+    public void updateTotalPrice(int totalPrice) {
+        this.totalPrice = totalPrice;
+    }
 
 
 }
