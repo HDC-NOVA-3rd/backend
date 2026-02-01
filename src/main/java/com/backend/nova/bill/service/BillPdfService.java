@@ -1,0 +1,104 @@
+package com.backend.nova.bill.service;
+
+import com.backend.nova.bill.entity.Bill;
+import com.backend.nova.bill.entity.BillItem;
+import com.backend.nova.bill.repository.BillRepository;
+import com.lowagie.text.*;
+import com.lowagie.text.pdf.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.io.ByteArrayOutputStream;
+import java.time.format.DateTimeFormatter;
+
+@Service
+@RequiredArgsConstructor
+public class BillPdfService {
+
+    private final BillRepository billRepository;
+
+    public byte[] generateBillPdf(Long billId, Long hoId) {
+        Bill bill = billRepository.findByIdAndHo_Id(billId, hoId)
+                .orElseThrow(() -> new IllegalArgumentException("Bill not found"));
+
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
+            Document document = new Document(PageSize.A4);
+            PdfWriter.getInstance(document, out);
+            document.open();
+
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 18);
+            Font normalFont = FontFactory.getFont(FontFactory.HELVETICA, 11);
+
+            // =============================
+            // 제목
+            // =============================
+            Paragraph title = new Paragraph("관리비 고지서", titleFont);
+            title.setAlignment(Element.ALIGN_CENTER);
+            document.add(title);
+
+            document.add(Chunk.NEWLINE);
+
+            // =============================
+            // 기본 정보
+            // =============================
+            document.add(new Paragraph(
+                    "고지 월: " + bill.getBillingMonth(),
+                    normalFont
+            ));
+            document.add(new Paragraph(
+                    "세대 번호: " + bill.getHo().getHoNumber(),
+                    normalFont
+            ));
+            document.add(new Paragraph(
+                    "고지서 번호: " + bill.getBillUuid(),
+                    normalFont
+            ));
+
+            document.add(Chunk.NEWLINE);
+
+            // =============================
+            // 항목 테이블
+            // =============================
+            PdfPTable table = new PdfPTable(3);
+            table.setWidthPercentage(100);
+            table.setWidths(new int[]{4, 2, 2});
+
+            addHeader(table, "항목");
+            addHeader(table, "금액");
+            addHeader(table, "비고");
+
+            for (BillItem item : bill.getItems()) {
+                table.addCell(item.getTitle());
+                table.addCell(item.getPrice().toString());
+                table.addCell(item.getItemType());
+            }
+
+            document.add(table);
+
+            document.add(Chunk.NEWLINE);
+
+            // =============================
+            // 총액
+            // =============================
+            Paragraph total = new Paragraph(
+                    "총 납부 금액: " + bill.getTotalAmount() + " 원",
+                    FontFactory.getFont(FontFactory.HELVETICA_BOLD, 13)
+            );
+            total.setAlignment(Element.ALIGN_RIGHT);
+            document.add(total);
+
+            document.close();
+            return out.toByteArray();
+        } catch (Exception e) {
+            throw new RuntimeException("PDF 생성 실패", e);
+        }
+    }
+
+    private void addHeader(PdfPTable table, String text) {
+        PdfPCell cell = new PdfPCell(new Phrase(text));
+        cell.setBackgroundColor(Color.LIGHT_GRAY);
+        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+        table.addCell(cell);
+    }
+}
