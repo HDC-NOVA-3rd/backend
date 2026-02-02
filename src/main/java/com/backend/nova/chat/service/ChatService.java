@@ -3,6 +3,7 @@ package com.backend.nova.chat.service;
 import com.backend.nova.apartment.entity.Facility;
 import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.apartment.repository.FacilityRepository;
+import com.backend.nova.apartment.service.ApartmentWeatherService;
 import com.backend.nova.chat.dto.ChatRequest;
 import com.backend.nova.chat.dto.ChatResponse;
 import com.backend.nova.chat.dto.LlmCommand;
@@ -17,6 +18,10 @@ import com.backend.nova.homeEnvironment.repository.RoomEnvLogRepository;
 import com.backend.nova.homeEnvironment.repository.RoomRepository;
 import com.backend.nova.resident.entity.Resident;
 import com.backend.nova.resident.repository.ResidentRepository;
+import com.backend.nova.safety.repository.SafetyEventLogRepository;
+import com.backend.nova.safety.repository.SafetyStatusRepository;
+import com.backend.nova.weather.dto.OpenWeatherResponse;
+import com.backend.nova.weather.service.OpenWeatherService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -36,6 +41,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class ChatService {
@@ -51,6 +58,7 @@ public class ChatService {
     private final ResidentRepository residentRepository;
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
+    private final ApartmentWeatherService apartmentWeatherService;
 
     // -------------------------
     // Caches (요청량 절감 핵심)
@@ -105,7 +113,11 @@ public class ChatService {
             FacilityRepository facilityRepository,
             RoomRepository roomRepository,
             RoomEnvLogRepository roomEnvLogRepository,
-            ResidentRepository residentRepository, ChatSessionRepository chatSessionRepository, ChatMessageRepository chatMessageRepository //필요한 의존성을 만들어서 필드에 저장
+            ResidentRepository residentRepository,
+            ChatSessionRepository chatSessionRepository,
+            ChatMessageRepository chatMessageRepository,
+            SafetyEventLogRepository safetyEventLogRepository,
+            SafetyStatusRepository safetyStatusRepository, SafetyEventLogRepository safetyEventLogRepository1, ApartmentWeatherService apartmentWeatherService//필요한 의존성을 만들어서 필드에 저장
     ) {
         this.chatClient = builder.build();
         this.objectMapper = objectMapper;
@@ -116,6 +128,8 @@ public class ChatService {
         this.residentRepository = residentRepository;
         this.chatSessionRepository = chatSessionRepository;
         this.chatMessageRepository = chatMessageRepository;
+        this.apartmentWeatherService = apartmentWeatherService;
+
     }
 
 
@@ -193,6 +207,8 @@ public class ChatService {
             case "ROOM_LIST" -> handleRoomList(sessionId, req);
             // 최근 환경 변화 조회
             case "ENV_HISTORY" -> handleEnvHistory(sessionId, req, cmd);
+            // 단지 별 날씨 조회
+            case "APARTMENT_WEATHER" -> handleApartmentWeather(sessionId, req);
 
             default -> new ChatResponse(sessionId, cmd.reply(), cmd.intent(), cmd.slots());
         };
@@ -259,8 +275,6 @@ public class ChatService {
                 "예: '헬스장 운영시간 알려줘', '거실 온도 알려줘'"
         );
 
-
-
         // ---- ENV_STATUS 룰 ----
         // 방 이름(필요하면 추가)
         // ---- ENV_STATUS 룰 ----
@@ -290,7 +304,6 @@ public class ChatService {
                     ""
             );
         }
-
 
         // ---- FACILITY_INFO 룰 ----
         // 시설명(필요하면 추가)
@@ -324,6 +337,10 @@ public class ChatService {
                     ""
             );
         }
+        if (containsAny(m, "날씨", "외부", "기온", "공기질", "미세먼지")) {
+            return new LlmCommand("APARTMENT_WEATHER", "", Map.of(), false, "");
+        }
+
 
         return null; // 룰로 못 잡으면 LLM로
     }
@@ -640,6 +657,39 @@ public class ChatService {
                 )
         );
     }
+    private ChatResponse handleApartmentWeather(String sessionId, ChatRequest req) {
+
+        // 1) residentId → ho → apartmentId
+        Ho ho = resolveHo(req.residentId());
+        Long apartmentId = resolveApartmentId(ho);
+
+        // 2) 기존 서비스 그대로 재사용
+        OpenWeatherResponse weather =
+                apartmentWeatherService.getApartmentWeather(apartmentId);
+
+
+        // 3) Chat 응답 구성
+        String answer = String.format(
+                "현재 외부 날씨는 %s이며, 기온은 %d°C, 습도는 %d%% 입니다. 공기질은 %s 입니다.",
+                weather.condition(),
+                weather.temperature(),
+                weather.humidity(),
+                weather.airQuality()
+        );
+
+        return new ChatResponse(
+                sessionId,
+                answer,
+                "APARTMENT_WEATHER",
+                Map.of(
+                        "apartmentId", apartmentId,
+                        "weather", weather
+                )
+        );
+    }
+
+
+
 
     // =========================
     // auth/user context helpers
