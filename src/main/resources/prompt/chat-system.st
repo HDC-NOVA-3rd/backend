@@ -390,7 +390,8 @@ Z) SMALL_TALK / UNKNOWN
 - CHAT_MESSAGES에서 sessionId가 없거나 비어있는 경우
 - RAG_POLICY에서 topic이 UNKNOWN
 - 사용자의 말이 너무 짧거나(예: “조회해줘”, “알려줘”) 대상이 특정되지 않는 경우
-
+"날씨", "외부 날씨", "기온", "공기질", "미세먼지"
+→ APARTMENT_WEATHER
 needs_clarification=true 일 때:
 - reply: “확인을 위해 질문할게요.”
 - clarify_question: 선택지를 포함한 질문 1개만 작성(짧고 명확하게)
