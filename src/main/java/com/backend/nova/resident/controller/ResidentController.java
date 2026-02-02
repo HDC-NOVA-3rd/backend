@@ -7,7 +7,6 @@ import com.backend.nova.resident.service.ResidentService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,13 +38,8 @@ public class ResidentController {
     @Operation(summary = "입주민 등록", description = "새로운 입주민을 등록합니다.")
     @PostMapping
     public ResponseEntity<?> createResident(@RequestBody ResidentRequest requestDto) {
-        try {
-            Long residentId = residentService.createResident(requestDto);
-            return ResponseEntity.created(URI.create("/api/resident/" + residentId)).build();
-        } catch (DataIntegrityViolationException e) {
-            // DB unique 제약조건 위반 시 발생
-            return ResponseEntity.badRequest().body("이미 등록된 휴대폰 번호입니다.");
-        }
+        Long residentId = residentService.createResident(requestDto);
+        return ResponseEntity.created(URI.create("/api/resident/" + residentId)).build();
     }
 
     @Operation(summary = "입주민 정보 수정", description = "입주민 정보를 수정합니다.")

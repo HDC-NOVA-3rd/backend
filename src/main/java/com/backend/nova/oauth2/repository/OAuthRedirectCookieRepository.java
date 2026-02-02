@@ -14,11 +14,7 @@ import java.util.Optional;
 
 /**
  * [OAuth2 인증 요청 및 Redirect URI 보존을 위한 쿠키 기반 레포지토리]
- * 
- * 왜 필요한가요?
- * 1. OAuth2 인증은 [앱 -> 서버 -> 소셜로그인창 -> 서버 -> 앱]의 여러 단계를 거칩니다.
- * 2. 이 과정에서 서버는 "나중에 앱의 어디로 돌아가야 하는지(redirect_uri)"를 기억해야 합니다.
- * 3. 우리 서버는 Stateless(JWT) 방식이므로 세션을 쓰지 않기 때문에, 이 정보를 브라우저 쿠키에 잠시 저장해둡니다.
+ * 소셜 로그인 페이지로 리다이렉트하기 직전에 호출되는 코드
  */
 @Component
 public class OAuthRedirectCookieRepository implements AuthorizationRequestRepository<OAuth2AuthorizationRequest> {
@@ -26,7 +22,7 @@ public class OAuthRedirectCookieRepository implements AuthorizationRequestReposi
     // OAuth2 인증 요청 정보를 담을 쿠키 이름
     public static final String OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME = "oauth2_auth_request";
     // 앱에서 파라미터로 보낸 redirect_uri를 담을 쿠키 이름
-    public static final String REDIRECT_URI_PARAM_COOKIE_NAME = "redirect_uri";
+    public static final String REDIRECT_URI = "redirect_uri";
     // 쿠키 유효 시간 (3분: 인증 완료하기에 충분한 시간)
     private static final int cookieExpireSeconds = 180;
 
@@ -42,8 +38,8 @@ public class OAuthRedirectCookieRepository implements AuthorizationRequestReposi
     }
 
     /**
-     * 최초 인증 요청 시, 필요한 정보들을 쿠키에 저장합니다.
-     * 1. Spring Security가 생성한 인증 요청 객체 (state, nonce 등 포함)
+     * [시점] 앱이 OAuth 로그인 버튼을 눌러 서버로 들어왔을 때 실행된다.
+     * 1. Spring Security가 생성한 인증 요청 객체 (state, nonce 등 포함) 쿠키에 저장
      * 2. 클라이언트(Expo)가 파라미터로 보낸 redirect_uri
      */
     @Override
@@ -53,13 +49,15 @@ public class OAuthRedirectCookieRepository implements AuthorizationRequestReposi
             return;
         }
 
-        // 1. 인증 요청 객체를 직렬화해서 쿠키에 저장
+        // 1. Spring Security가 만든 인증 요청 객체를 직렬화해서 쿠키에 저장
+        // (갔다 돌아왔을 때 위조된 요청인지 확인하기 위함)
         addCookie(response, OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME, serialize(authorizationRequest), cookieExpireSeconds);
         
-        // 2. 앱에서 보낸 ?redirect_uri=... 값을 쿠키에 저장 (이게 있어야 나중에 SuccessHandler에서 앱으로 돌려보냄)
-        String redirectUriAfterLogin = request.getParameter(REDIRECT_URI_PARAM_COOKIE_NAME);
+        // 2. 앱에서 보낸 ?redirect_uri=... 값을 쿠키에 저장
+        // (쿠키에 저장을 해야 나중에 SuccessHandler에서 앱으로 돌려보낼 때 같이 보내줌)
+        String redirectUriAfterLogin = request.getParameter(REDIRECT_URI);
         if (StringUtils.hasText(redirectUriAfterLogin)) {
-            addCookie(response, REDIRECT_URI_PARAM_COOKIE_NAME, redirectUriAfterLogin, cookieExpireSeconds);
+            addCookie(response, REDIRECT_URI, redirectUriAfterLogin, cookieExpireSeconds);
         }
     }
 
@@ -76,7 +74,7 @@ public class OAuthRedirectCookieRepository implements AuthorizationRequestReposi
      */
     public void removeAuthorizationRequestCookies(HttpServletRequest request, HttpServletResponse response) {
         deleteCookie(request, response, OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME);
-        deleteCookie(request, response, REDIRECT_URI_PARAM_COOKIE_NAME);
+        deleteCookie(request, response, REDIRECT_URI);
     }
 
     // ================= [ Cookie Helper Methods ] =================

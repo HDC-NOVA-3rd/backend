@@ -154,7 +154,11 @@ public class SecurityConfig {
 
                 // 인가 처리
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/api/member/login", "/api/member/signup", "/api/member/refresh", "/api/resident/verify", "/api/apartment/**").permitAll()
+                        //회원 가입 페이지 API -> 접근 허용
+                        .requestMatchers("/api/resident/verify","/api/member/signup").permitAll()
+                        //로그인 페이지 API -> 접근 허용
+                        .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW").permitAll()
+                        //Swagger 페이지 API -> 접근 허용
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()

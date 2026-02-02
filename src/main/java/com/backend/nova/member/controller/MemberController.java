@@ -54,4 +54,27 @@ public class MemberController {
         TokenResponse tokenResponse = memberService.refresh(request);
         return ResponseEntity.ok(tokenResponse);
     }
+    @Operation(summary = "아이디(계정) 찾기", description = "이름과 휴대폰 번호로 가입된 계정 정보를 찾습니다.")
+    @PostMapping("/findInfo")
+    public ResponseEntity<FindIdResponse> findMemberId(@RequestBody FindIdRequest request) {
+        FindIdResponse response = memberService.findMemberId(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "비밀번호 재설정 요청", description = "일반 회원일 경우 비밀번호를 재설정합니다. (OAuth 불가)")
+    @PostMapping("/resetPW")
+    public ResponseEntity<ResetPWResponse> resetPassword(@RequestBody ResetPWRequest request) {
+        ResetPWResponse resetPWResponse = memberService.resetPassword(request);
+        return ResponseEntity.ok(resetPWResponse);
+    }
+
+    @Operation(summary = "비밀번호 변경", description = "현재 비밀번호를 확인 후 새로운 비밀번호로 변경합니다. (OAuth 불가)")
+    @PutMapping("/password")
+    public ResponseEntity<Void> changePassword(
+            @AuthenticationPrincipal User user,
+            @RequestBody ChangePWRequest request) {
+
+        memberService.changePassword(user.getUsername(), request);
+        return ResponseEntity.ok().build();
+    }
 }

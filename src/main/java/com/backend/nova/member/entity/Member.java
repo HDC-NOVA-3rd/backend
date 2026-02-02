@@ -47,7 +47,6 @@ public class Member {
     private String profileImg;
 
     public void updateOAuthInfo(String provider, String providerId, String profileImage) {
-
         // 일반 가입자도 소셜 로그인을 허용하고, 타입 정보를 갱신한다.
         if (this.loginType == LoginType.NORMAL) {
             this.loginType = LoginType.valueOf(provider.toUpperCase());
@@ -57,5 +56,8 @@ public class Member {
                 this.profileImg = profileImage;
             }
         }
+    }
+    public void updatePassword(String password){
+        this.password = password;
     }
 }
