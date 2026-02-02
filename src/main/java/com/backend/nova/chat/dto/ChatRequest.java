@@ -12,7 +12,7 @@ public record ChatRequest(
 
         String message,
         String sessionId,
-        Long residentId
+        Long memberId
 ) {
 
 
