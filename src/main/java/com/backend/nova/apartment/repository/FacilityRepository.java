@@ -26,4 +26,9 @@ public interface FacilityRepository extends JpaRepository<Facility, Long> {
      * 아파트 ID와 시설 ID로 상세 조회 챗봇용 메서드
      */
     Optional<Facility> findByApartmentIdAndName(Long apartmentId, String name);
+
+    /**
+     * 아파트 ID와 시설 ID로 시설 리스트 조회 챗봇용 메서드
+     */
+    List<Facility> findAllByApartmentId(Long apartmentId);
 }
