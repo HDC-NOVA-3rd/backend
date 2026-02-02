@@ -1,8 +1,13 @@
 package com.backend.nova.chat.service;
 
+import com.backend.nova.apartment.entity.Apartment;
+import com.backend.nova.apartment.entity.Dong;
 import com.backend.nova.apartment.entity.Facility;
 import com.backend.nova.apartment.entity.Ho;
+import com.backend.nova.apartment.repository.ApartmentRepository;
+import com.backend.nova.apartment.repository.DongRepository;
 import com.backend.nova.apartment.repository.FacilityRepository;
+import com.backend.nova.apartment.repository.HoRepository;
 import com.backend.nova.apartment.service.ApartmentWeatherService;
 import com.backend.nova.chat.dto.ChatRequest;
 import com.backend.nova.chat.dto.ChatResponse;
@@ -59,6 +64,9 @@ public class ChatService {
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
     private final ApartmentWeatherService apartmentWeatherService;
+    private final ApartmentRepository apartmentRepository;
+    private final DongRepository dongRepository;
+    private final HoRepository hoRepository;
 
     // -------------------------
     // Caches (요청량 절감 핵심)
@@ -116,8 +124,7 @@ public class ChatService {
             ResidentRepository residentRepository,
             ChatSessionRepository chatSessionRepository,
             ChatMessageRepository chatMessageRepository,
-            SafetyEventLogRepository safetyEventLogRepository,
-            SafetyStatusRepository safetyStatusRepository, SafetyEventLogRepository safetyEventLogRepository1, ApartmentWeatherService apartmentWeatherService//필요한 의존성을 만들어서 필드에 저장
+            ApartmentWeatherService apartmentWeatherService, ApartmentRepository apartmentRepository, DongRepository dongRepository, HoRepository hoRepository//필요한 의존성을 만들어서 필드에 저장
     ) {
         this.chatClient = builder.build();
         this.objectMapper = objectMapper;
@@ -130,6 +137,9 @@ public class ChatService {
         this.chatMessageRepository = chatMessageRepository;
         this.apartmentWeatherService = apartmentWeatherService;
 
+        this.apartmentRepository = apartmentRepository;
+        this.dongRepository = dongRepository;
+        this.hoRepository = hoRepository;
     }
 
 
@@ -197,6 +207,13 @@ public class ChatService {
 
         // intent별 실제 처리 로직 분기
         return switch (cmd.intent()) {
+            case "APARTMENT_WEATHER" -> handleApartmentWeather(sessionId, req);
+            case "MY_PROFILE", "MY_RESIDENT" -> handleMyResident(sessionId, req);
+            case "MY_APARTMENT" -> handleMyApartment(sessionId, req);
+            case "MY_DONG_HO" -> handleMyDongHo(sessionId, req);
+
+            case "APARTMENT_DONG_LIST" -> handleApartmentDongList(sessionId, req);
+            case "DONG_HO_LIST" -> handleDongHoList(sessionId, req, cmd);
             // 시설 정보 조회
             case "FACILITY_INFO" -> handleFacilityInfo(sessionId, req, cmd);
             //아파트 시설 목록 조회
@@ -208,7 +225,8 @@ public class ChatService {
             // 최근 환경 변화 조회
             case "ENV_HISTORY" -> handleEnvHistory(sessionId, req, cmd);
             // 단지 별 날씨 조회
-            case "APARTMENT_WEATHER" -> handleApartmentWeather(sessionId, req);
+
+
 
             default -> new ChatResponse(sessionId, cmd.reply(), cmd.intent(), cmd.slots());
         };
@@ -265,6 +283,8 @@ public class ChatService {
     // Rule-based (LLM 0회 처리)
     // =========================
     private LlmCommand ruleBasedCommand(String message) {
+
+
         if (message == null) return null;
         String m = message.trim();
         if (m.isEmpty()) return new LlmCommand(
@@ -274,6 +294,24 @@ public class ChatService {
                 true,
                 "예: '헬스장 운영시간 알려줘', '거실 온도 알려줘'"
         );
+        // ---- MY_* 룰 ----
+        if (containsAny(m, "내 정보", "내 프로필", "내 주민", "내 입주민")) {
+            return new LlmCommand("MY_PROFILE", "", Map.of(), false, "");
+        }
+        if (containsAny(m, "내 아파트", "아파트 정보")) {
+            return new LlmCommand("MY_APARTMENT", "", Map.of(), false, "");
+        }
+        if (containsAny(m, "내 동", "내 호", "동호", "동/호")) {
+            return new LlmCommand("MY_DONG_HO", "", Map.of(), false, "");
+        }
+        if (containsAny(m, "동 목록", "동 리스트")) {
+            return new LlmCommand("APARTMENT_DONG_LIST", "", Map.of(), false, "");
+        }
+        if (containsAny(m, "호 목록", "호수 목록", "호 리스트")) {
+            // dongId를 물어봐야 할 수도 있지만, 기본은 "내 동" 기준으로 보여주면 UX가 좋음
+            return new LlmCommand("DONG_HO_LIST", "", Map.of("dong_source", "MY"), false, "");
+        }
+
 
         // ---- ENV_STATUS 룰 ----
         // 방 이름(필요하면 추가)
@@ -353,6 +391,167 @@ public class ChatService {
     // =========================
     // intent handlers
     // =========================
+
+    // 로그인한 사용자의 입주민(resident) 기본 정보를 조회한다.
+
+    private ChatResponse handleMyResident(String sessionId, ChatRequest req) {
+        // 1) residentId로 입주민 조회
+        Resident resident = residentRepository.findById(req.residentId())
+                .orElseThrow(() -> new IllegalArgumentException("입주민 정보가 없습니다."));
+        // 2) resident → ho → apartmentId (공통 유틸 메서드 재사용)
+        Ho ho = resolveHo(req.residentId());
+        Long apartmentId = resolveApartmentId(ho);
+
+        // 3) 프론트에서 바로 쓰기 좋은 형태로 응답 구성
+        return new ChatResponse(
+                sessionId,
+                "내 입주민 정보입니다.",
+                "MY_RESIDENT",
+                Map.of(
+                        "resident", Map.of(
+                                "residentId", resident.getId(),
+                                "name", safeString(resident.getName()),
+                                "phone", safeString(resident.getPhone())
+                        ),
+                        "apartmentId", apartmentId
+                )
+        );
+    }
+    // 내가 살고 있는 아파트의 기본 정보를 조회한다.  residentId → ho → apartmentId 흐름을 따른다.
+
+
+    private ChatResponse handleMyApartment(String sessionId, ChatRequest req) {
+
+        // 1) residentId 기준으로 내가 속한 apartmentId 추출
+        Ho ho = resolveHo(req.residentId());
+        Long apartmentId = resolveApartmentId(ho);
+
+        // 2) apartment 조회
+        Apartment apartment = apartmentRepository.findById(apartmentId)
+                .orElseThrow(() -> new IllegalArgumentException("아파트 정보가 없습니다."));
+        // 3) 응답 구성
+        return new ChatResponse(
+                sessionId,
+                "내 아파트 정보입니다.",
+                "MY_APARTMENT",
+                Map.of(
+                        "apartment", Map.of(
+                                "apartmentId", apartment.getId(),
+                                "name", safeString(apartment.getName()),
+                                "address", safeString(apartment.getAddress()),
+                                "latitude", apartment.getLatitude(),
+                                "longitude", apartment.getLongitude()
+                        )
+                )
+        );
+    }
+    // MY_DONG_HO
+    // 사용자가 현재 거주 중인 동(dong)과 호(ho) 정보를 반환한다.
+
+    private ChatResponse handleMyDongHo(String sessionId, ChatRequest req) {
+        // 1) residentId → ho
+        Ho ho = resolveHo(req.residentId());
+
+        // 2) ho → dong
+        Dong dong = ho.getDong(); // lazy면 dongRepository로 조회해도 됨
+
+        // 3) 응답
+        return new ChatResponse(
+                sessionId,
+                "내 동/호 정보입니다.",
+                "MY_DONG_HO",
+                Map.of(
+                        "dong", Map.of(
+                                "dongId", dong.getId(),
+                                "dongNo", safeString(dong.getDongNo())
+                        ),
+                        "ho", Map.of(
+                                "hoId", ho.getId(),
+                                "hoNo", safeString(ho.getHoNo())
+                        )
+                )
+        );
+    }
+    /* APARTMENT_DONG_LIST
+     * - 내가 속한 아파트(apartmentId)의 전체 동 목록을 조회한다.
+     * - residentId만 있으면 서버가 apartmentId를 자동으로 해석한다.*/
+
+    private ChatResponse handleApartmentDongList(String sessionId, ChatRequest req) {
+
+        // 1) residentId → apartmentId
+        Ho ho = resolveHo(req.residentId());
+        Long apartmentId = resolveApartmentId(ho);
+
+        // 2) 해당 아파트에 속한 모든 동 조회
+        List<Dong> dongs = dongRepository.findAllByApartmentId(apartmentId);
+
+        // 3) 프론트 친화적 데이터 구조로 변환
+        List<Map<String, Object>> payload = dongs.stream()
+                .map(d -> Map.<String, Object>of(
+                        "dongId", d.getId(),
+                        "dongNo", safeString(d.getDongNo())
+                ))
+                .toList();
+        // 4) 응답
+        String answer = payload.isEmpty()
+                ? "등록된 동 정보가 없습니다."
+                : "우리 아파트 동 목록입니다.";
+
+        return new ChatResponse(
+                sessionId,
+                answer,
+                "APARTMENT_DONG_LIST",
+                Map.of(
+                        "apartmentId", apartmentId,
+                        "dongs", payload
+                )
+        );
+    }
+
+    /**
+     * DONG_HO_LIST
+     * - 기본 동작: 내가 살고 있는 동의 호 목록 조회
+     * - 확장 가능: 특정 dongId를 지정해서 조회 가능
+     */
+    private ChatResponse handleDongHoList(String sessionId, ChatRequest req, LlmCommand cmd) {
+
+        // 1) 기본은 "내 동"
+        Ho myHo = resolveHo(req.residentId());
+        Long dongId = myHo.getDong().getId();
+
+        // (확장) cmd.slots()에 dongId가 있으면 그걸로 조회도 가능
+        Object dongIdSlot = cmd.slots().get("dongId");
+        if (dongIdSlot instanceof Number n) {
+            dongId = n.longValue();
+        }
+        // 3) 해당 동의 호 목록 조회
+        List<Ho> hos = hoRepository.findAllByDongId(dongId);
+
+        List<Map<String, Object>> payload = hos.stream()
+                .map(h -> Map.<String, Object>of(
+                        "hoId", h.getId(),
+                        "hoNo", safeString(h.getHoNo())
+                ))
+                .toList();
+
+        String answer = payload.isEmpty()
+                ? "해당 동의 호 정보가 없습니다."
+                : "호 목록입니다.";
+
+        return new ChatResponse(
+                sessionId,
+                answer,
+                "DONG_HO_LIST",
+                Map.of(
+                        "dongId", dongId,
+                        "hos", payload
+                )
+        );
+    }
+
+
+
+
 
     private ChatResponse handleFacilityList(String sessionId, ChatRequest req) {
         Ho ho = resolveHo(req.residentId());
