@@ -20,6 +20,7 @@ public class AdminDetails implements UserDetails {
     private final Long apartmentId; // 관리자가 속한 단지 ID
     private final AdminStatus status;
     private final LocalDateTime lockedUntil;
+    private final String role; // 관리자 권한 (ADMIN, SUPER_ADMIN 등)
 
     public AdminDetails(Admin admin) {
         this.adminId = admin.getId();
@@ -28,22 +29,25 @@ public class AdminDetails implements UserDetails {
         this.apartmentId = admin.getApartment().getId(); // 단지 정보
         this.status = admin.getStatus();
         this.lockedUntil = admin.getLockedUntil();
+        this.role = admin.getRole().name();
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // ROLE_ADMIN 권한 부여
-        return Collections.singleton(new SimpleGrantedAuthority("ROLE_ADMIN"));
-    }
-
-    @Override
-    public String getPassword() {
-        return this.password;
+        // ROLE_ADMIN, ROLE_SUPER_ADMIN 형태로 권한 부여
+        return Collections.singleton(
+                new SimpleGrantedAuthority("ROLE_" + role)
+        );
     }
 
     @Override
     public String getUsername() {
         return this.loginId;
+    }
+
+    @Override
+    public String getPassword() {
+        return this.password;
     }
 
     @Override
