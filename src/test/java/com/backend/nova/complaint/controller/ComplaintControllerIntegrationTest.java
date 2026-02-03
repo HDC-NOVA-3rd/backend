@@ -5,9 +5,9 @@ import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.*;
 import com.backend.nova.apartment.repository.*;
 import com.backend.nova.apartment.service.ApartmentWeatherService;
+import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.jwt.JwtProvider;
-import com.backend.nova.auth.test.WithMockAdmin;
-import com.backend.nova.auth.test.WithMockMember;
+import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.complaint.dto.*;
 import com.backend.nova.complaint.entity.*;
 import com.backend.nova.complaint.repository.ComplaintRepository;
@@ -18,11 +18,14 @@ import com.backend.nova.resident.repository.ResidentRepository;
 import com.backend.nova.weather.service.OpenWeatherService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.*;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -39,11 +42,8 @@ class ComplaintControllerIntegrationTest {
     private Long apartmentId;
     private Long targetAdminId;
 
-    @Autowired
-    MockMvc mockMvc;
-
-    @Autowired
-    ObjectMapper objectMapper;
+    @Autowired MockMvc mockMvc;
+    @Autowired ObjectMapper objectMapper;
 
     @MockBean JwtProvider jwtProvider;
     @MockBean ApartmentWeatherService apartmentWeatherService;
@@ -61,10 +61,15 @@ class ComplaintControllerIntegrationTest {
         return prefix + System.nanoTime();
     }
 
+    private Admin admin1;
+    private Admin admin2;
+    private Member member;
+
     @BeforeEach
     void setUp() {
         String u = UUID.randomUUID().toString().substring(0, 8);
 
+        // ---------- 아파트/입주민/회원/관리자/민원 데이터 생성 ----------
         Apartment apartment = apartmentRepository.save(
                 Apartment.builder()
                         .name("테스트 아파트")
@@ -75,30 +80,13 @@ class ComplaintControllerIntegrationTest {
         );
         apartmentId = apartment.getId();
 
-        Dong dong = dongRepository.save(
-                Dong.builder()
-                        .apartment(apartment)
-                        .dongNo("101")
-                        .build()
-        );
-
-        Ho ho = hoRepository.save(
-                Ho.builder()
-                        .dong(dong)
-                        .hoNo("1001")
-                        .floor(10)
-                        .build()
-        );
-
+        Dong dong = dongRepository.save(Dong.builder().apartment(apartment).dongNo("101").build());
+        Ho ho = hoRepository.save(Ho.builder().dong(dong).hoNo("1001").floor(10).build());
         Resident resident = residentRepository.save(
-                Resident.builder()
-                        .ho(ho)
-                        .name("입주민")
-                        .phone(unique("010"))
-                        .build()
+                Resident.builder().ho(ho).name("입주민").phone(unique("010")).build()
         );
 
-        Member member = memberRepository.save(
+        member = memberRepository.save(
                 Member.builder()
                         .resident(resident)
                         .loginId("member_" + u)
@@ -109,7 +97,7 @@ class ComplaintControllerIntegrationTest {
                         .build()
         );
 
-        Admin admin1 = adminRepository.save(
+        admin1 = adminRepository.save(
                 Admin.builder()
                         .apartment(apartment)
                         .loginId("admin1_" + u)
@@ -121,8 +109,7 @@ class ComplaintControllerIntegrationTest {
                         .status(AdminStatus.ACTIVE)
                         .build()
         );
-
-        Admin admin2 = adminRepository.save(
+        admin2 = adminRepository.save(
                 Admin.builder()
                         .apartment(apartment)
                         .loginId("admin2_" + u)
@@ -142,31 +129,47 @@ class ComplaintControllerIntegrationTest {
                         .type(ComplaintType.MAINTENANCE)
                         .title("소음 민원")
                         .content("윗집이 시끄러워요")
-                        .status(ComplaintStatus.RECEIVED) // ⭐ 핵심
+                        .status(ComplaintStatus.RECEIVED)
                         .build()
         );
-
-
         Complaint complaint2 = complaintRepository.save(
                 Complaint.builder()
                         .member(member)
-                        .admin(admin1) // ⭐⭐⭐ 이 줄이 핵심
+                        .admin(admin1) // 여기 추가!
                         .type(ComplaintType.MAINTENANCE)
                         .title("배관 문제")
                         .content("화장실 배관에서 물이 새요.")
-                        .status(ComplaintStatus.ASSIGNED) // 또는 RECEIVED + assign API 먼저 호출
+                        .status(ComplaintStatus.RECEIVED)
                         .build()
         );
 
         complaintId = complaint2.getId();
+
+        // ---------- JWT Mock 설정 ----------
+        setupJwtMocks();
+    }
+
+    private void setupJwtMocks() {
+        AdminDetails adminDetails1 = new AdminDetails(admin1);
+        MemberDetails memberDetails = new MemberDetails(member);
+
+        Mockito.when(jwtProvider.validateToken(Mockito.anyString())).thenReturn(true);
+        Mockito.when(jwtProvider.getAuthentication(Mockito.anyString()))
+                .thenAnswer(invocation -> {
+                    String token = invocation.getArgument(0);
+                    if (token.contains("admin")) {
+                        return new UsernamePasswordAuthenticationToken(adminDetails1, null, adminDetails1.getAuthorities());
+                    } else {
+                        return new UsernamePasswordAuthenticationToken(memberDetails, null, memberDetails.getAuthorities());
+                    }
+                });
     }
 
     // ================= MEMBER =================
-
     @Test
-    @WithMockMember
     void createComplaint() throws Exception {
         mockMvc.perform(post("/api/complaint")
+                        .header("Authorization", "Bearer member-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new ComplaintCreateRequest(
@@ -178,9 +181,9 @@ class ComplaintControllerIntegrationTest {
     }
 
     @Test
-    @WithMockMember
     void updateComplaint() throws Exception {
         mockMvc.perform(put("/api/complaint/{id}", complaintId)
+                        .header("Authorization", "Bearer member-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new ComplaintUpdateRequest(
@@ -192,16 +195,16 @@ class ComplaintControllerIntegrationTest {
     }
 
     @Test
-    @WithMockMember
     void deleteComplaint() throws Exception {
-        mockMvc.perform(delete("/api/complaint/{id}", complaintId))
+        mockMvc.perform(delete("/api/complaint/{id}", complaintId)
+                        .header("Authorization", "Bearer member-token"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockMember
     void createFeedback() throws Exception {
         mockMvc.perform(post("/api/complaint/{id}/feedbacks", complaintId)
+                        .header("Authorization", "Bearer member-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new ComplaintFeedbackCreateRequest("좋아요", BigDecimal.valueOf(5))
@@ -210,41 +213,40 @@ class ComplaintControllerIntegrationTest {
     }
 
     // ================= ADMIN =================
-
     @Test
-    @WithMockAdmin
     void getComplaintsByApartment() throws Exception {
-        mockMvc.perform(get("/api/complaint/apartment/{id}", apartmentId))
+        mockMvc.perform(get("/api/complaint/apartment/{id}", apartmentId)
+                        .header("Authorization", "Bearer admin-token"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockAdmin
     void changeStatus() throws Exception {
         mockMvc.perform(post("/api/complaint/{id}/status", complaintId)
+                        .header("Authorization", "Bearer admin-token")
                         .param("status", ComplaintStatus.ASSIGNED.name()))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockAdmin
     void completeComplaint() throws Exception {
-        mockMvc.perform(post("/api/complaint/{id}/complete", complaintId))
+        mockMvc.perform(post("/api/complaint/{id}/complete", complaintId)
+                        .header("Authorization", "Bearer admin-token"))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockAdmin
     void assignAdmin() throws Exception {
         mockMvc.perform(post("/api/complaint/{id}/assign", complaintId)
+                        .header("Authorization", "Bearer admin-token")
                         .param("targetAdminId", targetAdminId.toString()))
                 .andExpect(status().isOk());
     }
 
     @Test
-    @WithMockAdmin
     void createAnswer() throws Exception {
         mockMvc.perform(post("/api/complaint/{id}/answers", complaintId)
+                        .header("Authorization", "Bearer admin-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 new ComplaintAnswerCreateRequest("처리 완료")
