@@ -19,8 +19,5 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     void deleteByHoId(Long hoId);
 
 
-    // ho까지 같이 당겨오면(지연로딩 문제 예방) 편함
-    @EntityGraph(attributePaths = {"ho"})
-    Optional<Resident> findWithHoById(Long id);
 
 }

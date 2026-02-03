@@ -13,9 +13,9 @@ public class ChatSuggestionService {
         // 지금은 일단 공통 추천질문으로 내려줌
 
         List<ChatSuggestionResponse.SuggestionItem> items = List.of(
-                new ChatSuggestionResponse.SuggestionItem("오늘 아파트 행사 있어?", "오늘 아파트 행사 있어?"),
-                new ChatSuggestionResponse.SuggestionItem("내 예약 정보 알려줘", "내 예약 정보 알려줘"),
-                new ChatSuggestionResponse.SuggestionItem("지금 잡 온도 알려줘", "거실 온도 알려줘"),
+                new ChatSuggestionResponse.SuggestionItem("내 입주민 정보 보여줘", "내 입주민 정보 보여줘"),
+                new ChatSuggestionResponse.SuggestionItem("헬스장 운영시간이 언제야?", "헬스장 운영시간이 언제야?"),
+                new ChatSuggestionResponse.SuggestionItem("지금 거실 온도 알려줘", "거실 온도 알려줘"),
                 new ChatSuggestionResponse.SuggestionItem("관리비 얼마야?", "관리비 얼마야?"),
                 new ChatSuggestionResponse.SuggestionItem("거실 조명 켜줘", "거실 조명 켜줘")
         );
