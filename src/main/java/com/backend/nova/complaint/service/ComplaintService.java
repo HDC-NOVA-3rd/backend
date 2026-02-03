@@ -148,7 +148,7 @@ public class ComplaintService {
         ComplaintAnswer answer = ComplaintAnswer.builder()
                 .complaint(complaint)
                 .admin(admin)
-                .resultContent(request.content())
+                .resultContent(request.resultContent())
                 .build();
 
         // 6️⃣ 저장
