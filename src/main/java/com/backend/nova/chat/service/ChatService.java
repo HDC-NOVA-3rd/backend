@@ -23,7 +23,6 @@ import com.backend.nova.homeEnvironment.repository.RoomEnvLogRepository;
 import com.backend.nova.homeEnvironment.repository.RoomRepository;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
-import com.backend.nova.resident.repository.ResidentRepository;
 import com.backend.nova.weather.dto.OpenWeatherResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.client.ChatClient;
@@ -44,9 +43,6 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 @Service
 public class ChatService {
 
@@ -118,7 +114,6 @@ public class ChatService {
             FacilityRepository facilityRepository,
             RoomRepository roomRepository,
             RoomEnvLogRepository roomEnvLogRepository,
-            ResidentRepository residentRepository,
             ChatSessionRepository chatSessionRepository,
             ChatMessageRepository chatMessageRepository,
             ApartmentWeatherService apartmentWeatherService, ApartmentRepository apartmentRepository, DongRepository dongRepository, HoRepository hoRepository, MemberRepository memberRepository//필요한 의존성을 만들어서 필드에 저장
@@ -132,7 +127,6 @@ public class ChatService {
         this.chatSessionRepository = chatSessionRepository;
         this.chatMessageRepository = chatMessageRepository;
         this.apartmentWeatherService = apartmentWeatherService;
-
         this.apartmentRepository = apartmentRepository;
         this.dongRepository = dongRepository;
         this.hoRepository = hoRepository;
