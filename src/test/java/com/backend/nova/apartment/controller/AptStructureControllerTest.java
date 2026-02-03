@@ -1,48 +1,25 @@
 package com.backend.nova.apartment.controller;
 
+import com.backend.nova.ControllerTestSupport;
 import com.backend.nova.apartment.dto.ApartmentStructure.ApartmentResponse;
 import com.backend.nova.apartment.dto.ApartmentStructure.DongResponse;
 import com.backend.nova.apartment.dto.ApartmentStructure.HoResponse;
 import com.backend.nova.apartment.service.AptStructureService;
-import com.backend.nova.auth.admin.AdminAuthenticationProvider;
-import com.backend.nova.auth.jwt.JwtProvider;
-import com.backend.nova.auth.member.MemberAuthenticationProvider;
-import com.backend.nova.config.SecurityConfig;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.springframework.test.web.servlet.MockMvc;
-
 import java.util.List;
-
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest(AptStructureController.class)
-@Import(SecurityConfig.class) // Security 설정 로드
-class AptStructureControllerTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
+class AptStructureControllerTest extends ControllerTestSupport {
     @MockitoBean
     private AptStructureService aptStructureService;
-
-    // SecurityConfig 로딩을 위해 필요한 빈들을 Mock 처리
-    @MockitoBean
-    private JwtProvider jwtProvider;
-
-    @MockitoBean
-    private MemberAuthenticationProvider memberAuthenticationProvider;
-
-    @MockitoBean
-    private AdminAuthenticationProvider adminAuthenticationProvider;
 
     @Test
     @DisplayName("아파트 목록 조회 성공 테스트")
