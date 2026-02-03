@@ -10,6 +10,8 @@ import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.jwt.JwtToken;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
+import com.backend.nova.member.dto.MemberApartmentResponse;
+import com.backend.nova.member.dto.MemberInfoResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -25,7 +27,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class AdminAuthService {
+public class AdminService {
 
     private final AdminRepository adminRepository;
     private final ApartmentRepository apartmentRepository;
@@ -39,22 +41,26 @@ public class AdminAuthService {
 
     /* ================= 관리자 회원가입 ================= */
     public void createAdmin(AdminCreateRequest request) {
+        // 1. 로그인 상태인 관리자 가져오기
+        Admin currentAdmin = getCurrentAdmin();
 
-        // 1. 로그인 ID 중복 체크
+        // 2. 로그인 ID 중복 체크
         if (adminRepository.findByLoginId(request.loginId()).isPresent()) {
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_ID_DUPLICATED);
         }
 
-        // 2. 이메일 중복 체크
+        // 3. 이메일 중복 체크
         if (adminRepository.findByEmail(request.email()).isPresent()) {
             throw new BusinessException(ErrorCode.ADMIN_EMAIL_DUPLICATED);
         }
 
-        // 3. 아파트 조회 (필수)
-        Apartment apartment = apartmentRepository.findById(request.apartmentId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.APARTMENT_NOT_FOUND));
+        // 4. 현재 로그인한 관리자의 아파트 정보 가져오기
+        Apartment currentApartment = currentAdmin.getApartment();
+        if (currentApartment == null) {
+            throw new BusinessException(ErrorCode.APARTMENT_NOT_FOUND);
+        }
 
-        // 4. 관리자 생성
+        // 5. 관리자 생성
         Admin admin = Admin.builder()
                 .loginId(request.loginId())
                 .passwordHash(passwordEncoder.encode(request.password()))
@@ -66,44 +72,36 @@ public class AdminAuthService {
                                 : AdminRole.ADMIN
                 )
                 .status(AdminStatus.ACTIVE)
-                .apartment(apartment)
+                .apartment(currentApartment) // 로그인한 관리자의 아파트 그대로 사용
                 .build();
 
         adminRepository.save(admin);
     }
 
+
     /* ================= 관리자 로그인 ================= */
     public AdminLoginResponse login(AdminLoginRequest request) {
 
-        // 1 관리자 조회 (존재하지 않아도 동일한 에러)
         Admin admin = adminRepository.findByLoginId(request.loginId())
-                .orElseThrow(() ->
-                        new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED)
-                );
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED));
 
-        // 2 계정 상태 검증 (inactive / locked 등)
         validateAdminStatus(admin);
 
-        // 3 비밀번호 검증
         if (!passwordEncoder.matches(request.password(), admin.getPasswordHash())) {
             handleLoginFailure(admin);
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
         }
 
-        // 4 로그인 성공 처리 (실패 카운트 초기화 등)
         handleLoginSuccess(admin);
 
-        // 5 Authentication 생성
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 admin.getId().toString(),
                 null,
                 List.of(admin.getRole())
         );
 
-        // 6 토큰 발급
         JwtToken tokenResponse = jwtProvider.generateToken(authentication);
 
-        // 7 응답
         return new AdminLoginResponse(
                 admin.getId(),
                 admin.getName(),
@@ -111,7 +109,6 @@ public class AdminAuthService {
                 tokenResponse.refreshToken()
         );
     }
-
 
     /* ================= OTP 로그인 ================= */
     public void sendLoginOtp(String loginId) {
@@ -189,6 +186,40 @@ public class AdminAuthService {
 
     public void logout() {
         // JWT 기반 로그아웃 처리 시 클라이언트에서 토큰 삭제
+    }
+
+    /* ================= Admin Info & Apartment Info ================= */
+    public AdminInfoResponse getAdminInfo(String loginId) {
+        Admin admin = getAdminByLoginId(loginId);
+
+        return new AdminInfoResponse(
+                admin.getLoginId(),
+                admin.getName(),
+                admin.getEmail(),
+                admin.getRole().name(),
+                admin.getStatus().name()
+        );
+    }
+
+    public AdminApartmentResponse getAdminApartmentInfo(String loginId) {
+        Admin admin = getAdminByLoginId(loginId);
+        Apartment apt = admin.getApartment();
+
+        return new AdminApartmentResponse(
+                apt.getId(),
+                apt.getName(),
+                apt.getAddress(),
+                apt.getCity(),
+                apt.getZipCode()
+        );
+    }
+
+    /* ================= Access Token 재발급 ================= */
+    public AdminTokenResponse refresh(AdminRefreshTokenRequest request) {
+        // RefreshToken 유효성 검증
+        JwtToken newToken = jwtProvider.refreshAccessToken(request.refreshToken());
+
+        return new AdminTokenResponse(newToken.accessToken(), newToken.refreshToken());
     }
 
     /* ================= 내부 헬퍼 ================= */
