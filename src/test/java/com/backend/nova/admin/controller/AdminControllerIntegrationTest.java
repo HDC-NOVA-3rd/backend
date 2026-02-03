@@ -8,6 +8,9 @@ import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.controller.ApartmentWeatherController;
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.repository.ApartmentRepository;
+import com.backend.nova.oauth2.handler.OAuthSuccessHandler;
+import com.backend.nova.oauth2.repository.OAuthRedirectCookieRepository;
+import com.backend.nova.oauth2.service.CustomOAuth2UserService;
 import com.backend.nova.weather.service.OpenWeatherService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,10 +19,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.UUID;
@@ -47,7 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 class AdminControllerIntegrationTest {
 
-    @MockBean
+    @MockitoBean
     private OpenWeatherService openWeatherService; // 실제 API 호출 막기
 
     @Autowired
@@ -67,6 +71,18 @@ class AdminControllerIntegrationTest {
 
     @Autowired
     PasswordEncoder passwordEncoder;
+
+    @MockitoBean
+    private CustomOAuth2UserService customOAuth2UserService;
+
+    @MockitoBean
+    private OAuthSuccessHandler oAuthSuccessHandler;
+
+    @MockitoBean
+    private OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
+
+    @MockitoBean
+    private ClientRegistrationRepository clientRegistrationRepository;
 
     @BeforeEach
     void cleanDb() {
