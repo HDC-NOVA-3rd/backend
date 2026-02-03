@@ -74,7 +74,7 @@ public class SecurityConfig {
 
         http
                 // 관리자 API 경로만 처리
-                .securityMatcher("/api/admin/**", "/api/resident/**")
+                .securityMatcher("/api/admin/**")
 
                 // 관리자 AuthenticationProvider 사용
                 .authenticationProvider(adminAuthenticationProvider)
@@ -96,7 +96,6 @@ public class SecurityConfig {
                         // 인증 없이 접근 가능
                         .requestMatchers("/api/admin/login/**").permitAll()
                         .requestMatchers("/api/admin/password/**").permitAll()
-                        .requestMatchers("/api/resident/verify").permitAll()
 
                         // 관리자 생성 (슈퍼 관리자만)
                         .requestMatchers(HttpMethod.POST, "/api/admin")
