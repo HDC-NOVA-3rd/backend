@@ -2,6 +2,7 @@ package com.backend.nova.auth.admin;
 
 
 import com.backend.nova.admin.entity.Admin;
+import com.backend.nova.admin.entity.AdminStatus;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -51,6 +52,7 @@ public class AdminDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return admin.getStatus() != null && admin.getStatus().equals("ACTIVE");
+        return admin.getStatus() == AdminStatus.ACTIVE;
     }
+
 }
