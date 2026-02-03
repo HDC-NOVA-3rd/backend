@@ -24,6 +24,7 @@ public enum ErrorCode {
     // ================= Apartment =================
     APARTMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "아파트를 찾을 수 없습니다."),
     HO_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 호 정보를 찾을 수 없습니다."),
+    FACILITY_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 시설을 찾을 수 없습니다."),
 
 
     // ================= OTP =================
