@@ -90,6 +90,27 @@ public class MemberService {
     @Transactional
     public TokenResponse registerMember(SignupRequest request) {
         if (memberRepository.existsByLoginId(request.loginId())) {
+            if (request.loginType() != LoginType.NORMAL) {
+                Member existingMember = memberRepository.findByLoginId(request.loginId())
+                        .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+
+                existingMember.updateOAuthInfo(request.loginType().name(), request.loginId(), request.profileImg());
+
+                Authentication authentication = new UsernamePasswordAuthenticationToken(
+                        existingMember.getLoginId(),
+                        null,
+                        Collections.singletonList(new SimpleGrantedAuthority("MEMBER"))
+                );
+
+                JwtToken jwtToken = jwtProvider.generateToken(authentication);
+
+                return TokenResponse.builder()
+                        .accessToken(jwtToken.accessToken())
+                        .refreshToken(jwtToken.refreshToken())
+                        .memberId(existingMember.getId())
+                        .name(existingMember.getName())
+                        .build();
+            }
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID); // 409 Conflict 발생
         }
 
