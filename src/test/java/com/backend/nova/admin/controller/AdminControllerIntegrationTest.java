@@ -96,7 +96,7 @@ class AdminControllerIntegrationTest {
         Admin admin = Admin.builder()
                 .loginId("admin-" + uuid)
                 .email("admin-" + uuid + "@test.com")
-                .passwordHash(passwordEncoder.encode("12345678"))
+                .password(passwordEncoder.encode("12345678"))
                 .name("테스트 관리자")
                 .role(AdminRole.ADMIN)
                 .status(AdminStatus.ACTIVE)
