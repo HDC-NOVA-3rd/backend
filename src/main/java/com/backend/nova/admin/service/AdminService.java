@@ -297,32 +297,41 @@ public class AdminService {
         // 필요한 로그아웃 로직 (JWT blacklist 등) 구현 가능
     }
 
+    /**
+     * 슈퍼관리자 로그인 OTP 검증
+     *
+     * 1. 로그인 시 발급된 OTP 확인
+     * 2. OTP 검증 성공 시 JWT 발급
+     */
     @Transactional
     public TokenResponse loginVerifyOtp(SuperAdminLoginRequest request) {
-        // 1. 관리자 조회
+        // 1. 로그인 아이디로 관리자 조회
         Admin admin = adminRepository.findByLoginId(request.loginId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
-        // 2. 상태 체크
+        // 2. 계정 상태 검증 (잠김, 비활성 등)
         validateAdminStatus(admin);
 
-        // 3. OTP 조회 (LOGIN 용도)
+        // 3. OTP 조회 (미검증된 최신 OTP, LOGIN 용도)
         AdminMfaOtp otp = otpRepository
                 .findTopByAdminAndPurposeAndVerifiedAtIsNullOrderByCreatedAtDesc(admin, OtpPurpose.LOGIN)
                 .orElseThrow(() -> new BusinessException(ErrorCode.OTP_NOT_FOUND));
 
         // 4. OTP 검증
-        if (otp.isExpired()) throw new BusinessException(ErrorCode.OTP_EXPIRED);
-        if (otp.getAttemptCount() >= 5) throw new BusinessException(ErrorCode.OTP_MAX_ATTEMPTS);
+        if (otp.isExpired()) {
+            throw new BusinessException(ErrorCode.OTP_EXPIRED);
+        }
+        if (otp.getAttemptCount() >= 5) {
+            throw new BusinessException(ErrorCode.OTP_MAX_ATTEMPTS);
+        }
         if (!otp.getOtpCode().equals(request.otpCode())) {
             otp.increaseAttempt();
             otpRepository.save(otp);
             throw new BusinessException(ErrorCode.OTP_INVALID);
         }
 
-        // 5. 검증 완료 표시
-        otp.markVerified();
-        otpRepository.save(otp);
+        // 5. OTP 검증 완료 처리
+        markOtpVerified(otp);
 
         // 6. JWT 발급
         AdminDetails adminDetails = new AdminDetails(admin);
@@ -343,5 +352,6 @@ public class AdminService {
                 .role(admin.getRole().name())
                 .build();
     }
+
 
 }

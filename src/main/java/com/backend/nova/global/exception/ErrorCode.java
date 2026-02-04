@@ -8,6 +8,8 @@ public enum ErrorCode {
     ADMIN_LOGIN_ID_DUPLICATED(HttpStatus.CONFLICT, "이미 존재하는 관리자 ID입니다."),
     ADMIN_EMAIL_DUPLICATED(HttpStatus.CONFLICT, "이미 존재하는 관리자 이메일입니다."),
 
+    SUPER_ADMIN_OTP_REQUIRED(HttpStatus.CONFLICT, "슈퍼 관리자는 로그인시 OTP가 필요합니다."),
+
     // 로그인에서 사용하지 말 것 (조회/관리 API용)
     ADMIN_NOT_FOUND(HttpStatus.NOT_FOUND, "관리자를 찾을 수 없습니다."),
 
