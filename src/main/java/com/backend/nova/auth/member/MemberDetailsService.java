@@ -19,10 +19,6 @@ public class MemberDetailsService implements UserDetailsService {
         Member member = memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new UsernameNotFoundException(loginId));
 
-        return User.builder()
-                .username(member.getLoginId())
-                .password(member.getPassword())
-                .roles("MEMBER")
-                .build();
+        return new MemberDetails(member);
     }
 }

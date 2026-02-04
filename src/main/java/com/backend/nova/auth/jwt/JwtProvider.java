@@ -16,6 +16,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -48,6 +50,36 @@ public class JwtProvider {
         this.memberRepository = memberRepository;
     }
 
+    public String createRegisterToken(String email, String name, String provider, String providerId, String phoneNumber, String birthDate) {
+        Date now = new Date();
+        Date validity = new Date(now.getTime() + 1000 * 60 * 10); // 10분만 유효
+
+        return Jwts.builder()
+                .subject("REGISTER_USER")      // 주제 설정
+                .claim("email", email)         // 데이터 추가 (.put 대신 .claim 사용)
+                .claim("name", name)
+                .claim("provider", provider)
+                .claim("providerId", providerId)
+                .claim("phone", phoneNumber)
+                .claim("birthDate", birthDate)
+                .expiration(validity)          // 만료 시간
+                .signWith(secretKey) // 서명
+                .compact();
+    }
+
+    public JwtToken generateToken(Authentication authentication) {
+        String accessToken = createAccessToken(authentication);
+        String refreshToken = createRefreshToken(authentication);
+
+        return JwtToken.builder()
+                .grantType("Bearer")
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .build();
+    }
+
+    // [신규] Access Token만 생성 (Refresh 요청 시 사용)
+    public String createAccessToken(Authentication authentication) {
     // 로그인 성공 시 new 토큰 생성 (Access + Refresh)
     public TokenResponse generateToken(Authentication authentication) {
         // 1. 권한 가져오기: 로그인한 사용자의 권한 리스트를 ","로 구분된 문자열로 만듦
@@ -55,27 +87,27 @@ public class JwtProvider {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
-        long now = new Date().getTime();
+        long now = (new Date()).getTime();
         Date accessTokenExpiresIn = new Date(now + accessTokenExpires);
+
+        return Jwts.builder()
+                .subject(authentication.getName())
+                .claim("auth", authorities)
+                .expiration(accessTokenExpiresIn)
+                .signWith(secretKey)
+                .compact();
+    }
+
+    // [신규] Refresh Token만 생성 (내부 호출용)
+    public String createRefreshToken(Authentication authentication) {
+        long now = (new Date()).getTime();
         Date refreshTokenExpiresIn = new Date(now + refreshTokenExpires);
 
-        String accessToken = Jwts.builder()
-                .subject(authentication.getName()) // adminId or memberId
-                .claim("auth", authorities)         // 권한 정보
-                .expiration(accessTokenExpiresIn)
-                .signWith(secretKey)                // 비밀키 서명
-                .compact();
-
-        String refreshToken = Jwts.builder()
+        return Jwts.builder()
+                .subject(authentication.getName())
                 .expiration(refreshTokenExpiresIn)
                 .signWith(secretKey)
                 .compact();
-
-        return TokenResponse.builder()
-                .grantType("Bearer")
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .build();
     }
 
     // 검증된 토큰에서 인증 정보(Authentication) 추출 -> validateToken() 이후 실행
@@ -90,43 +122,20 @@ public class JwtProvider {
         Collection<? extends GrantedAuthority> authorities =
                 Arrays.stream(claims.get("auth").toString().split(","))
                         .map(SimpleGrantedAuthority::new)
-                        .toList();
-        // "ROLE_MEMBER", "ROLE_ADMIN", "ROLE_SUPER_ADMIN" 등
+                        .collect(Collectors.toList());
+        // "ROLE_USER,ROLE_ADMIN" 문자열 split -> GrantedAuthority 객체 리스트 변환
 
-        String subject = claims.getSubject(); // adminId or memberId
-
-        // ================= ADMIN =================
-        if (authorities.stream().anyMatch(a -> a.getAuthority().startsWith("ROLE_ADMIN"))) {
-            Long adminId = Long.parseLong(subject);
-            Admin admin = adminRepository.findById(adminId)
-                    .orElseThrow(() -> new RuntimeException("Admin not found"));
-
-            AdminDetails principal = new AdminDetails(admin);
-
-            return new UsernamePasswordAuthenticationToken(
-                    principal, "", authorities
-            );
-        }
-
-        // ================= MEMBER =================
-        Long memberId = Long.parseLong(subject);
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new RuntimeException("Member not found"));
-
-        MemberDetails principal = new MemberDetails(member);
-
-        return new UsernamePasswordAuthenticationToken(
-                principal, "", authorities
-        );
+        // User: UserDetails 구현체
+        // 사전에 검증된 토큰이므로 비밀번호는 빈 문자열("")로 둔다.
+        UserDetails principal = new User(claims.getSubject(), "", authorities);
+        return new UsernamePasswordAuthenticationToken(principal, "", authorities);
     }
 
     // 토큰 유효성 검사 (요청 시 Filter에서 가장 먼저 실행)
     public boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                    .verifyWith(secretKey)
-                    .build()
-                    .parseSignedClaims(token);
+            // secretKey 기반으로 입력된 token 파싱
+            Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token);
             return true;
         } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
             log.info("잘못된 JWT 서명입니다.");
@@ -138,6 +147,11 @@ public class JwtProvider {
             log.info("JWT 토큰이 잘못되었습니다.");
         }
         return false;
+    }
+
+    // 토큰에서 Subject(사용자 ID) 추출
+    public String getSubject(String token) {
+        return parseClaims(token).getSubject();
     }
 
     // accessToken Payload(Claims)를 반환하는 메서드

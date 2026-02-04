@@ -1,17 +1,14 @@
 package com.backend.nova.member.controller;
 
-import com.backend.nova.member.dto.LoginRequest;
-import com.backend.nova.member.dto.SignupRequest;
-import com.backend.nova.member.dto.TokenResponse;
+import com.backend.nova.member.dto.*;
 import com.backend.nova.member.service.MemberService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 
@@ -32,8 +29,52 @@ public class MemberController {
 
     @Operation(summary = "회원 가입", description = "새로운 회원을 등록합니다.")
     @PostMapping("/signup")
-    public ResponseEntity<Void> registerMember(@RequestBody SignupRequest request) {
-        Long memberId = memberService.registerMember(request);
-        return ResponseEntity.created(URI.create("/api/member/" + memberId)).build();
+    public ResponseEntity<TokenResponse> registerMember(@RequestBody SignupRequest request) {
+        TokenResponse tokenResponse = memberService.registerMember(request);
+        return ResponseEntity.ok(tokenResponse);
+    }
+
+    @Operation(summary = "내 정보 조회", description = "현재 로그인한 회원의 상세 정보를 조회합니다.")
+    @GetMapping("/profile")
+    public ResponseEntity<MemberInfoResponse> getMyInfo(@AuthenticationPrincipal User user) {
+        MemberInfoResponse response = memberService.getMemberInfo(user.getUsername());
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "내 아파트 정보 조회", description = "현재 로그인한 회원의 아파트(동/호수) 정보를 조회합니다.")
+    @GetMapping("/apartment")
+    public ResponseEntity<MemberApartmentResponse> getMyApartmentInfo(@AuthenticationPrincipal User user) {
+        MemberApartmentResponse response = memberService.getMemberApartmentInfo(user.getUsername());
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Access 토큰 재발급", description = "Access 토큰이 만료되는 경우 Refresh 토큰을 사용하여 새로운 Access 토큰을 발급받습니다.")
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenResponse> refresh(@RequestBody RefreshTokenRequest request) {
+        TokenResponse tokenResponse = memberService.refresh(request);
+        return ResponseEntity.ok(tokenResponse);
+    }
+    @Operation(summary = "아이디(계정) 찾기", description = "이름과 휴대폰 번호로 가입된 계정 정보를 찾습니다.")
+    @PostMapping("/findInfo")
+    public ResponseEntity<FindIdResponse> findMemberId(@RequestBody FindIdRequest request) {
+        FindIdResponse response = memberService.findMemberId(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "비밀번호 재설정 요청", description = "일반 회원일 경우 비밀번호를 재설정합니다. (OAuth 불가)")
+    @PostMapping("/resetPW")
+    public ResponseEntity<ResetPWResponse> resetPassword(@RequestBody ResetPWRequest request) {
+        ResetPWResponse resetPWResponse = memberService.resetPassword(request);
+        return ResponseEntity.ok(resetPWResponse);
+    }
+
+    @Operation(summary = "비밀번호 변경", description = "현재 비밀번호를 확인 후 새로운 비밀번호로 변경합니다. (OAuth 불가)")
+    @PutMapping("/password")
+    public ResponseEntity<Void> changePassword(
+            @AuthenticationPrincipal User user,
+            @RequestBody ChangePWRequest request) {
+
+        memberService.changePassword(user.getUsername(), request);
+        return ResponseEntity.ok().build();
     }
 }

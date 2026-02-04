@@ -1,0 +1,43 @@
+package com.backend.nova.oauth2.service;
+
+import com.backend.nova.oauth2.dto.*;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.stereotype.Service;
+
+// [시점] 소셜 서버(Google/Naver)로부터 사용자 정보를 성공적으로 받아왔을 때 실행된다.
+@Slf4j
+@Service
+public class CustomOAuth2UserService extends DefaultOAuth2UserService {
+    // 1. 소셜 API를 호출하여 JSON 데이터(이메일, 이름 등)를 가져옴
+    // [예외 발생 가능] 소셜 서버 통신 실패 시 RestClientException 발생
+    @Override
+    public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+        // 소셜 로그인 API에서 유저 정보 가져오기
+        OAuth2User oAuth2User = super.loadUser(userRequest);
+        log.info(String.valueOf(oAuth2User));
+
+        String registrationId = userRequest.getClientRegistration().getRegistrationId();
+        OAuth2Response oAuth2Response = null;
+
+        // 2. 플랫폼마다 다른 JSON 구조를 서버 공통 Type(OAuth2Response)으로 변환
+        if (registrationId.equals("naver")) {
+            oAuth2Response = NaverResponse.from(oAuth2User.getAttributes());
+        }
+        else if (registrationId.equals("google")) {
+            oAuth2Response = GoogleResponse.from(oAuth2User.getAttributes());
+        }
+        else {
+            // [예외 발생 가능] application.yaml에 설정되지 않은 이상한 소셜 로그인 요청이 들어온 경우
+            throw new OAuth2AuthenticationException("지원하지 않는 소셜 로그인입니다.");
+        }
+
+        // 3. CustomOAuth2User 객체 생성 및 반환 (DB 저장 X)
+        // role은 임시로 GUEST 설정
+        return new CustomOAuth2User(oAuth2Response, "ROLE_GUEST");
+
+    }
+}
