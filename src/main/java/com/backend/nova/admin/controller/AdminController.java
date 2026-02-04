@@ -133,7 +133,7 @@ public class AdminController {
     }
 
     /**
-     * 슈퍼관리자 로그인시 otp인증
+     * 슈퍼관리자 로그인시도시 otp인증
      * POST /api/admin/login/verify-otp
      */
     @PostMapping("/login/verify-otp")
