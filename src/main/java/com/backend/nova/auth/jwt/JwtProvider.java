@@ -207,6 +207,32 @@ public class JwtProvider {
         return false;
     }
 
+    /* ================== Refresh Token → Authentication 처리 ================== */
+
+    public Authentication getAuthenticationFromRefreshToken(String refreshToken) {
+        Claims claims = parseClaims(refreshToken);
+        String subject = claims.getSubject(); // adminId or memberId
+
+        // Admin 먼저 확인
+        if (adminRepository.existsById(Long.parseLong(subject))) {
+            Admin admin = adminRepository.findById(Long.parseLong(subject))
+                    .orElseThrow(() -> new RuntimeException("Admin not found"));
+            AdminDetails principal = new AdminDetails(admin);
+            // 권한은 ADMIN 단일로 처리
+            return new UsernamePasswordAuthenticationToken(principal, "", principal.getAuthorities());
+        }
+
+        // Member 확인
+        if (memberRepository.existsById(Long.parseLong(subject))) {
+            Member member = memberRepository.findById(Long.parseLong(subject))
+                    .orElseThrow(() -> new RuntimeException("Member not found"));
+            MemberDetails principal = new MemberDetails(member);
+            return new UsernamePasswordAuthenticationToken(principal, "", principal.getAuthorities());
+        }
+
+        throw new RuntimeException("Invalid refresh token subject");
+    }
+
     /* ================== 공통 유틸 ================== */
 
     // 토큰에서 Subject 추출

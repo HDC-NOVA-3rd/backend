@@ -8,9 +8,10 @@ import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.jwt.JwtProvider;
-import com.backend.nova.auth.jwt.JwtToken;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
+import com.backend.nova.member.dto.RefreshTokenRequest;
+import com.backend.nova.member.dto.TokenResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -39,26 +40,21 @@ public class AdminService {
 
     /* ================= 관리자 회원가입 ================= */
     public void createAdmin(AdminCreateRequest request) {
-        // 1. 로그인 상태인 관리자 가져오기
         Admin currentAdmin = getCurrentAdmin();
 
-        // 2. 로그인 ID 중복 체크
         if (adminRepository.findByLoginId(request.loginId()).isPresent()) {
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_ID_DUPLICATED);
         }
 
-        // 3. 이메일 중복 체크
         if (adminRepository.findByEmail(request.email()).isPresent()) {
             throw new BusinessException(ErrorCode.ADMIN_EMAIL_DUPLICATED);
         }
 
-        // 4. 현재 로그인한 관리자의 아파트 정보 가져오기
         Apartment currentApartment = currentAdmin.getApartment();
         if (currentApartment == null) {
             throw new BusinessException(ErrorCode.APARTMENT_NOT_FOUND);
         }
 
-        // 5. 관리자 생성
         Admin admin = Admin.builder()
                 .loginId(request.loginId())
                 .password(passwordEncoder.encode(request.password()))
@@ -73,8 +69,7 @@ public class AdminService {
     }
 
     /* ================= 관리자 로그인 ================= */
-    public AdminLoginResponse login(AdminLoginRequest request) {
-
+    public TokenResponse login(AdminLoginRequest request) {
         Admin admin = adminRepository.findByLoginId(request.loginId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED));
 
@@ -87,8 +82,10 @@ public class AdminService {
 
         handleLoginSuccess(admin);
 
+        // AdminDetails 생성
         AdminDetails adminDetails = new AdminDetails(admin);
 
+        // Authentication 객체 생성
         Authentication authentication =
                 new UsernamePasswordAuthenticationToken(
                         adminDetails,
@@ -96,18 +93,12 @@ public class AdminService {
                         adminDetails.getAuthorities()
                 );
 
-        JwtToken token = jwtProvider.generateToken(authentication);
-
-        return new AdminLoginResponse(
-                admin.getId(),
-                admin.getName(),
-                token.accessToken(),
-                token.refreshToken()
-        );
+        // JWT 발급 (공용 TokenResponse 사용)
+        return jwtProvider.generateToken(authentication);
     }
 
     /* ================= OTP 로그인 ================= */
-    public AdminLoginResponse verifyLoginOtp(SuperAdminLoginRequest request) {
+    public TokenResponse verifyLoginOtp(SuperAdminLoginRequest request) {
         Admin admin = getAdminByLoginId(request.loginId());
 
         AdminMfaOtp otp = getLatestOtp(admin, OtpPurpose.LOGIN);
@@ -123,14 +114,7 @@ public class AdminService {
                         adminDetails.getAuthorities()
                 );
 
-        JwtToken token = jwtProvider.generateToken(authentication);
-
-        return new AdminLoginResponse(
-                admin.getId(),
-                admin.getName(),
-                token.accessToken(),
-                token.refreshToken()
-        );
+        return jwtProvider.generateToken(authentication);
     }
 
     /* ================= 비밀번호 재설정 ================= */
@@ -178,21 +162,12 @@ public class AdminService {
     }
 
     /* ================= Access Token 재발급 ================= */
-    public AdminTokenResponse refresh(AdminRefreshTokenRequest request) {
-        JwtToken token = jwtProvider.refreshAccessToken(request.refreshToken());
+    public TokenResponse refresh(RefreshTokenRequest request) {
+        // 1. Refresh Token → Authentication
+        Authentication auth = jwtProvider.getAuthenticationFromRefreshToken(request.refreshToken());
 
-        Authentication auth = jwtProvider.getAuthentication(token.accessToken());
-        AdminDetails adminDetails = (AdminDetails) auth.getPrincipal();
-
-        Admin admin = adminRepository.findById(adminDetails.getAdminId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
-
-        return new AdminTokenResponse(
-                token.accessToken(),
-                token.refreshToken(),
-                admin.getId(),
-                admin.getName()
-        );
+        // 2. JWT 재발급
+        return jwtProvider.generateToken(auth);
     }
 
     /* ================= 내부 헬퍼 ================= */
@@ -275,26 +250,13 @@ public class AdminService {
 
     /* ================= 현재 로그인 관리자 ================= */
     private Admin getCurrentAdmin() {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication == null ||
-                !(authentication.getPrincipal() instanceof AdminDetails adminDetails)) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof AdminDetails adminDetails)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
 
         return adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
-    }
-
-    public AdminApartmentResponse getAdminApartmentInfo(String loginId) {
-        return null;
-    }
-
-    public AdminInfoResponse getAdminInfoById(long l) {
-        return null;
-    }
-
-    public void logout() {
     }
 }

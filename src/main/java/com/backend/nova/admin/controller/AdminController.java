@@ -5,6 +5,8 @@ import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.service.AdminService;
 import com.backend.nova.admin.dto.AdminApartmentResponse;
 import com.backend.nova.admin.dto.AdminInfoResponse;
+import com.backend.nova.member.dto.RefreshTokenRequest;
+import com.backend.nova.member.dto.TokenResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -39,7 +41,7 @@ public class AdminController {
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody @Valid AdminLoginRequest request) {
-        AdminLoginResponse response = adminService.login(request);
+        TokenResponse response = adminService.login(request);
         return ResponseEntity.ok(response);
     }
 
@@ -50,7 +52,7 @@ public class AdminController {
     // @PostMapping("/login/verify-otp")
     // @PreAuthorize("hasRole('SUPER_ADMIN')")
     // public ResponseEntity<?> loginVerifyOtp(@RequestBody AdminLoginOtpVerifyRequest request) {
-    //     AdminLoginResponse response = adminAuthService.loginVerifyOtp(request);
+    //     TokenResponse response = adminAuthService.loginVerifyOtp(request);
     //     return ResponseEntity.ok(response);
     // }
 
@@ -123,8 +125,8 @@ public class AdminController {
      */
     @Operation(summary = "Access 토큰 재발급", description = "Access 토큰이 만료되는 경우 Refresh 토큰을 사용하여 새로운 Access 토큰을 발급받습니다.")
     @PostMapping("/refresh")
-    public ResponseEntity<AdminTokenResponse> refresh(@RequestBody AdminRefreshTokenRequest request) {
-        AdminTokenResponse tokenResponse = adminService.refresh(request);
+    public ResponseEntity<TokenResponse> refresh(@RequestBody RefreshTokenRequest request) {
+        TokenResponse tokenResponse = adminService.refresh(request);
         return ResponseEntity.ok(tokenResponse);
     }
 
