@@ -20,7 +20,7 @@ public class MemberDetails extends User {
     private final Long dongId;
 
     public MemberDetails(Member member) {
-        // 부모(User) 생성자 호출 (딱 1번만!)
+        // 부모(User) 생성자 호출
         super(
                 member.getLoginId(),
                 member.getPassword(),

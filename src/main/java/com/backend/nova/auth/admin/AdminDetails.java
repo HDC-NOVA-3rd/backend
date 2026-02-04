@@ -15,17 +15,19 @@ import java.util.Collections;
 public class AdminDetails implements UserDetails {
 
     private final Long adminId;
-    private final String loginId;
-    private final String password;
-    private final Long apartmentId; // 관리자가 속한 단지 ID
-    private final AdminStatus status;
-    private final LocalDateTime lockedUntil;
-    private final String role; // 관리자 권한 (ADMIN, SUPER_ADMIN 등)
+    private final String loginId;          // 로그인 아이디
+    private final String password;         // 비밀번호 해시
+    private final String name;             // 관리자 이름
+    private final Long apartmentId;        // 관리자가 속한 단지 ID
+    private final AdminStatus status;      // 계정 상태 (ACTIVE, INACTIVE 등)
+    private final LocalDateTime lockedUntil; // 계정 잠금 해제 시각
+    private final String role;             // 관리자 권한 (ADMIN, SUPER_ADMIN 등)
 
     public AdminDetails(Admin admin) {
         this.adminId = admin.getId();
         this.loginId = admin.getLoginId();
         this.password = admin.getPassword();
+        this.name = admin.getName();
         this.apartmentId = admin.getApartment().getId(); // 단지 정보
         this.status = admin.getStatus();
         this.lockedUntil = admin.getLockedUntil();
@@ -35,24 +37,24 @@ public class AdminDetails implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         // ROLE_ADMIN, ROLE_SUPER_ADMIN 형태로 권한 부여
-        return Collections.singleton(
-                new SimpleGrantedAuthority("ROLE_" + role)
-        );
+        return Collections.singleton(new SimpleGrantedAuthority("ROLE_" + role));
     }
 
     @Override
     public String getUsername() {
+        // Spring Security에서 로그인 아이디 반환
         return this.loginId;
     }
 
     @Override
     public String getPassword() {
+        // Spring Security에서 비밀번호 반환
         return this.password;
     }
 
     @Override
     public boolean isAccountNonExpired() {
-        // 만료 정책이 없으면 항상 true
+        // 계정 만료 정책이 없으면 항상 true
         return true;
     }
 
@@ -71,6 +73,6 @@ public class AdminDetails implements UserDetails {
     @Override
     public boolean isEnabled() {
         // 상태가 ACTIVE여야 활성화
-        return this.status == AdminStatus.ACTIVE;
+        return status == AdminStatus.ACTIVE;
     }
 }

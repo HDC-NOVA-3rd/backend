@@ -85,26 +85,35 @@ public class JwtProvider {
         String accessToken = createAccessToken(authentication);
         String refreshToken = createRefreshToken(authentication);
 
-        Long memberId = null;
-        String name = null;
+        Long id;
+        String name;
+        String loginId;
+        String role;
 
         /* ================= ADMIN ================= */
-        if (authentication.getPrincipal() instanceof AdminDetails adminDetails) {
-            memberId = adminDetails.getAdminId();
-            name = adminDetails.getLoginId(); // 또는 Admin 엔티티에 name 있으면 그걸로
+        if (authentication.getPrincipal() instanceof AdminDetails admin) {
+            id = admin.getAdminId();
+            name = admin.getName();
+            loginId = admin.getLoginId();
+            role = admin.getRole();
         }
-
         /* ================= MEMBER ================= */
-        if (authentication.getPrincipal() instanceof MemberDetails memberDetails) {
-            memberId = memberDetails.getMemberId();
-            name = memberDetails.getName();
+        else if (authentication.getPrincipal() instanceof MemberDetails member) {
+            id = member.getMemberId();
+            name = member.getName();
+            loginId = member.getUsername();
+            role = "MEMBER";
+        } else {
+            throw new RuntimeException("Unknown principal type");
         }
 
         return TokenResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
-                .memberId(memberId)
+                .id(id)
+                .loginId(loginId)
                 .name(name)
+                .role(role)
                 .build();
     }
 
