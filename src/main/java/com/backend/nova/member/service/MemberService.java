@@ -62,7 +62,7 @@ public class MemberService {
 
         return TokenResponse.builder()
                 .accessToken(newAccessToken)
-                .memberId(member.getId())
+                .id(member.getId())
                 .name(member.getName())
                 .build();
     }
@@ -82,7 +82,7 @@ public class MemberService {
         return TokenResponse.builder()
                 .accessToken(jwtToken.accessToken())
                 .refreshToken(jwtToken.refreshToken())
-                .memberId(userDetails.getMemberId())
+                .id(userDetails.getMemberId())
                 .name(userDetails.getName())
                 .build();
     }
@@ -107,7 +107,7 @@ public class MemberService {
                 return TokenResponse.builder()
                         .accessToken(jwtToken.accessToken())
                         .refreshToken(jwtToken.refreshToken())
-                        .memberId(existingMember.getId())
+                        .id(existingMember.getId())
                         .name(existingMember.getName())
                         .build();
             }
@@ -134,7 +134,7 @@ public class MemberService {
         return TokenResponse.builder()
                 .accessToken(jwtToken.accessToken())
                 .refreshToken(jwtToken.refreshToken())
-                .memberId(savedMember.getId())
+                .id(savedMember.getId())
                 .name(savedMember.getName())
                 .build();
     }

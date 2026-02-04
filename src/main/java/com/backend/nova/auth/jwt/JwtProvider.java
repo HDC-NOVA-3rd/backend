@@ -4,7 +4,6 @@ import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.member.MemberDetails;
-import com.backend.nova.member.dto.TokenResponse;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
 import io.jsonwebtoken.*;
@@ -80,40 +79,14 @@ public class JwtProvider {
     /* ================== 로그인 토큰 생성 ================== */
 
     // 로그인 성공 시 Access + Refresh Token 발급
-    public TokenResponse generateToken(Authentication authentication) {
-
+    public JwtToken generateToken(Authentication authentication) {
         String accessToken = createAccessToken(authentication);
         String refreshToken = createRefreshToken(authentication);
 
-        Long id;
-        String name;
-        String loginId;
-        String role;
-
-        /* ================= ADMIN ================= */
-        if (authentication.getPrincipal() instanceof AdminDetails admin) {
-            id = admin.getAdminId();
-            name = admin.getName();
-            loginId = admin.getLoginId();
-            role = admin.getRole();
-        }
-        /* ================= MEMBER ================= */
-        else if (authentication.getPrincipal() instanceof MemberDetails member) {
-            id = member.getMemberId();
-            name = member.getName();
-            loginId = member.getUsername();
-            role = "MEMBER";
-        } else {
-            throw new RuntimeException("Unknown principal type");
-        }
-
-        return TokenResponse.builder()
+        return JwtToken.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
-                .id(id)
-                .loginId(loginId)
-                .name(name)
-                .role(role)
+                .grantType("Bearer")
                 .build();
     }
 
@@ -139,7 +112,8 @@ public class JwtProvider {
     // Refresh Token 생성
     public String createRefreshToken(Authentication authentication) {
         long now = System.currentTimeMillis();
-        Date expiresIn = new Date(now + refreshTokenExpires);
+        Date expiresIn;
+        expiresIn = new Date(now + refreshTokenExpires);
 
         return Jwts.builder()
                 .subject(authentication.getName())
