@@ -259,4 +259,15 @@ public class AdminService {
         return adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
     }
+
+    public void logout() {
+    }
+
+    public AdminInfoResponse getAdminInfoById(long l) {
+        return null;
+    }
+
+    public AdminApartmentResponse getAdminApartmentInfo(String loginId) {
+        return null;
+    }
 }
