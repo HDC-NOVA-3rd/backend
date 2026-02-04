@@ -71,18 +71,31 @@ public class AdminService {
 
     /* ================= 관리자 로그인 ================= */
     public TokenResponse login(AdminLoginRequest request) {
+        // 로그인 아이디로 관리자 조회
         Admin admin = adminRepository.findByLoginId(request.loginId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED));
 
+        // 계정 상태 검증 (잠김, 비활성 등)
         validateAdminStatus(admin);
 
+        // 비밀번호 검증
         if (!passwordEncoder.matches(request.password(), admin.getPassword())) {
             handleLoginFailure(admin);
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
         }
 
+        // 로그인 성공 처리 (실패 카운트 초기화 등)
         handleLoginSuccess(admin);
 
+        // 슈퍼관리자인 경우 OTP 발급 후 JWT는 발급하지 않음
+        if (admin.getRole() == AdminRole.SUPER_ADMIN) {
+            sendOtp(admin, OtpPurpose.LOGIN);
+            // 여기서 바로 JWT를 발급하지 않고, OTP 입력 후 검증을 요구
+            throw new BusinessException(ErrorCode.SUPER_ADMIN_OTP_REQUIRED);
+            // 또는 별도 DTO 반환 가능
+        }
+
+        // 일반 관리자 로그인: JWT 발급
         AdminDetails adminDetails = new AdminDetails(admin);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 adminDetails,
@@ -101,6 +114,7 @@ public class AdminService {
                 .role(admin.getRole().name())
                 .build();
     }
+
 
     /* ================= 비밀번호 재설정 ================= */
     public void requestPasswordReset(PasswordResetRequest request) {
