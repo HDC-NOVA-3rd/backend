@@ -1,4 +1,5 @@
 package com.backend.nova.auth.member;
+
 import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.member.entity.Member;
 import lombok.Getter;
@@ -19,15 +20,14 @@ public class MemberDetails extends User {
     private final Long dongId;
 
     public MemberDetails(Member member) {
-        // 부모(User) 생성자 호출: (아이디, 비밀번호, 권한리스트)
-        super(member.getLoginId(), member.getPassword(), List.of(new SimpleGrantedAuthority("MEMBER")));
+        // 부모(User) 생성자 호출 (딱 1번만!)
         super(
                 member.getLoginId(),
                 member.getPassword(),
                 List.of(new SimpleGrantedAuthority("ROLE_MEMBER"))
         );
 
-        // 추가 정보 초기화
+        // ===== 추가 정보 =====
         this.memberId = member.getId();
         this.name = member.getName();
 
