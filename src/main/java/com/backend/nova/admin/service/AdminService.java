@@ -83,54 +83,15 @@ public class AdminService {
 
         handleLoginSuccess(admin);
 
-        // AdminDetails 생성
         AdminDetails adminDetails = new AdminDetails(admin);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                adminDetails,
+                null,
+                adminDetails.getAuthorities()
+        );
 
-        // Authentication 객체 생성
-        Authentication authentication =
-                new UsernamePasswordAuthenticationToken(
-                        adminDetails,
-                        null,
-                        adminDetails.getAuthorities()
-                );
-
-        // JWT 발급 (JwtToken 반환)
         JwtToken jwtToken = jwtProvider.generateToken(authentication);
 
-        // TokenResponse 변환
-        return TokenResponse.builder()
-                .accessToken(jwtToken.accessToken())
-                .refreshToken(jwtToken.refreshToken())
-                .id(admin.getId())
-                .loginId(admin.getLoginId())
-                .name(admin.getName())
-                .role(admin.getRole().name())
-                .build();
-    }
-
-    /* ================= 슈퍼관리자 OTP 로그인 ================= */
-    public TokenResponse verifyLoginOtp(SuperAdminLoginRequest request) {
-        Admin admin = getAdminByLoginId(request.loginId());
-
-        AdminMfaOtp otp = getLatestOtp(admin, OtpPurpose.LOGIN);
-        validateOtp(otp, request.otpCode());
-        markOtpVerified(otp);
-
-        // AdminDetails 생성
-        AdminDetails adminDetails = new AdminDetails(admin);
-
-        // Authentication 객체 생성
-        Authentication authentication =
-                new UsernamePasswordAuthenticationToken(
-                        adminDetails,
-                        null,
-                        adminDetails.getAuthorities()
-                );
-
-        // JWT 발급
-        JwtToken jwtToken = jwtProvider.generateToken(authentication);
-
-        // TokenResponse 변환
         return TokenResponse.builder()
                 .accessToken(jwtToken.accessToken())
                 .refreshToken(jwtToken.refreshToken())
@@ -174,8 +135,9 @@ public class AdminService {
         adminRepository.save(admin);
     }
 
-    public void changePassword(PasswordChangeRequest request) {
-        Admin admin = getCurrentAdmin();
+    public void changePassword(PasswordChangeRequest request, AdminDetails adminDetails) {
+        Admin admin = adminRepository.findById(adminDetails.getAdminId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
         if (!passwordEncoder.matches(request.currentPassword(), admin.getPassword())) {
             throw new BusinessException(ErrorCode.INVALID_PASSWORD);
@@ -187,13 +149,9 @@ public class AdminService {
 
     /* ================= Access Token 재발급 ================= */
     public TokenResponse refresh(RefreshTokenRequest request) {
-        // 1. Refresh Token → Authentication
         Authentication auth = jwtProvider.getAuthenticationFromRefreshToken(request.refreshToken());
-
-        // 2. JwtToken 발급
         JwtToken jwtToken = jwtProvider.generateToken(auth);
 
-        // 3. TokenResponse 변환
         AdminDetails adminDetails = (AdminDetails) auth.getPrincipal();
         Admin admin = adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
@@ -208,6 +166,37 @@ public class AdminService {
                 .build();
     }
 
+    /* ================= AdminDetails 기반 조회 ================= */
+    public AdminInfoResponse getAdminInfo(AdminDetails adminDetails) {
+        Admin admin = adminRepository.findById(adminDetails.getAdminId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
+
+        return new AdminInfoResponse(
+                admin.getId(),
+                admin.getLoginId(),
+                admin.getName(),
+                admin.getEmail(),
+                admin.getPhoneNumber(),
+                admin.getBirthDate(),
+                admin.getProfileImg(),
+                admin.getRole().name(),
+                admin.getApartment() != null ? admin.getApartment().getId() : null
+        );
+    }
+
+    public AdminApartmentResponse getAdminApartmentInfo(AdminDetails adminDetails) {
+        Admin admin = adminRepository.findById(adminDetails.getAdminId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
+
+        var apartment = admin.getApartment();
+        if (apartment == null) return null;
+
+        return new AdminApartmentResponse(
+                apartment.getId(),
+                apartment.getName(),
+                apartment.getAddress()
+        );
+    }
 
     /* ================= 내부 헬퍼 ================= */
     private Admin getAdminByLoginId(String loginId) {
@@ -216,11 +205,9 @@ public class AdminService {
     }
 
     private void validateAdminStatus(Admin admin) {
-        if (admin.getLockedUntil() != null &&
-                admin.getLockedUntil().isAfter(LocalDateTime.now())) {
+        if (admin.getLockedUntil() != null && admin.getLockedUntil().isAfter(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.ADMIN_LOCKED);
         }
-
         if (admin.getStatus() != AdminStatus.ACTIVE) {
             throw new BusinessException(ErrorCode.ADMIN_INACTIVE);
         }
@@ -243,7 +230,7 @@ public class AdminService {
     }
 
     private void sendOtp(Admin admin, OtpPurpose purpose) {
-        String otpCode = generateOtp();
+        String otpCode = String.format("%06d", new SecureRandom().nextInt(1_000_000));
 
         AdminMfaOtp otp = AdminMfaOtp.builder()
                 .admin(admin)
@@ -266,11 +253,9 @@ public class AdminService {
         if (otp.getExpiresAt().isBefore(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.OTP_EXPIRED);
         }
-
         if (otp.getAttemptCount() >= 5) {
             throw new BusinessException(ErrorCode.OTP_MAX_ATTEMPTS);
         }
-
         if (!otp.getOtpCode().equals(inputOtp)) {
             otp.increaseAttempt();
             otpRepository.save(otp);
@@ -283,11 +268,6 @@ public class AdminService {
         otpRepository.save(otp);
     }
 
-    private String generateOtp() {
-        return String.format("%06d", new SecureRandom().nextInt(1_000_000));
-    }
-
-    /* ================= 현재 로그인 관리자 ================= */
     private Admin getCurrentAdmin() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
@@ -299,14 +279,11 @@ public class AdminService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
     }
 
-    public void logout() {
+    public void logout(AdminDetails adminDetails) {
+        // 필요한 로그아웃 로직 (JWT blacklist 등) 구현 가능
     }
 
-    public AdminInfoResponse getAdminInfoById(long l) {
-        return null;
-    }
-
-    public AdminApartmentResponse getAdminApartmentInfo(String loginId) {
+    public TokenResponse loginVerifyOtp(SuperAdminLoginRequest request) {
         return null;
     }
 }

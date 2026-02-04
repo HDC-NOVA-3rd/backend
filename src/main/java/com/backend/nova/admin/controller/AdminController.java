@@ -1,10 +1,8 @@
 package com.backend.nova.admin.controller;
 
 import com.backend.nova.admin.dto.*;
-import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.service.AdminService;
-import com.backend.nova.admin.dto.AdminApartmentResponse;
-import com.backend.nova.admin.dto.AdminInfoResponse;
+import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.member.dto.RefreshTokenRequest;
 import com.backend.nova.member.dto.TokenResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -43,28 +41,16 @@ public class AdminController {
      */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody @Valid AdminLoginRequest request) {
-        TokenResponse response = adminService.login(request);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(adminService.login(request));
     }
-
-    /**
-     * 슈퍼관리자 로그인시 otp인증
-     * POST /api/admin/login/verify-otp
-     */
-    // @PostMapping("/login/verify-otp")
-    // @PreAuthorize("hasRole('SUPER_ADMIN')")
-    // public ResponseEntity<?> loginVerifyOtp(@RequestBody AdminLoginOtpVerifyRequest request) {
-    //     TokenResponse response = adminAuthService.loginVerifyOtp(request);
-    //     return ResponseEntity.ok(response);
-    // }
 
     /**
      * 관리자 로그아웃
      * POST /api/admin/logout
      */
     @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
-        adminService.logout();
+    public ResponseEntity<?> logout(@AuthenticationPrincipal AdminDetails adminDetails) {
+        adminService.logout(adminDetails);
         return ResponseEntity.ok().build();
     }
 
@@ -108,63 +94,52 @@ public class AdminController {
      * 비밀번호 변경 (로그인 상태)
      * PUT /api/admin/password
      */
+    @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/password")
     public ResponseEntity<?> changePassword(
             @RequestBody PasswordChangeRequest request,
-            @AuthenticationPrincipal Admin admin
+            @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        if (admin == null) {
-            return ResponseEntity.status(401).build(); // 인증 필요
-        }
-
-        adminService.changePassword(request);
+        adminService.changePassword(request, adminDetails);
         return ResponseEntity.ok().build();
     }
 
     /**
      * Access 토큰 재발급
-     * PUT /api/admin/refresh
+     * POST /api/admin/refresh
      */
     @Operation(summary = "Access 토큰 재발급", description = "Access 토큰이 만료되는 경우 Refresh 토큰을 사용하여 새로운 Access 토큰을 발급받습니다.")
     @PostMapping("/refresh")
     public ResponseEntity<TokenResponse> refresh(@RequestBody RefreshTokenRequest request) {
-        TokenResponse tokenResponse = adminService.refresh(request);
-        return ResponseEntity.ok(tokenResponse);
+        return ResponseEntity.ok(adminService.refresh(request));
     }
 
     /**
      * 내 정보 조회
-     * 현재 로그인한 관리자의 상세 정보를 조회합니다.
+     * GET /api/admin/profile
      */
-    @Operation(summary = "내 정보 조회", description = "현재 로그인한 관리자의 상세 정보를 조회합니다.")
     @GetMapping("/profile")
-    public ResponseEntity<AdminInfoResponse> getMyInfo(
-            @AuthenticationPrincipal String adminId
-    ) {
-        if (adminId == null) {
-            return ResponseEntity.status(401).build();
-        }
-
-        AdminInfoResponse response =
-                adminService.getAdminInfoById(Long.parseLong(adminId));
-
-        return ResponseEntity.ok(response);
+    public ResponseEntity<AdminInfoResponse> getMyInfo(@AuthenticationPrincipal AdminDetails adminDetails) {
+        return ResponseEntity.ok(adminService.getAdminInfo(adminDetails));
     }
-
 
     /**
      * 내 아파트 정보 조회
-     * 현재 로그인한 관리자가 관리하는 아파트 단지의 정보를 조회합니다.
+     * GET /api/admin/apartment
      */
-    @Operation(summary = "내 아파트 정보 조회", description = "현재 로그인한 관리자가 관리하는 아파트 단지의 정보를 조회합니다.")
     @GetMapping("/apartment")
-    public ResponseEntity<AdminApartmentResponse> getMyApartmentInfo(@AuthenticationPrincipal Admin admin) {
-        if (admin == null) {
-            return ResponseEntity.status(401).build(); // 인증 필요
-        }
-
-        // loginId 기준으로 안전하게 조회
-        AdminApartmentResponse response = adminService.getAdminApartmentInfo(admin.getLoginId());
-        return ResponseEntity.ok(response);
+    public ResponseEntity<AdminApartmentResponse> getMyApartmentInfo(@AuthenticationPrincipal AdminDetails adminDetails) {
+        return ResponseEntity.ok(adminService.getAdminApartmentInfo(adminDetails));
     }
+
+    /**
+     * 슈퍼관리자 로그인시 otp인증
+     * POST /api/admin/login/verify-otp
+     */
+    @PostMapping("/login/verify-otp")
+    @PreAuthorize("hasRole('SUPER_ADMIN')")
+    public ResponseEntity<?> loginVerifyOtp(@RequestBody SuperAdminLoginRequest request) {
+         TokenResponse response = adminService.loginVerifyOtp(request);
+         return ResponseEntity.ok(response);
+     }
 }
