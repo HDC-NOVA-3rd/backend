@@ -7,76 +7,37 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(
-        name = "admin_mfa_otp",
-        indexes = {
-                @Index(name = "idx_admin_purpose", columnList = "admin_id,purpose"),
-                @Index(name = "idx_expires_at", columnList = "expires_at")
+        name = "admin_device",
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_admin_device",
+                        columnNames = {"admin_id", "device_id"}
+                )
         }
 )
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-@AllArgsConstructor
-@Builder
-public class AdminMfaOtp {
+public class AdminDevice {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id @GeneratedValue
     private Long id;
 
-    /** 어떤 관리자 OTP인지 */
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "admin_id", nullable = false)
     private Admin admin;
 
-    /** OTP 코드 */
-    //@Column(name = "otp_code", nullable = false, length = 10)
-    //private String otpCode;
+    @Column(name = "device_id", nullable = false, length = 100)
+    private String deviceId;
 
-    /** OTP 용도 (LOGIN / PASSWORD_RESET) OTP는 디비에 저장안할예정 */
-    //@Enumerated(EnumType.STRING)
-    //@Column(nullable = false, length = 30)
-    //private OtpPurpose purpose;
+    @Column(name = "trusted", nullable = false)
+    private boolean trusted;
 
-    /** 만료 시간 */
-    @Column(name = "expires_at", nullable = false)
-    private LocalDateTime expiresAt;
+    @Column(name = "last_verified_at")
+    private LocalDateTime lastVerifiedAt;
 
-    /** 시도 횟수 */
-    @Column(name = "attempt_count", nullable = false)
-    @Builder.Default
-    private int attemptCount = 0;
+    @Column(name = "last_used_at")
+    private LocalDateTime lastUsedAt;
 
+    @Column(name = "revoked_at")
+    private LocalDateTime revokedAt;
 
-    /** 검증 완료 시각 (null이면 미검증) */
-    @Column(name = "verified_at")
-    private LocalDateTime verifiedAt;
-
-    /** 생성 시각 */
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
-
-    /* ========= lifecycle ========= */
-
-    @PrePersist
-    protected void onCreate() {
-        this.createdAt = LocalDateTime.now();
-    }
-
-    /* ========= domain logic ========= */
-
-    public void increaseAttempt() {
-        this.attemptCount++;
-    }
-
-    public void markVerified() {
-        this.verifiedAt = LocalDateTime.now();
-    }
-
-    public boolean isExpired() {
-        return expiresAt.isBefore(LocalDateTime.now());
-    }
-
-    public boolean isVerified() {
-        return verifiedAt != null;
-    }
 }

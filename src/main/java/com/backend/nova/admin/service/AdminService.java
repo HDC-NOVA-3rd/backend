@@ -2,7 +2,7 @@ package com.backend.nova.admin.service;
 
 import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.entity.*;
-import com.backend.nova.admin.repository.AdminMfaOtpRepository;
+import com.backend.nova.admin.repository.AdminDeviceRepository;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.repository.ApartmentRepository;
@@ -23,6 +23,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -31,7 +32,7 @@ public class AdminService {
 
     private final AdminRepository adminRepository;
     private final ApartmentRepository apartmentRepository;
-    private final AdminMfaOtpRepository otpRepository;
+    private final AdminDeviceRepository otpRepository;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final JwtProvider jwtProvider;
@@ -347,6 +348,105 @@ public class AdminService {
                 .role(admin.getRole().name())
                 .build();
     }
+
+    //기기 등록 메서드
+    @Transactional
+    public void registerDevice(Admin admin, String deviceId, String ip) {
+
+        // 1. 이미 등록된 기기면 갱신만
+        adminDeviceRepository
+                .findByAdminAndDeviceIdAndRevokedAtIsNull(admin, deviceId)
+                .ifPresent(device -> {
+                    device.setLastVerifiedAt(LocalDateTime.now());
+                    device.setLastUsedAt(LocalDateTime.now());
+                    device.setTrusted(true);
+                    return;
+                });
+
+        // 2. 현재 활성 기기 수 확인
+        long activeCount = adminDeviceRepository
+                .countByAdminAndRevokedAtIsNull(admin);
+
+        // 3. 3개 이상이면 가장 오래된 기기 revoke
+        if (activeCount >= 3) {
+            List<AdminDevice> devices =
+                    adminDeviceRepository.findByAdminAndRevokedAtIsNullOrderByCreatedAtAsc(admin);
+
+            AdminDevice oldest = devices.get(0);
+            oldest.setRevokedAt(LocalDateTime.now());
+
+            // (선택) 보안 이벤트 로그
+            securityEventService.log(
+                    admin,
+                    SecurityEventType.DEVICE_REVOKED,
+                    oldest.getDeviceId(),
+                    ip,
+                    "Exceeded max device limit"
+            );
+        }
+
+        // 4. 새 기기 등록
+        AdminDevice newDevice = AdminDevice.builder()
+                .admin(admin)
+                .deviceId(deviceId)
+                .trusted(true)
+                .lastVerifiedAt(LocalDateTime.now())
+                .lastUsedAt(LocalDateTime.now())
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        adminDeviceRepository.save(newDevice);
+    }
+
+
+    //기기 목록 조회
+    @Transactional(readOnly = true)
+    public List<AdminDeviceResponse> getMyDevices(AdminDetails adminDetails) {
+
+        Admin admin = adminRepository.findById(adminDetails.getAdminId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
+
+        return adminDeviceRepository
+                .findByAdminAndRevokedAtIsNullOrderByCreatedAtDesc(admin)
+                .stream()
+                .map(d -> new AdminDeviceResponse(
+                        d.getId(),
+                        maskDeviceId(d.getDeviceId()),
+                        d.isTrusted(),
+                        d.getLastIp(),
+                        d.getLastUsedAt(),
+                        d.getCreatedAt()
+                ))
+                .toList();
+    }
+
+    //기기 삭제 (로그아웃 포함)
+    @Transactional
+    public void revokeDevice(
+            AdminDetails adminDetails,
+            String deviceId,
+            String ip
+    ) {
+        Admin admin = adminRepository.findById(adminDetails.getAdminId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
+
+        AdminDevice device = adminDeviceRepository
+                .findByAdminAndDeviceIdAndRevokedAtIsNull(admin, deviceId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.DEVICE_NOT_FOUND));
+
+        device.setRevokedAt(LocalDateTime.now());
+
+        // 보안 이벤트
+        securityEventService.log(
+                admin,
+                SecurityEventType.DEVICE_REVOKED,
+                deviceId,
+                ip,
+                "User revoked device"
+        );
+    }
+
+
 
 
 }
