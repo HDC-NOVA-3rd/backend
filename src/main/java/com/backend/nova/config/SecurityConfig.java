@@ -1,9 +1,12 @@
 package com.backend.nova.config;
 
 import com.backend.nova.auth.admin.AdminAuthenticationProvider;
+import com.backend.nova.auth.admin.AdminDetailsService;
+import com.backend.nova.auth.jwt.JwtAuthenticationEntryPoint;
 import com.backend.nova.auth.jwt.JwtAuthenticationFilter;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
+import com.backend.nova.auth.member.MemberDetailsService;
 import com.backend.nova.oauth2.handler.OAuthSuccessHandler;
 import com.backend.nova.oauth2.repository.OAuthRedirectCookieRepository;
 import com.backend.nova.oauth2.service.CustomOAuth2UserService;
@@ -18,6 +21,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -37,6 +41,9 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuthSuccessHandler oAuthSuccessHandler;
     private final OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final AdminDetailsService adminDetailsService;
+    private final MemberDetailsService memberDetailsService;
 
     /**
      * AuthenticationManager Bean
@@ -107,7 +114,7 @@ public class SecurityConfig {
 
                 // JWT 인증 필터 등록
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtProvider),
+                        new JwtAuthenticationFilter(jwtProvider,adminDetailsService),
                         UsernamePasswordAuthenticationFilter.class
                 );
 
@@ -127,24 +134,29 @@ public class SecurityConfig {
                 // 관리자 Chain에 들어갈 경로를 제외한 모든 요청 처리
                 .securityMatcher("/**")
 
-                // MemberAuthenticationProvider 를 시큐리티 로직에 사용하도록 설정
+                // MemberAuthenticationProvider 를 Provider에 등록
+                // ID/PW 로그인 시, DB의 Member 테이블을 조회하여 검증하는 로직 담당
                 .authenticationProvider(memberAuthenticationProvider)
 
                 // CORS 설정
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-                // CSRF 보안 필터 disable
+                // CSRF disable
                 .csrf(AbstractHttpConfigurer::disable)
 
-                // 기본 Form 기반 인증 필터들 disable
+                // Form Login disable
+                // 브라우저 기본 로그인 폼이나 Spring Security 기본 로그인 페이지를 쓰지 않음
                 .formLogin(AbstractHttpConfigurer::disable)
 
-                // OAuth2
+                // OAuth2 Login 설정
                 .oauth2Login(oauth2 -> oauth2
+                        // 소셜 로그인 성공 후 사용자 정보를 가져오는 서비스 등록
                         .userInfoEndpoint(userInfoEndpointConfig -> userInfoEndpointConfig
                                 .userService(customOAuth2UserService))
+                        // 인증 요청 시 쿠키에 데이터를 저장하는 리포지토리 (redirect_uri 등을 저장)
                         .authorizationEndpoint(authorization -> authorization
                                 .authorizationRequestRepository(oAuthRedirectCookieRepository))
+                        // 로그인 성공 시 실행될 핸들러 (JWT를 발급 및 리다이렉트 처리)
                         .successHandler(oAuthSuccessHandler))
 
                 // 세션 필터 설정 (STATELESS)
@@ -152,12 +164,16 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
 
+                // JWT 인증 실패 시 해당 EntryPoint가 실행됨 -> 401 리턴
+                .exceptionHandling(exception-> exception
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint))
+
                 // 인가 처리
                 .authorizeHttpRequests(authorize -> authorize
                         //회원 가입 페이지 API -> 접근 허용
                         .requestMatchers("/api/resident/verify","/api/member/signup").permitAll()
                         //로그인 페이지 API -> 접근 허용
-                        .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW").permitAll()
+                        .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
                         //Swagger 페이지 API -> 접근 허용
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
@@ -167,7 +183,7 @@ public class SecurityConfig {
 
                 // 커스텀 필터 설정 JwtFilter 선행 처리
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtProvider),
+                        new JwtAuthenticationFilter(jwtProvider,memberDetailsService),
                         UsernamePasswordAuthenticationFilter.class
                 );
 

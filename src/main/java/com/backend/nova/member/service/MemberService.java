@@ -10,6 +10,7 @@ import com.backend.nova.member.dto.*;
 import com.backend.nova.member.entity.LoginType;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
+import com.backend.nova.oauth2.repository.AuthCodeInMemoryRepository;
 import com.backend.nova.resident.entity.Resident;
 import com.backend.nova.resident.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final MemberAuthenticationProvider memberAuthenticationProvider;
     private final JwtProvider jwtProvider;
+    private final AuthCodeInMemoryRepository authCodeRepository;
 
     @Transactional
     public TokenResponse refresh(RefreshTokenRequest request) {
@@ -85,6 +87,28 @@ public class MemberService {
                 .memberId(userDetails.getMemberId())
                 .name(userDetails.getName())
                 .build();
+    }
+
+    @Transactional
+    public AuthExchangeResponse exchangeAuthCode(String code) {
+        // 1. 코드 조회 및 삭제 (One-Time Use)
+        Object data = authCodeRepository.getAndRemove(code);
+
+        if (data == null) {
+            throw new BusinessException(ErrorCode.INVALID_AUTH_CODE); // "유효하지 않거나 만료된 코드입니다."
+        }
+
+        // 2. 데이터 타입에 따라 응답 DTO 생성
+        if (data instanceof TokenResponse) {
+            // 로그인 성공 케이스
+            return AuthExchangeResponse.login((TokenResponse) data);
+        } else if (data instanceof String) {
+            // 회원가입 필요 케이스 (Register Token)
+            return AuthExchangeResponse.register((String) data);
+        }
+
+        // 예기치 않은 데이터가 들어있는 경우
+        throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
     }
 
     @Transactional

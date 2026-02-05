@@ -38,6 +38,7 @@ public enum ErrorCode {
     // ================= Auth =================
     UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."),
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
+    INVALID_AUTH_CODE(HttpStatus.BAD_REQUEST,"유효하지 않거나 만료된 코드입니다."),
 
 
     // ================= Common =================

@@ -2,6 +2,7 @@ package com.backend.nova.member.controller;
 
 import com.backend.nova.member.dto.*;
 import com.backend.nova.member.service.MemberService;
+import com.backend.nova.oauth2.repository.AuthCodeInMemoryRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +19,12 @@ import org.springframework.web.bind.annotation.RestController;
 public class AuthController {
 
     private final MemberService memberService;
+
+    @Operation(summary = "OAuth 인증 코드 교환", description = "Redirect URL로 받은 Code를 실제 토큰(로그인) 또는 가입정보(회원가입)로 교환합니다.")
+    @PostMapping("/oauth/exchange")
+    public ResponseEntity<AuthExchangeResponse> exchangeAuthCode(@RequestBody AuthCodeRequest request) {
+        return ResponseEntity.ok(memberService.exchangeAuthCode(request.code()));
+    }
 
     @Operation(summary = "로그인")
     @PostMapping("/login")

@@ -1,5 +1,6 @@
 package com.backend.nova.auth.jwt;
 
+import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.member.dto.TokenResponse;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
@@ -33,6 +34,22 @@ public class JwtProvider {
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         accessTokenExpires = 300 * 1000L; // 5분
         refreshTokenExpires = 604800 * 1000L; // 7일
+    }
+
+    /**
+     * [신규] 로그인 성공 시 반환할 TokenResponse DTO 생성
+     * Access/Refresh 토큰을 발급하고, 프론트엔드에 필요한 사용자 정보와 함께 묶어서 반환
+     */
+    public TokenResponse createTokenDto(Authentication authentication, Long memberId, String name) {
+        String accessToken = createAccessToken(authentication);
+        String refreshToken = createRefreshToken(authentication);
+
+        return TokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .memberId(memberId)
+                .name(name)
+                .build();
     }
 
     public String createRegisterToken(String email, String name, String provider, String providerId, String phoneNumber, String birthDate) {
@@ -69,12 +86,17 @@ public class JwtProvider {
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
+        // Principal에서 apartmentId 추출
+        MemberDetails userDetails = (MemberDetails) authentication.getPrincipal();
+        Long apartmentId = userDetails.getApartmentId();
+
         long now = (new Date()).getTime();
         Date accessTokenExpiresIn = new Date(now + accessTokenExpires);
 
         return Jwts.builder()
                 .subject(authentication.getName())
                 .claim("auth", authorities)
+                .claim("apartmentId", apartmentId)
                 .expiration(accessTokenExpiresIn)
                 .signWith(secretKey)
                 .compact();
@@ -112,7 +134,7 @@ public class JwtProvider {
         return new UsernamePasswordAuthenticationToken(principal, "", authorities);
     }
 
-    // 토큰 유효성 검사 (요청 시 Filter에서 가장 먼저 실행)
+    // Access 토큰 유효성 검사 (요청 시 Filter에서 가장 먼저 실행)
     public boolean validateToken(String token) {
         try {
             // secretKey 기반으로 입력된 token 파싱
@@ -141,5 +163,8 @@ public class JwtProvider {
         } catch (ExpiredJwtException e) {
             return e.getClaims();
         }
+    }
+    public Long getApartmentId(String token) {
+        return parseClaims(token).get("apartmentId", Long.class);
     }
 }
