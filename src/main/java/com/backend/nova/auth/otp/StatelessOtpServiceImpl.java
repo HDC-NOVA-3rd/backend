@@ -1,5 +1,6 @@
 package com.backend.nova.auth.otp;
 
+import com.backend.nova.admin.entity.OtpPurpose;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;

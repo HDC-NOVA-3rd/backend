@@ -248,46 +248,6 @@ public class AdminService {
         adminDeviceService.registerDevice(admin, deviceId, ip);
     }
 
-    /* ================= OTP 설정 ================= */
-    public OtpSetupResponse setupOtp(AdminDetails adminDetails) {
-        Admin admin = adminRepository.findById(adminDetails.getAdminId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
-
-        if (admin.isOtpEnabled()) {
-            throw new BusinessException(ErrorCode.OTP_ALREADY_ENABLED);
-        }
-
-        String secret = totpService.generateSecret();
-        String otpAuthUrl = totpService.generateOtpAuthUrl(admin.getLoginId(), secret);
-
-        admin.setOtpSecret(secret);
-        adminRepository.save(admin);
-
-        return new OtpSetupResponse(secret, otpAuthUrl);
-    }
-
-    public void verifyOtp(OtpVerifyRequest request, AdminDetails adminDetails) {
-        Admin admin = adminRepository.findById(adminDetails.getAdminId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
-
-        if (admin.isOtpEnabled()) {
-            throw new BusinessException(ErrorCode.OTP_ALREADY_ENABLED);
-        }
-
-        if (!totpService.verify(admin.getOtpSecret(), request.otpCode())) {
-            throw new BusinessException(ErrorCode.OTP_INVALID);
-        }
-
-        admin.setOtpEnabled(true);
-        adminRepository.save(admin);
-    }
-
-    public OtpStatusResponse getOtpStatus(AdminDetails adminDetails) {
-        Admin admin = adminRepository.findById(adminDetails.getAdminId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
-        return new OtpStatusResponse(admin.isOtpEnabled());
-    }
-
     /* ================= 내부 헬퍼 ================= */
     private Admin getCurrentAdmin() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
