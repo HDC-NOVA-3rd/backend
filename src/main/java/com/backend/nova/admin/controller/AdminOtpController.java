@@ -8,7 +8,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/admin/otp")
+@RequestMapping("/api/admin/device")
+//@RequestMapping("/api/admin/otp")
 @RequiredArgsConstructor
 public class AdminOtpController {
 
