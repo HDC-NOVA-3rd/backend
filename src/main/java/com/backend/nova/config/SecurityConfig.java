@@ -93,13 +93,18 @@ public class SecurityConfig {
                 // 요청별 권한 설정
                 .authorizeHttpRequests(auth -> auth
 
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+
                         // 인증 없이 접근 가능
                         .requestMatchers("/api/admin/login/**").permitAll()
-                        .requestMatchers("/api/admin/password/**").permitAll()
+
 
                         // 관리자 생성 (슈퍼 관리자만)
-                        .requestMatchers(HttpMethod.POST, "/api/admin")
+                        .requestMatchers(HttpMethod.POST, "/api/admin/signup")
                         .hasRole("SUPER_ADMIN")
+
+                        .requestMatchers("/api/admin/password/**").hasRole("ADMIN")
 
                         // 그 외 관리자 API
                         .anyRequest().hasRole("ADMIN")

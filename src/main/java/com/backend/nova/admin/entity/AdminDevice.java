@@ -29,13 +29,13 @@ public class AdminMfaOtp {
     private Admin admin;
 
     /** OTP 코드 */
-    @Column(name = "otp_code", nullable = false, length = 10)
-    private String otpCode;
+    //@Column(name = "otp_code", nullable = false, length = 10)
+    //private String otpCode;
 
-    /** OTP 용도 (LOGIN / PASSWORD_RESET) */
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private OtpPurpose purpose;
+    /** OTP 용도 (LOGIN / PASSWORD_RESET) OTP는 디비에 저장안할예정 */
+    //@Enumerated(EnumType.STRING)
+    //@Column(nullable = false, length = 30)
+    //private OtpPurpose purpose;
 
     /** 만료 시간 */
     @Column(name = "expires_at", nullable = false)

@@ -2,7 +2,6 @@ package com.backend.nova.admin.repository;
 
 import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.entity.AdminMfaOtp;
-import com.backend.nova.admin.entity.OtpPurpose;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.LocalDateTime;

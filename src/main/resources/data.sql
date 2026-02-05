@@ -69,3 +69,60 @@ INSERT INTO safety_event_log (apartment_id, dong_id, facility_id, manual, reques
 VALUES
     (1, 1, NULL, 0, 'seed', 124, 'HEAT', 75.0, 'C', 'DANGER', NOW(6)),
     (1, NULL, 2, 0, 'seed', 123, 'SMOKE', 650.0, 'ppm', 'DANGER', NOW(6));
+
+INSERT INTO admin (
+    login_id,
+    password,
+    name,
+    email,
+    status,
+    role,
+    phone_number,
+    birth_date,
+    apartment_id,
+    failed_login_count,
+    created_at,
+    updated_at
+) VALUES (
+    'superadmin',
+    '$2a$10$KbYyFk1V0Yw1EoRGwIjIze7M5mImC1GZ6aKQ1rDHCczxO4Nqk7b1C',
+    '슈퍼 관리자',
+    'superadmin@apt.com',
+    'ACTIVE',
+    'SUPER_ADMIN',
+    '01000000000',
+    '1980-01-01',
+    1,
+    0,
+    NOW(6),
+    NOW(6)
+);
+
+
+INSERT INTO admin (
+    login_id,
+    password,
+    name,
+    email,
+    status,
+    role,
+    phone_number,
+    birth_date,
+    apartment_id,
+    failed_login_count,
+    created_at,
+    updated_at
+) VALUES (
+    'admin01',
+    '$2a$10$KbYyFk1V0Yw1EoRGwIjIze7M5mImC1GZ6aKQ1rDHCczxO4Nqk7b1C',
+    '자이아파트 관리자',
+    'admin01@apt.com',
+    'ACTIVE',
+    'ADMIN',
+    '01099998888',
+    '1988-01-10',
+    1,
+    0,
+    NOW(6),
+    NOW(6)
+);

@@ -83,6 +83,12 @@ public class Admin {
     @Column(name = "last_login_at", nullable = true)
     private LocalDateTime lastLoginAt;
 
+    @Column(name = "otp_secret", length = 64)
+    private String otpSecret;   // Base32
+
+    @Column(name = "otp_enabled", nullable = false)
+    private boolean otpEnabled;
+
     /** 생성 시각 */
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
