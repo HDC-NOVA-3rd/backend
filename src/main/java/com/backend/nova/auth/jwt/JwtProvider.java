@@ -1,6 +1,8 @@
 package com.backend.nova.auth.jwt;
 
+import com.backend.nova.admin.dto.AdminChallengeToken;
 import com.backend.nova.admin.entity.Admin;
+import com.backend.nova.admin.entity.AdminChallengePurpose;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.member.MemberDetails;
@@ -18,6 +20,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.time.Duration;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,8 +31,8 @@ public class JwtProvider {
     /* ================== JWT 기본 설정 ================== */
 
     private final SecretKey secretKey;                 // JWT 서명용 비밀키
-    private final Long accessTokenExpires;              // Access Token 만료시간
-    private final Long refreshTokenExpires;             // Refresh Token 만료시간
+    private final long accessTokenExpires = 1000L * 60 * 60;      // Access Token 만료시간 1시간
+    private final long refreshTokenExpires = 1000L * 60 * 60 * 24 * 7; // Refresh Token 만료시간 7일
 
     private final AdminRepository adminRepository;
     private final MemberRepository memberRepository;
@@ -42,16 +45,65 @@ public class JwtProvider {
         byte[] keyBytes = Decoders.BASE64.decode(secretStr);
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
 
-        this.accessTokenExpires = 3600 * 1000L;      // 1시간
-        this.refreshTokenExpires = 604800 * 1000L;   // 7일
-
         this.adminRepository = adminRepository;
         this.memberRepository = memberRepository;
     }
 
+    /* ================== Admin Access Token ================== */
+
+    public String createAdminAccessToken(
+            Long adminId,
+            String authority,
+            String deviceId
+    ) {
+        long now = System.currentTimeMillis();
+        Date expiry = new Date(now + accessTokenExpires);
+
+        return Jwts.builder()
+                .subject(String.valueOf(adminId))
+                .claim("auth", authority)
+                .claim("deviceId", deviceId)
+                .issuedAt(new Date(now))
+                .expiration(expiry)
+                .signWith(secretKey)
+                .compact();
+    }
+
+    /* ================== OTP Challenge Token ================== */
+
+    public String createAdminChallengeToken(
+            String loginId,
+            AdminChallengePurpose purpose,
+            Duration duration
+    ) {
+        Date now = new Date();
+        Date expiry = new Date(now.getTime() + duration.toMillis());
+
+        return Jwts.builder()
+                .subject(loginId)
+                .claim("type", "CHALLENGE")
+                .claim("purpose", purpose.name())
+                .issuedAt(now)
+                .expiration(expiry)
+                .signWith(secretKey)
+                .compact();
+    }
+
+    public AdminChallengeToken parseAdminChallengeToken(String token) {
+        Claims claims = parseClaims(token);
+
+        if (!"CHALLENGE".equals(claims.get("type"))) {
+            throw new RuntimeException("Challenge Token이 아닙니다");
+        }
+
+        return new AdminChallengeToken(
+                claims.getSubject(),
+                AdminChallengePurpose.valueOf(claims.get("purpose").toString())
+        );
+    }
+
     /* ================== 회원가입용 임시 토큰 ================== */
 
-    // OAuth 회원가입 완료 전 임시 토큰 (10분 유효)
     public String createRegisterToken(
             String email,
             String name,
@@ -61,7 +113,7 @@ public class JwtProvider {
             String birthDate
     ) {
         Date now = new Date();
-        Date validity = new Date(now.getTime() + 1000 * 60 * 10);
+        Date validity = new Date(now.getTime() + 1000 * 60 * 10); // 10분 유효
 
         return Jwts.builder()
                 .subject("REGISTER_USER")
@@ -71,6 +123,7 @@ public class JwtProvider {
                 .claim("providerId", providerId)
                 .claim("phone", phoneNumber)
                 .claim("birthDate", birthDate)
+                .issuedAt(now)
                 .expiration(validity)
                 .signWith(secretKey)
                 .compact();
@@ -78,96 +131,94 @@ public class JwtProvider {
 
     /* ================== 로그인 토큰 생성 ================== */
 
-    // 로그인 성공 시 Access + Refresh Token 발급
     public JwtToken generateToken(Authentication authentication) {
-        String accessToken = createAccessToken(authentication);
-        String refreshToken = createRefreshToken(authentication);
-
         return JwtToken.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
+                .accessToken(createAccessToken(authentication))
+                .refreshToken(createRefreshToken(authentication))
                 .grantType("Bearer")
                 .build();
     }
 
-
-
-    // Access Token 생성 (Refresh 요청 시 재사용)
-    public String createAccessToken(Authentication authentication) {
+    private String createAccessToken(Authentication authentication) {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
         long now = System.currentTimeMillis();
-        Date expiresIn = new Date(now + accessTokenExpires);
+        Date expiry = new Date(now + accessTokenExpires);
 
         return Jwts.builder()
-                .subject(authentication.getName()) // adminId or memberId
+                .subject(authentication.getName())
                 .claim("auth", authorities)
-                .expiration(expiresIn)
+                .issuedAt(new Date(now))
+                .expiration(expiry)
                 .signWith(secretKey)
                 .compact();
     }
 
-    // Refresh Token 생성
-    public String createRefreshToken(Authentication authentication) {
+    private String createRefreshToken(Authentication authentication) {
         long now = System.currentTimeMillis();
-        Date expiresIn;
-        expiresIn = new Date(now + refreshTokenExpires);
+        Date expiry = new Date(now + refreshTokenExpires);
 
         return Jwts.builder()
                 .subject(authentication.getName())
-                .expiration(expiresIn)
+                .issuedAt(new Date(now))
+                .expiration(expiry)
                 .signWith(secretKey)
                 .compact();
     }
 
     /* ================== 인증 객체 생성 ================== */
 
-    // Access Token → Authentication 변환
     public Authentication getAuthentication(String accessToken) {
         Claims claims = parseClaims(accessToken);
 
-        if (claims.get("auth") == null) {
-            throw new RuntimeException("권한 정보가 없는 토큰입니다.");
-        }
+        String auth = (String) claims.get("auth");
+        if (auth == null) throw new RuntimeException("권한 정보가 없는 토큰입니다.");
 
-        // 권한 문자열 → GrantedAuthority 리스트
         Collection<? extends GrantedAuthority> authorities =
-                Arrays.stream(claims.get("auth").toString().split(","))
+                Arrays.stream(auth.split(","))
                         .map(SimpleGrantedAuthority::new)
                         .toList();
 
-        String subject = claims.getSubject(); // adminId or memberId
+        Long id = Long.parseLong(claims.getSubject());
 
-        /* ================= ADMIN ================= */
-        if (authorities.stream().anyMatch(a -> a.getAuthority().startsWith("ROLE_ADMIN"))) {
-            Long adminId = Long.parseLong(subject);
-            Admin admin = adminRepository.findById(adminId)
+        // Admin 권한 체크
+        if (auth.contains("ROLE_ADMIN")) {
+            Admin admin = adminRepository.findById(id)
                     .orElseThrow(() -> new RuntimeException("Admin not found"));
-
             AdminDetails principal = new AdminDetails(admin);
             return new UsernamePasswordAuthenticationToken(principal, "", authorities);
         }
 
-        /* ================= MEMBER ================= */
-        Long memberId = Long.parseLong(subject);
-        Member member = memberRepository.findById(memberId)
+        // Member 권한 처리
+        Member member = memberRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Member not found"));
-
         MemberDetails principal = new MemberDetails(member);
+
         return new UsernamePasswordAuthenticationToken(principal, "", authorities);
+    }
+
+    public Authentication getAuthenticationFromRefreshToken(String refreshToken) {
+        Claims claims = parseClaims(refreshToken);
+        Long id = Long.parseLong(claims.getSubject());
+
+        if (adminRepository.existsById(id)) {
+            Admin admin = adminRepository.findById(id).orElseThrow();
+            AdminDetails details = new AdminDetails(admin);
+            return new UsernamePasswordAuthenticationToken(details, "", details.getAuthorities());
+        }
+
+        Member member = memberRepository.findById(id).orElseThrow();
+        MemberDetails details = new MemberDetails(member);
+        return new UsernamePasswordAuthenticationToken(details, "", details.getAuthorities());
     }
 
     /* ================== 토큰 검증 ================== */
 
-    // 토큰 유효성 검사
     public boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                    .verifyWith(secretKey)
-                    .build()
-                    .parseSignedClaims(token);
+            Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token);
             return true;
         } catch (SecurityException | MalformedJwtException e) {
             log.info("잘못된 JWT 서명입니다.");
@@ -181,40 +232,12 @@ public class JwtProvider {
         return false;
     }
 
-    /* ================== Refresh Token → Authentication 처리 ================== */
-
-    public Authentication getAuthenticationFromRefreshToken(String refreshToken) {
-        Claims claims = parseClaims(refreshToken);
-        String subject = claims.getSubject(); // adminId or memberId
-
-        // Admin 먼저 확인
-        if (adminRepository.existsById(Long.parseLong(subject))) {
-            Admin admin = adminRepository.findById(Long.parseLong(subject))
-                    .orElseThrow(() -> new RuntimeException("Admin not found"));
-            AdminDetails principal = new AdminDetails(admin);
-            // 권한은 ADMIN 단일로 처리
-            return new UsernamePasswordAuthenticationToken(principal, "", principal.getAuthorities());
-        }
-
-        // Member 확인
-        if (memberRepository.existsById(Long.parseLong(subject))) {
-            Member member = memberRepository.findById(Long.parseLong(subject))
-                    .orElseThrow(() -> new RuntimeException("Member not found"));
-            MemberDetails principal = new MemberDetails(member);
-            return new UsernamePasswordAuthenticationToken(principal, "", principal.getAuthorities());
-        }
-
-        throw new RuntimeException("Invalid refresh token subject");
-    }
-
     /* ================== 공통 유틸 ================== */
 
-    // 토큰에서 Subject 추출
     public String getSubject(String token) {
         return parseClaims(token).getSubject();
     }
 
-    // Claims 파싱 (만료된 토큰도 Claims 반환)
     private Claims parseClaims(String token) {
         try {
             return Jwts.parser()

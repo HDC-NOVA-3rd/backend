@@ -5,6 +5,11 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
+@Getter
+@Setter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(
         name = "admin_device",
@@ -25,6 +30,8 @@ public class AdminDevice {
 
     @Column(name = "device_id", nullable = false, length = 100)
     private String deviceId;
+
+    private String lastIp;
 
     @Column(name = "trusted", nullable = false)
     private boolean trusted;

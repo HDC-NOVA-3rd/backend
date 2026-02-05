@@ -9,10 +9,10 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
-public class MailService {
+public class AdminMailService {
 
     private final JavaMailSender mailSender;
-    private static final Logger logger = LoggerFactory.getLogger(MailService.class);
+    private static final Logger logger = LoggerFactory.getLogger(AdminMailService.class);
 
     /**
      * OTP 메일 발송
