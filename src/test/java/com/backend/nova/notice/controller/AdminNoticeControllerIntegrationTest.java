@@ -102,8 +102,8 @@ class AdminNoticeControllerIntegrationTest {
         Apartment apartment = createApartment();
         Admin admin = createAdmin(apartment);
         Ho ho = createHo(createDong(apartment));
-        Resident resident1 = createResident(ho, "김영희", "010-0000-0001");
-        Resident resident2 = createResident(ho, "이영희", "010-0000-0002");
+        createResident(ho, "김영희", "010-0000-0001");
+        createResident(ho, "이영희", "010-0000-0002");
 
         NoticeCreateRequest createRequest = new NoticeCreateRequest("정기 소독 안내", "다음주 화요일 소독 예정", null);
 
@@ -120,10 +120,7 @@ class AdminNoticeControllerIntegrationTest {
 
         NoticeCreateResponse createResponse = objectMapper.readValue(createResponseJson, NoticeCreateResponse.class);
 
-        NoticeSendRequest sendRequest = new NoticeSendRequest(
-                List.of(resident1.getId(), resident2.getId()),
-                null
-        );
+        NoticeSendRequest sendRequest = new NoticeSendRequest(null);
 
         mockMvc.perform(post("/api/admin/notice/{noticeId}/send-alert", createResponse.noticeId())
                         .with(user(admin.getId().toString()).roles("ADMIN"))
@@ -146,7 +143,7 @@ class AdminNoticeControllerIntegrationTest {
         Apartment apartment = createApartment();
         Admin admin = createAdmin(apartment);
 
-        NoticeSendRequest sendRequest = new NoticeSendRequest(List.of(1L), null);
+        NoticeSendRequest sendRequest = new NoticeSendRequest(null);
 
         mockMvc.perform(post("/api/admin/notice/{noticeId}/send-alert", 999L)
                         .with(user(admin.getId().toString()).roles("ADMIN"))
@@ -228,7 +225,7 @@ class AdminNoticeControllerIntegrationTest {
                 .getContentAsString();
         NoticeCreateResponse createResponse = objectMapper.readValue(createResponseJson, NoticeCreateResponse.class);
 
-        NoticeSendRequest sendRequest = new NoticeSendRequest(null, List.of(dong.getId()));
+        NoticeSendRequest sendRequest = new NoticeSendRequest(List.of(dong.getId()));
 
         mockMvc.perform(post("/api/admin/notice/{noticeId}/send-alert", createResponse.noticeId())
                         .with(user(admin.getId().toString()).roles("ADMIN"))

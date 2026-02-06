@@ -122,7 +122,7 @@ class NoticeServiceTest {
     }
 
     @Test
-    @DisplayName("공지 전송 - 입주민 ID 검증 실패")
+    @DisplayName("공지 전송 - 동 ID 검증 실패")
     void sendNotice_invalidResidents() {
         setAdminAuthentication(1L);
         Admin admin = buildAdmin(1L);
@@ -136,10 +136,9 @@ class NoticeServiceTest {
                 .build();
         when(noticeRepository.findById(1L)).thenReturn(Optional.of(notice));
         when(noticeTargetDongRepository.findDongIdsByNoticeId(1L)).thenReturn(List.of(200L));
-        when(residentRepository.findAllById(List.of(1L, 2L)))
-                .thenReturn(List.of(mock(Resident.class)));
+        when(dongRepository.findAllById(List.of(999L))).thenReturn(List.of());
 
-        NoticeSendRequest request = new NoticeSendRequest(List.of(1L, 2L), null);
+        NoticeSendRequest request = new NoticeSendRequest(List.of(999L));
 
         assertThatThrownBy(() -> noticeService.sendNoticeAlert(1L, request))
                 .isInstanceOf(BusinessException.class)
@@ -190,12 +189,12 @@ class NoticeServiceTest {
                 .name("이영희")
                 .phone("010-0000-0002")
                 .build();
-        when(residentRepository.findAllById(List.of(1L, 2L)))
-                .thenReturn(List.of(resident1, resident2));
+        when(dongRepository.findAllById(List.of(200L))).thenReturn(List.of(dong));
+        when(residentRepository.findByHo_Dong_IdIn(List.of(200L))).thenReturn(List.of(resident1, resident2));
         when(noticeSendLogRepository.saveAll(any()))
                 .thenReturn(List.of(mock(NoticeSendLog.class), mock(NoticeSendLog.class)));
 
-        NoticeSendResponse response = noticeService.sendNoticeAlert(1L, new NoticeSendRequest(List.of(1L, 2L), null));
+        NoticeSendResponse response = noticeService.sendNoticeAlert(1L, new NoticeSendRequest(List.of(200L)));
 
         assertThat(response.success()).isTrue();
         assertThat(response.sentCount()).isEqualTo(2);

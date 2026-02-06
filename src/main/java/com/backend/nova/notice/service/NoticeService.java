@@ -81,7 +81,7 @@ public class NoticeService {
         if (allowedDongIds.isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        Set<Long> targetResidentIds = resolveTargetResidentIds(request, admin, allowedDongIds);
+        List<Long> targetResidentIds = resolveTargetResidentIds(request, admin, allowedDongIds);
 
         List<NoticeSendLog> logs = targetResidentIds.stream()
                 .map(residentId -> NoticeSendLog.builder()
@@ -134,30 +134,18 @@ public class NoticeService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
     }
 
-    private Set<Long> resolveTargetResidentIds(NoticeSendRequest request, Admin admin, Set<Long> allowedDongIds) {
+    private List<Long> resolveTargetResidentIds(NoticeSendRequest request, Admin admin, Set<Long> allowedDongIds) {
         if (request == null) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        Set<Long> targetResidentIds = new LinkedHashSet<>();
+        Long apartmentId = admin.getApartment().getId();
+        List<Long> requestedDongIds = normalizeIds(request.dongIds());
+        List<Long> targetDongIds = requestedDongIds.isEmpty() ? List.copyOf(allowedDongIds) : requestedDongIds;
+        validateDongIds(targetDongIds, apartmentId, allowedDongIds);
 
-        List<Long> residentIds = normalizeIds(request.residentIds());
-        if (!residentIds.isEmpty()) {
-            validateResidentIds(residentIds, admin, allowedDongIds);
-            targetResidentIds.addAll(residentIds);
-        }
-
-        List<Long> dongIds = normalizeIds(request.dongIds());
-        if (!dongIds.isEmpty()) {
-            validateDongIds(dongIds, admin, allowedDongIds);
-            List<Resident> residents = residentRepository.findByHo_Dong_IdIn(dongIds);
-            if (residents.isEmpty()) {
-                throw new BusinessException(ErrorCode.INVALID_REQUEST);
-            }
-            residents.stream()
-                    .map(Resident::getId)
-                    .filter(Objects::nonNull)
-                    .forEach(targetResidentIds::add);
-        }
+        List<Resident> residents = residentRepository.findByHo_Dong_IdIn(targetDongIds);
+        validateRequest(!residents.isEmpty());
+        List<Long> targetResidentIds = toResidentIdList(residents);
 
         if (targetResidentIds.isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
@@ -172,41 +160,27 @@ public class NoticeService {
         if (ids.stream().anyMatch(Objects::isNull)) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        return ids.stream().distinct().toList();
+        return ids;
     }
 
-    private void validateResidentIds(List<Long> residentIds, Admin admin, Set<Long> allowedDongIds) {
-        List<Resident> residents = residentRepository.findAllById(residentIds);
-        if (residents.size() != residentIds.size()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        }
-        Long apartmentId = admin.getApartment().getId();
-        boolean mismatchApartment = residents.stream()
-                .anyMatch(resident -> !resident.getHo().getDong().getApartment().getId().equals(apartmentId));
-        if (mismatchApartment) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        }
-        if (!allowedDongIds.isEmpty()) {
-            boolean notAllowed = residents.stream()
-                    .anyMatch(resident -> !allowedDongIds.contains(resident.getHo().getDong().getId()));
-            if (notAllowed) {
-                throw new BusinessException(ErrorCode.INVALID_REQUEST);
-            }
-        }
-    }
-
-    private void validateDongIds(List<Long> dongIds, Admin admin, Set<Long> allowedDongIds) {
+    private void validateDongIds(List<Long> dongIds, Long apartmentId, Set<Long> allowedDongIds) {
         List<Dong> dongs = dongRepository.findAllById(dongIds);
-        if (dongs.size() != dongIds.size()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        }
-        Long apartmentId = admin.getApartment().getId();
-        boolean mismatchApartment = dongs.stream()
-                .anyMatch(dong -> !dong.getApartment().getId().equals(apartmentId));
-        if (mismatchApartment) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        }
-        if (!allowedDongIds.isEmpty() && !allowedDongIds.containsAll(dongIds)) {
+        validateRequest(dongs.size() == dongIds.size());
+        boolean invalidDong = dongs.stream()
+                .anyMatch(dong -> !dong.getApartment().getId().equals(apartmentId)
+                        || !allowedDongIds.contains(dong.getId()));
+        validateRequest(!invalidDong);
+    }
+
+    private List<Long> toResidentIdList(List<Resident> residents) {
+        return residents.stream()
+                .map(Resident::getId)
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    private void validateRequest(boolean condition) {
+        if (!condition) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
     }
@@ -244,13 +218,13 @@ public class NoticeService {
     }
 
     private Set<Long> resolveAllowedDongIds(Notice notice, Admin admin) {
-        if (notice.getTargetScope() == NoticeTargetScope.ALL) {
-            List<Dong> dongs = dongRepository.findAllByApartmentId(admin.getApartment().getId());
-            return dongs.stream()
-                    .map(Dong::getId)
-                    .filter(Objects::nonNull)
-                    .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
-        }
-        return new LinkedHashSet<>(noticeTargetDongRepository.findDongIdsByNoticeId(notice.getId()));
+        List<Long> allowedIds = notice.getTargetScope() == NoticeTargetScope.ALL
+                ? dongRepository.findAllByApartmentId(admin.getApartment().getId()).stream()
+                        .map(Dong::getId)
+                        .toList()
+                : noticeTargetDongRepository.findDongIdsByNoticeId(notice.getId());
+        return allowedIds.stream()
+                .filter(Objects::nonNull)
+                .collect(java.util.stream.Collectors.toCollection(LinkedHashSet::new));
     }
 }
