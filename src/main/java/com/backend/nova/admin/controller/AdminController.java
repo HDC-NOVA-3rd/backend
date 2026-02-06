@@ -48,7 +48,7 @@ public class AdminController {
      * 관리자 로그인시도시 otp인증
      * POST /api/admin/login/verify-otpCode
      */
-    @PostMapping("/login/verify-otpCode")
+    @PostMapping("/login/verify-otp-code")
     public ResponseEntity<?> loginVerifyOtp(@RequestBody AdminLoginConfirmRequest request) {
         TokenResponse response = adminService.loginVerifyOtp(request);
         return ResponseEntity.ok(response);
@@ -80,7 +80,7 @@ public class AdminController {
      * OTP 검증
      * POST /api/admin/password/verify-otpCode
      */
-    @PostMapping("/password/verify-otpCode")
+    @PostMapping("/password/verify-otp-code")
     public ResponseEntity<?> passwordVerifyOtp(
             @RequestBody AdminPasswordChangeRequest request
     ) {
