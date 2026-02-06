@@ -16,5 +16,7 @@ public interface AdminDeviceRepository extends JpaRepository<AdminDevice, Long> 
     Optional<AdminDevice> findByAdminAndDeviceIdAndRevokedAtIsNull(
             Admin admin, String deviceId
     );
+
+    Optional<Object> findByAdminAndDeviceId(Admin admin, String deviceId);
 }
 

@@ -189,12 +189,4 @@ public class AdminController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * 현재 기기 등록 (로그인 과정에서만)
-     * POST /api/admin/devices
-     */
-    @PostMapping("/devices")
-    public ResponseEntity<AdminDeviceResponse> registerDevice(@AuthenticationPrincipal AdminDetails adminDetails) {
-        return ResponseEntity.ok(adminService.registerCurrentDevice(adminDetails));
-    }
 }

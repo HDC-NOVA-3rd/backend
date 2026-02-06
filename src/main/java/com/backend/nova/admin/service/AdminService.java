@@ -135,29 +135,44 @@ public class AdminService {
 
     /* ================= 비밀번호 ================= */
     public void requestPasswordReset(AdminPasswordResetRequest request) {
-        Admin admin = adminRepository.findByLoginIdAndEmail(request.loginId(), request.email())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
+        Admin admin = adminRepository.findByLoginIdAndEmail(
+                request.loginId(), request.email()
+        ).orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
-        sendOtp(admin, OtpPurpose.PASSWORD_RESET);
+        String otp = otpService.generate(admin.getLoginId(), OtpPurpose.PASSWORD_RESET);
+        mailService.sendOtpMail(admin.getEmail(), otp);
     }
+
 
     public void passwordVerifyOtp(AdminPasswordOtpVerifyRequest request) {
-        Admin admin = getAdminByLoginId(request.loginId());
-        AdminDevice otp = getLatestOtp(admin, OtpPurpose.PASSWORD_RESET);
-        validateOtp(otp, request.otp());
-        markOtpVerified(otp);
+        boolean verified = otpService.verify(
+                request.loginId(),
+                OtpPurpose.PASSWORD_RESET,
+                request.otp()
+        );
+
+        if (!verified) {
+            throw new BusinessException(ErrorCode.OTP_INVALID);
+        }
     }
 
+
     public void resetPassword(AdminPasswordResetConfirmRequest request) {
-        Admin admin = getAdminByLoginId(request.loginId());
-        boolean verified = adminDeviceRepository.existsByAdminAndPurposeAndVerifiedAtIsNotNull(admin, OtpPurpose.PASSWORD_RESET);
+        boolean verified = otpService.isVerified(
+                request.loginId(),
+                OtpPurpose.PASSWORD_RESET
+        );
+
         if (!verified) {
             throw new BusinessException(ErrorCode.OTP_NOT_VERIFIED);
         }
 
+        Admin admin = adminRepository.findByLoginId(request.loginId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
+
         admin.setPassword(passwordEncoder.encode(request.newPassword()));
-        adminRepository.save(admin);
     }
+
 
     public void changePassword(AdminPasswordChangeRequest request, AdminDetails adminDetails) {
         Admin admin = adminRepository.findById(adminDetails.getAdminId())
@@ -307,5 +322,9 @@ public class AdminService {
 
     public void logout(AdminDetails adminDetails) {
         // JWT blacklist 등 로그아웃 로직 구현 가능
+    }
+
+    public AdminDeviceResponse registerCurrentDevice(AdminDetails adminDetails) {
+        return null;
     }
 }
