@@ -141,7 +141,7 @@ class NoticeServiceTest {
 
         NoticeSendRequest request = new NoticeSendRequest(List.of(1L, 2L), null);
 
-        assertThatThrownBy(() -> noticeService.sendNotice(1L, request))
+        assertThatThrownBy(() -> noticeService.sendNoticeAlert(1L, request))
                 .isInstanceOf(BusinessException.class)
                 .satisfies(ex -> {
                     BusinessException be = (BusinessException) ex;
@@ -195,7 +195,7 @@ class NoticeServiceTest {
         when(noticeSendLogRepository.saveAll(any()))
                 .thenReturn(List.of(mock(NoticeSendLog.class), mock(NoticeSendLog.class)));
 
-        NoticeSendResponse response = noticeService.sendNotice(1L, new NoticeSendRequest(List.of(1L, 2L), null));
+        NoticeSendResponse response = noticeService.sendNoticeAlert(1L, new NoticeSendRequest(List.of(1L, 2L), null));
 
         assertThat(response.success()).isTrue();
         assertThat(response.sentCount()).isEqualTo(2);

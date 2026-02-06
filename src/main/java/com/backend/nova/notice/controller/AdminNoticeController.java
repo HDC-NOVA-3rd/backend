@@ -31,12 +31,12 @@ public class AdminNoticeController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @PostMapping("/{noticeId}/send")
-    public ResponseEntity<NoticeSendResponse> sendNotice(
+    @PostMapping("/{noticeId}/send-alert")
+    public ResponseEntity<NoticeSendResponse> sendNoticeAlert(
             @PathVariable Long noticeId,
             @RequestBody @Valid NoticeSendRequest request
     ) {
-        NoticeSendResponse response = noticeService.sendNotice(noticeId, request);
+        NoticeSendResponse response = noticeService.sendNoticeAlert(noticeId, request);
         return ResponseEntity.ok(response);
     }
 

@@ -125,7 +125,7 @@ class AdminNoticeControllerIntegrationTest {
                 null
         );
 
-        mockMvc.perform(post("/api/admin/notice/{noticeId}/send", createResponse.noticeId())
+        mockMvc.perform(post("/api/admin/notice/{noticeId}/send-alert", createResponse.noticeId())
                         .with(user(admin.getId().toString()).roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(sendRequest)))
@@ -148,7 +148,7 @@ class AdminNoticeControllerIntegrationTest {
 
         NoticeSendRequest sendRequest = new NoticeSendRequest(List.of(1L), null);
 
-        mockMvc.perform(post("/api/admin/notice/{noticeId}/send", 999L)
+        mockMvc.perform(post("/api/admin/notice/{noticeId}/send-alert", 999L)
                         .with(user(admin.getId().toString()).roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(sendRequest)))
@@ -230,7 +230,7 @@ class AdminNoticeControllerIntegrationTest {
 
         NoticeSendRequest sendRequest = new NoticeSendRequest(null, List.of(dong.getId()));
 
-        mockMvc.perform(post("/api/admin/notice/{noticeId}/send", createResponse.noticeId())
+        mockMvc.perform(post("/api/admin/notice/{noticeId}/send-alert", createResponse.noticeId())
                         .with(user(admin.getId().toString()).roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(sendRequest)))

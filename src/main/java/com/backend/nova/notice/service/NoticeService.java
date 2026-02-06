@@ -72,7 +72,7 @@ public class NoticeService {
         return new NoticeCreateResponse(true, saved.getId());
     }
 
-    public NoticeSendResponse sendNotice(Long noticeId, NoticeSendRequest request) {
+    public NoticeSendResponse sendNoticeAlert(Long noticeId, NoticeSendRequest request) {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTICE_NOT_FOUND));
 
@@ -95,7 +95,7 @@ public class NoticeService {
 
         noticeSendLogRepository.saveAll(logs);
 
-        String message = targetResidentIds.size() + "명에게 공지가 전송되었습니다.";
+        String message = targetResidentIds.size() + "명에게 공지 알림이 전송되었습니다.";
         return new NoticeSendResponse(true, message, targetResidentIds.size());
     }
 
