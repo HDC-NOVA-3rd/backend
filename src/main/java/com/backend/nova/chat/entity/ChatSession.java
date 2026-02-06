@@ -1,6 +1,7 @@
 package com.backend.nova.chat.entity;
 
 
+import com.backend.nova.member.entity.Member;
 import com.backend.nova.resident.entity.Resident;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -18,8 +19,8 @@ public class ChatSession {
     private String sessionId;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "resident_id", nullable = false)
-    private Resident resident;
+    @JoinColumn(name = "member_id", nullable = false)
+    private Member member;
 
     @Column(name = "status")
     private String status;

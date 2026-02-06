@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface ChatSessionRepository extends JpaRepository<ChatSession, String> {
 
-    List<ChatSession> findByResident_IdOrderByLastMessageAtDesc(Long residentId);
+    List<ChatSession> findByMember_IdOrderByLastMessageAtDesc(Long memberId);
+
 }
 

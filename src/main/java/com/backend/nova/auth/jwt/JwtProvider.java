@@ -35,6 +35,23 @@ public class JwtProvider {
         refreshTokenExpires = 604800 * 1000L; // 7일
     }
 
+    public String createRegisterToken(String email, String name, String provider, String providerId, String phoneNumber, String birthDate) {
+        Date now = new Date();
+        Date validity = new Date(now.getTime() + 1000 * 60 * 10); // 10분만 유효
+
+        return Jwts.builder()
+                .subject("REGISTER_USER")      // 주제 설정
+                .claim("email", email)         // 데이터 추가 (.put 대신 .claim 사용)
+                .claim("name", name)
+                .claim("provider", provider)
+                .claim("providerId", providerId)
+                .claim("phone", phoneNumber)
+                .claim("birthDate", birthDate)
+                .expiration(validity)          // 만료 시간
+                .signWith(secretKey) // 서명
+                .compact();
+    }
+
     public JwtToken generateToken(Authentication authentication) {
         String accessToken = createAccessToken(authentication);
         String refreshToken = createRefreshToken(authentication);

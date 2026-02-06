@@ -21,12 +21,12 @@ public enum ErrorCode {
     ADMIN_LOCKED(HttpStatus.FORBIDDEN, "계정이 잠금 상태입니다."),
 
 
-    // ================= Notice =================
-    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다."),
-
-
     // ================= Apartment =================
     APARTMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "아파트를 찾을 수 없습니다."),
+    HO_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 호 정보를 찾을 수 없습니다."),
+
+    // ================= Notice =================
+    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 공지를 찾을 수 없습니다."),
 
 
     // ================= OTP =================
@@ -44,7 +44,27 @@ public enum ErrorCode {
 
     // ================= Common =================
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청값이 올바르지 않습니다."),
-    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");
+    INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다."),
+
+
+    // ==================== Member ==============
+    /* 400 BAD_REQUEST : 잘못된 요청 */
+    INVALID_REFRESH_TOKEN(HttpStatus.BAD_REQUEST,  "유효하지 않거나 만료된 Refresh Token입니다."),
+
+    /* 401 UNAUTHORIZED : 인증 실패 (로그인 필요) */
+    LOGIN_REQUIRED(HttpStatus.UNAUTHORIZED,  "로그인이 필요한 기능입니다."),
+
+    /* 404 NOT_FOUND : 리소스를 찾을 수 없음 */
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND,  "회원 정보를 찾을 수 없습니다."),
+    RESIDENT_NOT_FOUND(HttpStatus.NOT_FOUND,  "해당 입주민 정보가 없습니다."),
+
+    /* 409 CONFLICT : 중복된 리소스 */
+    DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT,  "이미 존재하는 아이디입니다."),
+    SOCIAL_LOGIN_RESTRICTED(HttpStatus.CONFLICT,  "소셜 로그인 회원은 비밀번호를 변경할 수 없습니다."),
+
+    // ================= Resident (신규 추가) =================
+    /* 409 CONFLICT : 중복된 리소스 */
+    RESIDENT_DUPLICATED(HttpStatus.CONFLICT, "이미 등록된 입주민(휴대폰 번호)입니다.");
 
     private final HttpStatus status;
     private final String message;
