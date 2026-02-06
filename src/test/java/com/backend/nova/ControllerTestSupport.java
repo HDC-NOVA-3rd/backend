@@ -1,7 +1,5 @@
 package com.backend.nova;
 
-import com.backend.nova.admin.repository.AdminRepository;
-import com.backend.nova.admin.service.MailService;
 import com.backend.nova.auth.admin.AdminAuthenticationProvider;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
@@ -48,9 +46,5 @@ public abstract class ControllerTestSupport {
     @MockitoBean
     protected ClientRegistrationRepository clientRegistrationRepository;
 
-    @MockitoBean
-    private MailService mailService;
 
-    @MockitoBean
-    private AdminRepository adminRepository;
 }
