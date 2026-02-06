@@ -5,5 +5,6 @@ package com.backend.nova.admin.dto;
  */
 public record PasswordResetConfirmRequest(
         String loginId,
+        String otp,
         String newPassword
 ) {}

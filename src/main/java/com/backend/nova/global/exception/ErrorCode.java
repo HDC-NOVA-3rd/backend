@@ -62,8 +62,11 @@ public enum ErrorCode {
     SOCIAL_LOGIN_RESTRICTED(HttpStatus.CONFLICT,  "소셜 로그인 회원은 비밀번호를 변경할 수 없습니다."),
 
     // ================= Resident (신규 추가) =================
+// ================= Resident (신규 추가) =================
     /* 409 CONFLICT : 중복된 리소스 */
-    RESIDENT_DUPLICATED(HttpStatus.CONFLICT, "이미 등록된 입주민(휴대폰 번호)입니다.");
+    RESIDENT_DUPLICATED(HttpStatus.CONFLICT, "이미 등록된 입주민(휴대폰 번호)입니다."),
+    OTP_REQUIRED(HttpStatus.UNAUTHORIZED, "OTP 입력이 필요합니다.");
+
 
     private final HttpStatus status;
     private final String message;

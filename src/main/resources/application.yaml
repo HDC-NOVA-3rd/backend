@@ -1,3 +1,7 @@
+server:
+  port: 35980
+
+
 spring:
   application:
     name: nova # 애플리케이션 이름 설정
@@ -80,3 +84,5 @@ jwt:
 # openweather api key
 openweather:
   api-key: ${OPENWEATHER_API_KEY}
+otp:
+  secret: ${OTP_SECRET}

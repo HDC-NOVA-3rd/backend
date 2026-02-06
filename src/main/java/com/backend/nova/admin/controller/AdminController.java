@@ -45,6 +45,16 @@ public class AdminController {
     }
 
     /**
+     * 관리자 로그인시도시 otp인증
+     * POST /api/admin/login/verify-otp
+     */
+    @PostMapping("/login/verify-otp")
+    public ResponseEntity<?> loginVerifyOtp(@RequestBody SuperAdminLoginRequest request) {
+        TokenResponse response = adminService.loginVerifyOtp(request);
+        return ResponseEntity.ok(response);
+    }
+
+    /**
      * 관리자 로그아웃
      * POST /api/admin/logout
      */
@@ -132,14 +142,5 @@ public class AdminController {
         return ResponseEntity.ok(adminService.getAdminApartmentInfo(adminDetails));
     }
 
-    /**
-     * 슈퍼관리자 로그인시도시 otp인증
-     * POST /api/admin/login/verify-otp
-     */
-    @PostMapping("/login/verify-otp")
-    @PreAuthorize("hasRole('SUPER_ADMIN')")
-    public ResponseEntity<?> loginVerifyOtp(@RequestBody SuperAdminLoginRequest request) {
-         TokenResponse response = adminService.loginVerifyOtp(request);
-         return ResponseEntity.ok(response);
-     }
+
 }

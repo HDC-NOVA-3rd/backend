@@ -2,13 +2,13 @@ package com.backend.nova.admin.service;
 
 import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.entity.*;
-import com.backend.nova.admin.repository.AdminMfaOtpRepository;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.jwt.JwtToken;
+import com.backend.nova.auth.otp.StatelessOtpService;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
 import com.backend.nova.member.dto.RefreshTokenRequest;
@@ -21,7 +21,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
 import java.time.LocalDateTime;
 
 @Service
@@ -31,13 +30,12 @@ public class AdminService {
 
     private final AdminRepository adminRepository;
     private final ApartmentRepository apartmentRepository;
-    private final AdminMfaOtpRepository otpRepository;
+    private final StatelessOtpService otpService;
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final JwtProvider jwtProvider;
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
-    private static final int OTP_EXPIRE_MINUTES = 5;
 
     /* ================= 관리자 회원가입 ================= */
     public void createAdmin(AdminCreateRequest request) {
@@ -69,87 +67,106 @@ public class AdminService {
         adminRepository.save(admin);
     }
 
-    /* ================= 관리자 로그인 ================= */
-    public TokenResponse login(AdminLoginRequest request) {
-        // 로그인 아이디로 관리자 조회
+    /* ================= 일반 관리자 / 슈퍼관리자 로그인 ================= */
+    public String login(AdminLoginRequest request) {
+
         Admin admin = adminRepository.findByLoginId(request.loginId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED));
 
-        // 계정 상태 검증 (잠김, 비활성 등)
         validateAdminStatus(admin);
 
-        // 비밀번호 검증
         if (!passwordEncoder.matches(request.password(), admin.getPassword())) {
             handleLoginFailure(admin);
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED);
         }
 
-        // 로그인 성공 처리 (실패 카운트 초기화 등)
         handleLoginSuccess(admin);
 
-        // 슈퍼관리자인 경우 OTP 발급 후 JWT는 발급하지 않음
-        if (admin.getRole() == AdminRole.SUPER_ADMIN) {
-            sendOtp(admin, OtpPurpose.LOGIN);
-            // 여기서 바로 JWT를 발급하지 않고, OTP 입력 후 검증을 요구
-            throw new BusinessException(ErrorCode.SUPER_ADMIN_OTP_REQUIRED);
-            // 또는 별도 DTO 반환 가능
-        }
+        // 모든 관리자: OTP 발송
+        String otp = otpService.generate(admin.getLoginId(), OtpPurpose.LOGIN);
+        mailService.sendOtpMail(admin.getEmail(), otp);
 
-        // 일반 관리자 로그인: JWT 발급
-        AdminDetails adminDetails = new AdminDetails(admin);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-                adminDetails,
-                null,
-                adminDetails.getAuthorities()
-        );
-
-        JwtToken jwtToken = jwtProvider.generateToken(authentication);
-
-        return TokenResponse.builder()
-                .accessToken(jwtToken.accessToken())
-                .refreshToken(jwtToken.refreshToken())
-                .id(admin.getId())
-                .loginId(admin.getLoginId())
-                .name(admin.getName())
-                .role(admin.getRole().name())
-                .build();
+        // OTP 입력 필요 메시지 반환
+        return "OTP가 발송되었습니다. 이메일을 확인하세요.";
     }
 
 
+
+    /* ================= 슈퍼관리자 OTP 검증 ================= */
+    @Transactional
+    public TokenResponse loginVerifyOtp(SuperAdminLoginRequest request) {
+
+        Admin admin = adminRepository.findByLoginId(request.loginId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
+
+        validateAdminStatus(admin);
+
+        boolean verified = otpService.verify(
+                admin.getLoginId(),
+                OtpPurpose.LOGIN,
+                request.otpCode()
+        );
+
+        if (!verified) {
+            throw new BusinessException(ErrorCode.OTP_INVALID);
+        }
+
+        return issueToken(admin);
+    }
+
     /* ================= 비밀번호 재설정 ================= */
     public void requestPasswordReset(PasswordResetRequest request) {
+
         Admin admin = adminRepository
                 .findByLoginIdAndEmail(request.loginId(), request.email())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
         validateAdminStatus(admin);
-        sendOtp(admin, OtpPurpose.PASSWORD_RESET);
+
+        String otp = otpService.generate(
+                admin.getLoginId(),
+                OtpPurpose.PASSWORD_RESET
+        );
+
+        mailService.sendOtpMail(admin.getEmail(), otp);
     }
 
     public void passwordVerifyOtp(PasswordOtpVerifyRequest request) {
+
         Admin admin = getAdminByLoginId(request.loginId());
-        AdminMfaOtp otp = getLatestOtp(admin, OtpPurpose.PASSWORD_RESET);
-        validateOtp(otp, request.otp());
-        markOtpVerified(otp);
+
+        boolean verified = otpService.verify(
+                admin.getLoginId(),
+                OtpPurpose.PASSWORD_RESET,
+                request.otp()
+        );
+
+        if (!verified) {
+            throw new BusinessException(ErrorCode.OTP_INVALID);
+        }
     }
 
     public void resetPassword(PasswordResetConfirmRequest request) {
+
         Admin admin = getAdminByLoginId(request.loginId());
 
-        boolean verified = otpRepository
-                .existsByAdminAndPurposeAndVerifiedAtIsNotNull(
-                        admin, OtpPurpose.PASSWORD_RESET
-                );
+        boolean verified = otpService.verify(
+                admin.getLoginId(),
+                OtpPurpose.PASSWORD_RESET,
+                request.otp()
+        );
 
         if (!verified) {
-            throw new BusinessException(ErrorCode.OTP_NOT_VERIFIED);
+            throw new BusinessException(ErrorCode.OTP_INVALID);
         }
 
         admin.setPassword(passwordEncoder.encode(request.newPassword()));
         adminRepository.save(admin);
     }
 
+    /* ================= 비밀번호 변경 (로그인 상태) ================= */
     public void changePassword(PasswordChangeRequest request, AdminDetails adminDetails) {
+
         Admin admin = adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
@@ -163,7 +180,10 @@ public class AdminService {
 
     /* ================= Access Token 재발급 ================= */
     public TokenResponse refresh(RefreshTokenRequest request) {
-        Authentication auth = jwtProvider.getAuthenticationFromRefreshToken(request.refreshToken());
+
+        Authentication auth =
+                jwtProvider.getAuthenticationFromRefreshToken(request.refreshToken());
+
         JwtToken jwtToken = jwtProvider.generateToken(auth);
 
         AdminDetails adminDetails = (AdminDetails) auth.getPrincipal();
@@ -180,8 +200,9 @@ public class AdminService {
                 .build();
     }
 
-    /* ================= AdminDetails 기반 조회 ================= */
+    /* ================= 조회 ================= */
     public AdminInfoResponse getAdminInfo(AdminDetails adminDetails) {
+
         Admin admin = adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
@@ -199,6 +220,7 @@ public class AdminService {
     }
 
     public AdminApartmentResponse getAdminApartmentInfo(AdminDetails adminDetails) {
+
         Admin admin = adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
@@ -213,13 +235,36 @@ public class AdminService {
     }
 
     /* ================= 내부 헬퍼 ================= */
+    private TokenResponse issueToken(Admin admin) {
+
+        AdminDetails adminDetails = new AdminDetails(admin);
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        adminDetails,
+                        null,
+                        adminDetails.getAuthorities()
+                );
+
+        JwtToken jwtToken = jwtProvider.generateToken(authentication);
+
+        return TokenResponse.builder()
+                .accessToken(jwtToken.accessToken())
+                .refreshToken(jwtToken.refreshToken())
+                .id(admin.getId())
+                .loginId(admin.getLoginId())
+                .name(admin.getName())
+                .role(admin.getRole().name())
+                .build();
+    }
+
     private Admin getAdminByLoginId(String loginId) {
         return adminRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
     }
 
     private void validateAdminStatus(Admin admin) {
-        if (admin.getLockedUntil() != null && admin.getLockedUntil().isAfter(LocalDateTime.now())) {
+        if (admin.getLockedUntil() != null &&
+                admin.getLockedUntil().isAfter(LocalDateTime.now())) {
             throw new BusinessException(ErrorCode.ADMIN_LOCKED);
         }
         if (admin.getStatus() != AdminStatus.ACTIVE) {
@@ -243,49 +288,12 @@ public class AdminService {
         admin.setLastLoginAt(LocalDateTime.now());
     }
 
-    private void sendOtp(Admin admin, OtpPurpose purpose) {
-        String otpCode = String.format("%06d", new SecureRandom().nextInt(1_000_000));
-
-        AdminMfaOtp otp = AdminMfaOtp.builder()
-                .admin(admin)
-                .otpCode(otpCode)
-                .purpose(purpose)
-                .expiresAt(LocalDateTime.now().plusMinutes(OTP_EXPIRE_MINUTES))
-                .build();
-
-        otpRepository.save(otp);
-        mailService.sendOtpMail(admin.getEmail(), otpCode);
-    }
-
-    private AdminMfaOtp getLatestOtp(Admin admin, OtpPurpose purpose) {
-        return otpRepository
-                .findTopByAdminAndPurposeAndVerifiedAtIsNullOrderByCreatedAtDesc(admin, purpose)
-                .orElseThrow(() -> new BusinessException(ErrorCode.OTP_NOT_FOUND));
-    }
-
-    private void validateOtp(AdminMfaOtp otp, String inputOtp) {
-        if (otp.getExpiresAt().isBefore(LocalDateTime.now())) {
-            throw new BusinessException(ErrorCode.OTP_EXPIRED);
-        }
-        if (otp.getAttemptCount() >= 5) {
-            throw new BusinessException(ErrorCode.OTP_MAX_ATTEMPTS);
-        }
-        if (!otp.getOtpCode().equals(inputOtp)) {
-            otp.increaseAttempt();
-            otpRepository.save(otp);
-            throw new BusinessException(ErrorCode.OTP_INVALID);
-        }
-    }
-
-    private void markOtpVerified(AdminMfaOtp otp) {
-        otp.markVerified();
-        otpRepository.save(otp);
-    }
-
     private Admin getCurrentAdmin() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication == null || !(authentication.getPrincipal() instanceof AdminDetails adminDetails)) {
+        if (authentication == null ||
+                !(authentication.getPrincipal() instanceof AdminDetails adminDetails)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
 
@@ -294,64 +302,6 @@ public class AdminService {
     }
 
     public void logout(AdminDetails adminDetails) {
-        // 필요한 로그아웃 로직 (JWT blacklist 등) 구현 가능
+        // JWT blacklist / refresh token 무효화 등 필요 시 구현
     }
-
-    /**
-     * 슈퍼관리자 로그인 OTP 검증
-     *
-     * 1. 로그인 시 발급된 OTP 확인
-     * 2. OTP 검증 성공 시 JWT 발급
-     */
-    @Transactional
-    public TokenResponse loginVerifyOtp(SuperAdminLoginRequest request) {
-        // 1. 로그인 아이디로 관리자 조회
-        Admin admin = adminRepository.findByLoginId(request.loginId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
-
-        // 2. 계정 상태 검증 (잠김, 비활성 등)
-        validateAdminStatus(admin);
-
-        // 3. OTP 조회 (미검증된 최신 OTP, LOGIN 용도)
-        AdminMfaOtp otp = otpRepository
-                .findTopByAdminAndPurposeAndVerifiedAtIsNullOrderByCreatedAtDesc(admin, OtpPurpose.LOGIN)
-                .orElseThrow(() -> new BusinessException(ErrorCode.OTP_NOT_FOUND));
-
-        // 4. OTP 검증
-        if (otp.isExpired()) {
-            throw new BusinessException(ErrorCode.OTP_EXPIRED);
-        }
-        if (otp.getAttemptCount() >= 5) {
-            throw new BusinessException(ErrorCode.OTP_MAX_ATTEMPTS);
-        }
-        if (!otp.getOtpCode().equals(request.otpCode())) {
-            otp.increaseAttempt();
-            otpRepository.save(otp);
-            throw new BusinessException(ErrorCode.OTP_INVALID);
-        }
-
-        // 5. OTP 검증 완료 처리
-        markOtpVerified(otp);
-
-        // 6. JWT 발급
-        AdminDetails adminDetails = new AdminDetails(admin);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-                adminDetails,
-                null,
-                adminDetails.getAuthorities()
-        );
-        JwtToken jwtToken = jwtProvider.generateToken(authentication);
-
-        // 7. TokenResponse 반환
-        return TokenResponse.builder()
-                .accessToken(jwtToken.accessToken())
-                .refreshToken(jwtToken.refreshToken())
-                .id(admin.getId())
-                .loginId(admin.getLoginId())
-                .name(admin.getName())
-                .role(admin.getRole().name())
-                .build();
-    }
-
-
 }
