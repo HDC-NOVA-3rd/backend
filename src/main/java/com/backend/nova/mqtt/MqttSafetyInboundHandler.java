@@ -51,16 +51,7 @@ public class MqttSafetyInboundHandler {
     }
 
     private String extractDeviceId(String topic) {
-        if (topic == null || topic.isBlank()) {
-            return null;
-        }
         String[] parts = topic.split("/");
-        if (parts.length != 5) {
-            return null;
-        }
-        if (!"hdc".equals(parts[0]) || !"device".equals(parts[1]) || !"safety".equals(parts[3]) || !"data".equals(parts[4])) {
-            return null;
-        }
         String deviceId = parts[2];
         return deviceId == null || deviceId.isBlank() ? null : deviceId;
     }

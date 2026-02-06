@@ -20,6 +20,4 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
 
 
 
-    List<Resident> findByHo_Dong_IdIn(List<Long> dongIds);
-
 }
