@@ -46,10 +46,10 @@ public class AdminController {
 
     /**
      * 관리자 로그인시도시 otp인증
-     * POST /api/admin/login/verify-otp
+     * POST /api/admin/login/verify-otpCode
      */
-    @PostMapping("/login/verify-otp")
-    public ResponseEntity<?> loginVerifyOtp(@RequestBody SuperAdminLoginRequest request) {
+    @PostMapping("/login/verify-otpCode")
+    public ResponseEntity<?> loginVerifyOtp(@RequestBody AdminLoginConfirmRequest request) {
         TokenResponse response = adminService.loginVerifyOtp(request);
         return ResponseEntity.ok(response);
     }
@@ -70,7 +70,7 @@ public class AdminController {
      */
     @PostMapping("/password/reset-request")
     public ResponseEntity<?> requestPasswordReset(
-            @RequestBody PasswordResetRequest request
+            @RequestBody AdminPasswordResetRequest request
     ) {
         adminService.requestPasswordReset(request);
         return ResponseEntity.ok().build();
@@ -78,11 +78,11 @@ public class AdminController {
 
     /**
      * OTP 검증
-     * POST /api/admin/password/verify-otp
+     * POST /api/admin/password/verify-otpCode
      */
-    @PostMapping("/password/verify-otp")
+    @PostMapping("/password/verify-otpCode")
     public ResponseEntity<?> passwordVerifyOtp(
-            @RequestBody PasswordOtpVerifyRequest request
+            @RequestBody AdminPasswordChangeRequest request
     ) {
         adminService.passwordVerifyOtp(request);
         return ResponseEntity.ok().build();
@@ -94,7 +94,7 @@ public class AdminController {
      */
     @PostMapping("/password/reset")
     public ResponseEntity<?> resetPassword(
-            @RequestBody PasswordResetConfirmRequest request
+            @RequestBody AdminPasswordResetConfirmRequest request
     ) {
         adminService.resetPassword(request);
         return ResponseEntity.ok().build();
@@ -107,7 +107,7 @@ public class AdminController {
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/password")
     public ResponseEntity<?> changePassword(
-            @RequestBody PasswordChangeRequest request,
+            @RequestBody AdminPasswordChangeConfirmRequest request,
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
         adminService.changePassword(request, adminDetails);

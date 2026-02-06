@@ -94,7 +94,7 @@ public class AdminService {
 
     /* ================= 슈퍼관리자 OTP 검증 ================= */
     @Transactional
-    public TokenResponse loginVerifyOtp(SuperAdminLoginRequest request) {
+    public TokenResponse loginVerifyOtp(AdminLoginConfirmRequest request) {
 
         Admin admin = adminRepository.findByLoginId(request.loginId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
@@ -115,7 +115,7 @@ public class AdminService {
     }
 
     /* ================= 비밀번호 재설정 ================= */
-    public void requestPasswordReset(PasswordResetRequest request) {
+    public void requestPasswordReset(AdminPasswordResetRequest request) {
 
         Admin admin = adminRepository
                 .findByLoginIdAndEmail(request.loginId(), request.email())
@@ -131,14 +131,14 @@ public class AdminService {
         mailService.sendOtpMail(admin.getEmail(), otp);
     }
 
-    public void passwordVerifyOtp(PasswordOtpVerifyRequest request) {
+    public void passwordVerifyOtp(AdminPasswordChangeRequest request) {
 
         Admin admin = getAdminByLoginId(request.loginId());
 
         boolean verified = otpService.verify(
                 admin.getLoginId(),
                 OtpPurpose.PASSWORD_RESET,
-                request.otp()
+                request.otpCode()
         );
 
         if (!verified) {
@@ -146,14 +146,14 @@ public class AdminService {
         }
     }
 
-    public void resetPassword(PasswordResetConfirmRequest request) {
+    public void resetPassword(AdminPasswordResetConfirmRequest request) {
 
         Admin admin = getAdminByLoginId(request.loginId());
 
         boolean verified = otpService.verify(
                 admin.getLoginId(),
                 OtpPurpose.PASSWORD_RESET,
-                request.otp()
+                request.otpCode()
         );
 
         if (!verified) {
@@ -165,7 +165,7 @@ public class AdminService {
     }
 
     /* ================= 비밀번호 변경 (로그인 상태) ================= */
-    public void changePassword(PasswordChangeRequest request, AdminDetails adminDetails) {
+    public void changePassword(AdminPasswordChangeConfirmRequest request, AdminDetails adminDetails) {
 
         Admin admin = adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
