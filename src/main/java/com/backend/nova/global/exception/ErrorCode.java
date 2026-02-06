@@ -21,10 +21,6 @@ public enum ErrorCode {
     ADMIN_LOCKED(HttpStatus.FORBIDDEN, "계정이 잠금 상태입니다."),
 
 
-    // ================= Notice =================
-    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "공지사항을 찾을 수 없습니다."),
-
-
     // ================= Apartment =================
     APARTMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "아파트를 찾을 수 없습니다."),
     HO_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 호 정보를 찾을 수 없습니다."),
