@@ -11,8 +11,7 @@ import com.backend.nova.auth.jwt.JwtToken;
 import com.backend.nova.auth.otp.StatelessOtpService;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
-import com.backend.nova.member.dto.RefreshTokenRequest;
-import com.backend.nova.member.dto.TokenResponse;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -94,7 +93,7 @@ public class AdminService {
 
     /* ================= 슈퍼관리자 OTP 검증 ================= */
     @Transactional
-    public TokenResponse loginVerifyOtp(AdminLoginConfirmRequest request) {
+    public AdminTokenResponse loginVerifyOtp(AdminLoginConfirmRequest request) {
 
         Admin admin = adminRepository.findByLoginId(request.loginId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
@@ -179,7 +178,7 @@ public class AdminService {
     }
 
     /* ================= Access Token 재발급 ================= */
-    public TokenResponse refresh(RefreshTokenRequest request) {
+    public AdminTokenResponse refresh(AdminRefreshTokenRequest request) {
 
         Authentication auth =
                 jwtProvider.getAuthenticationFromRefreshToken(request.refreshToken());
@@ -190,11 +189,10 @@ public class AdminService {
         Admin admin = adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
-        return TokenResponse.builder()
+        return AdminTokenResponse.builder()
                 .accessToken(jwtToken.accessToken())
                 .refreshToken(jwtToken.refreshToken())
-                .id(admin.getId())
-                .loginId(admin.getLoginId())
+                .adminId(admin.getId())
                 .name(admin.getName())
                 .role(admin.getRole().name())
                 .build();
@@ -235,7 +233,7 @@ public class AdminService {
     }
 
     /* ================= 내부 헬퍼 ================= */
-    private TokenResponse issueToken(Admin admin) {
+    private AdminTokenResponse issueToken(Admin admin) {
 
         AdminDetails adminDetails = new AdminDetails(admin);
         Authentication authentication =
@@ -247,11 +245,10 @@ public class AdminService {
 
         JwtToken jwtToken = jwtProvider.generateToken(authentication);
 
-        return TokenResponse.builder()
+        return AdminTokenResponse.builder()
                 .accessToken(jwtToken.accessToken())
                 .refreshToken(jwtToken.refreshToken())
-                .id(admin.getId())
-                .loginId(admin.getLoginId())
+                .adminId(admin.getId())
                 .name(admin.getName())
                 .role(admin.getRole().name())
                 .build();
