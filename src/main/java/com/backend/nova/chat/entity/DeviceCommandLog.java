@@ -46,6 +46,7 @@ public class DeviceCommandLog {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    //새로운 요청이 들어올때 사용 .. stauts = pending 으로 시작하도록 강제
     public static DeviceCommandLog pending(
             String traceId,
             Long memberId,
