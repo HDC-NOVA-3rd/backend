@@ -43,7 +43,11 @@ public class ComplaintController {
             @AuthenticationPrincipal MemberDetails memberDetails,
             @RequestBody ComplaintUpdateRequest request) {
 
-        complaintService.updateComplaint(complaintId, memberDetails.getMemberId(), request);
+        complaintService.updateComplaint(
+                complaintId,
+                memberDetails.getMemberId(),
+                request
+        );
         return ResponseEntity.ok().build();
     }
 
@@ -59,14 +63,13 @@ public class ComplaintController {
         complaintService.deleteComplaint(complaintId, memberId);
     }
 
-
-//    public ResponseEntity<Void> deleteComplaint(
-//            @PathVariable("complaintId") Long complaintId,
-//            @AuthenticationPrincipal MemberDetails memberDetails) {
-//
-//        complaintService.deleteComplaint(complaintId, memberId);
-//        return ResponseEntity.ok().build();
-//    }
+    //    public ResponseEntity<Void> deleteComplaint(
+    //            @PathVariable("complaintId") Long complaintId,
+    //            @AuthenticationPrincipal MemberDetails memberDetails) {
+    //
+    //        complaintService.deleteComplaint(complaintId, memberId);
+    //        return ResponseEntity.ok().build();
+    //    }
 
     /* ================= 관리자 배정 (관리자) ================= */
     @PostMapping("/{complaintId}/assign")
@@ -76,10 +79,15 @@ public class ComplaintController {
             @AuthenticationPrincipal AdminDetails adminDetails,
             @RequestParam Long targetAdminId) {
 
-        complaintService.assignAdmin(complaintId, adminDetails.getAdmin().getId(), targetAdminId);
+        complaintService.assignAdmin(
+                complaintId,
+                adminDetails.getAdminId(),
+                targetAdminId
+        );
         return ResponseEntity.ok().build();
     }
 
+    /* ================= 민원 상태 변경 (관리자) ================= */
     @PostMapping("/{complaintId}/status")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> changeStatus(
@@ -87,10 +95,13 @@ public class ComplaintController {
             @AuthenticationPrincipal AdminDetails adminDetails,
             @RequestParam ComplaintStatus status) {
 
-        complaintService.changeStatusByAdmin(complaintId, adminDetails.getAdmin().getId(), status);
+        complaintService.changeStatusByAdmin(
+                complaintId,
+                adminDetails.getAdminId(),
+                status
+        );
         return ResponseEntity.ok().build();
     }
-
 
     /* ================= 민원 답변 등록 (관리자) ================= */
     @PostMapping("/{complaintId}/answers")
@@ -100,7 +111,11 @@ public class ComplaintController {
             @AuthenticationPrincipal AdminDetails adminDetails,
             @RequestBody ComplaintAnswerCreateRequest request) {
 
-        complaintService.createAnswer(complaintId, adminDetails.getAdmin().getId(), request);
+        complaintService.createAnswer(
+                complaintId,
+                adminDetails.getAdminId(),
+                request
+        );
         return ResponseEntity.ok().build();
     }
 
@@ -111,10 +126,12 @@ public class ComplaintController {
             @PathVariable("complaintId") Long complaintId,
             @AuthenticationPrincipal AdminDetails adminDetails) {
 
-        complaintService.completeComplaint(complaintId, adminDetails.getAdmin().getId());
+        complaintService.completeComplaint(
+                complaintId,
+                adminDetails.getAdminId()
+        );
         return ResponseEntity.ok().build();
     }
-
 
     /* ================= 민원 피드백 (입주민) ================= */
     @PostMapping("/{complaintId}/feedbacks")
@@ -124,56 +141,69 @@ public class ComplaintController {
             @AuthenticationPrincipal MemberDetails memberDetails,
             @RequestBody ComplaintFeedbackCreateRequest request) {
 
-        complaintService.createFeedback(complaintId, memberDetails.getMemberId(), request);
+        complaintService.createFeedback(
+                complaintId,
+                memberDetails.getMemberId(),
+                request
+        );
         return ResponseEntity.ok().build();
     }
 
+    /* ================= 민원 상세 조회 ================= */
     @Operation(summary = "민원 상세 조회", description = "민원 ID로 상세 정보를 조회합니다.")
     @GetMapping("/{complaintId}")
-    public ResponseEntity<ComplaintResponse> getComplaint(@PathVariable("complaintId") Long complaintId) {
-        ComplaintResponse complaint = complaintService.getComplaintDetail(complaintId);
+    public ResponseEntity<ComplaintResponse> getComplaint(
+            @PathVariable("complaintId") Long complaintId) {
+
+        ComplaintResponse complaint =
+                complaintService.getComplaintDetail(complaintId);
         return ResponseEntity.ok(complaint);
     }
 
-    //사용자
+    // 사용자
     @Operation(summary = "사용자별 민원 목록 조회", description = "멤버 ID로 해당 아파트의 모든 민원을 조회합니다.")
     @GetMapping("/member/{memberId}")
-    public ResponseEntity<List<ComplaintResponse>> getComplaintsByMember(@PathVariable Long memberId) {
-        List<ComplaintResponse> complaints = complaintService.getComplaintsByMember(memberId);
+    public ResponseEntity<List<ComplaintResponse>> getComplaintsByMember(
+            @PathVariable Long memberId) {
+
+        List<ComplaintResponse> complaints =
+                complaintService.getComplaintsByMember(memberId);
         return ResponseEntity.ok(complaints);
     }
 
-    //관리자
+    // 관리자
     @Operation(summary = "아파트별 민원 목록 조회", description = "아파트 ID로 해당 아파트의 모든 민원을 조회합니다.")
     @GetMapping("/apartment/{apartmentId}")
-    public ResponseEntity<List<ComplaintResponse>> getComplaintsByApartment(@PathVariable Long apartmentId) {
-        List<ComplaintResponse> complaints = complaintService.getComplaintsByApartment(apartmentId);
+    public ResponseEntity<List<ComplaintResponse>> getComplaintsByApartment(
+            @PathVariable Long apartmentId) {
+
+        List<ComplaintResponse> complaints =
+                complaintService.getComplaintsByApartment(apartmentId);
         return ResponseEntity.ok(complaints);
     }
 
-//    //관리자
-//    @Operation(summary = "단지별 민원 리스트 삭제", description = "아파트 단지 ID로 해당 세대의 민원을 모두 삭제합니다.")
-//    @DeleteMapping("/apartment/{apartmentId}")
-//    public ResponseEntity<Void> deleteAllComplaints(@PathVariable Long apartmentId) {
-//        complaintService.deleteAllComplaints(apartmentId);
-//        return ResponseEntity.ok().build();
-//    }
-//
-//    //관리자
-//    @Operation(summary = "호별 민원 리스트 삭제", description = "호 ID로 해당 세대의 민원을 모두 삭제합니다.")
-//    @DeleteMapping("/ho/{hoId}")
-//    public ResponseEntity<Void> deleteAllComplaints(@PathVariable Long hoId) {
-//        complaintService.deleteAllComplaints(hoId);
-//        return ResponseEntity.ok().build();
-//    }
-//
-//    //사용자
-//    @Operation(summary = "멤버별 민원 리스트 삭제", description = "멤버 ID로 해당 세대의 민원을 모두 삭제합니다.")
-//    @DeleteMapping("/member/{memberId}")
-//    public ResponseEntity<Void> deleteAllComplaints(@PathVariable Long memberId) {
-//        complaintService.deleteAllComplaints(memberId);
-//        return ResponseEntity.ok().build();
-//    }
-    
+    //    //관리자
+    //    @Operation(summary = "단지별 민원 리스트 삭제", description = "아파트 단지 ID로 해당 세대의 민원을 모두 삭제합니다.")
+    //    @DeleteMapping("/apartment/{apartmentId}")
+    //    public ResponseEntity<Void> deleteAllComplaints(@PathVariable Long apartmentId) {
+    //        complaintService.deleteAllComplaints(apartmentId);
+    //        return ResponseEntity.ok().build();
+    //    }
+    //
+    //    //관리자
+    //    @Operation(summary = "호별 민원 리스트 삭제", description = "호 ID로 해당 세대의 민원을 모두 삭제합니다.")
+    //    @DeleteMapping("/ho/{hoId}")
+    //    public ResponseEntity<Void> deleteAllComplaints(@PathVariable Long hoId) {
+    //        complaintService.deleteAllComplaints(hoId);
+    //        return ResponseEntity.ok().build();
+    //    }
+    //
+    //    //사용자
+    //    @Operation(summary = "멤버별 민원 리스트 삭제", description = "멤버 ID로 해당 세대의 민원을 모두 삭제합니다.")
+    //    @DeleteMapping("/member/{memberId}")
+    //    public ResponseEntity<Void> deleteAllComplaints(@PathVariable Long memberId) {
+    //        complaintService.deleteAllComplaints(memberId);
+    //        return ResponseEntity.ok().build();
+    //    }
 
 }
