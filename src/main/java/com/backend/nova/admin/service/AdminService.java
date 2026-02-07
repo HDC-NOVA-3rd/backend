@@ -87,21 +87,13 @@ public class AdminService {
         return "OTP가 발송되었습니다. 이메일을 확인하세요.";
     }
 
-    /* ================= OTP 검증 ================= */
+    /* ================= 로그인 OTP 검증 ================= */
     public AdminTokenResponse loginVerifyOtp(AdminLoginConfirmRequest request) {
 
-        Admin admin = adminRepository.findByLoginId(request.loginId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
-
+        Admin admin = getAdminByLoginId(request.loginId());
         validateAdminStatus(admin);
 
-        boolean verified = otpService.verify(
-                admin.getLoginId(),
-                OtpPurpose.LOGIN,
-                request.otpCode()
-        );
-
-        if (!verified) {
+        if (!otpService.verify(admin.getLoginId(), OtpPurpose.LOGIN, request.otpCode())) {
             throw new BusinessException(ErrorCode.OTP_INVALID);
         }
 
@@ -117,11 +109,7 @@ public class AdminService {
 
         validateAdminStatus(admin);
 
-        String otp = otpService.generate(
-                admin.getLoginId(),
-                OtpPurpose.PASSWORD_RESET
-        );
-
+        String otp = otpService.generate(admin.getLoginId(), OtpPurpose.PASSWORD_RESET);
         mailService.sendOtpMail(admin.getEmail(), otp);
     }
 
@@ -129,16 +117,32 @@ public class AdminService {
 
         Admin admin = getAdminByLoginId(request.loginId());
 
-        boolean verified = otpService.verify(
-                admin.getLoginId(),
-                OtpPurpose.PASSWORD_RESET,
-                request.otpCode()
-        );
-
-        if (!verified) {
+        if (!otpService.verify(admin.getLoginId(), OtpPurpose.PASSWORD_RESET, request.otpCode())) {
             throw new BusinessException(ErrorCode.OTP_INVALID);
         }
 
+        admin.setPassword(passwordEncoder.encode(request.newPassword()));
+    }
+
+    /* ================= 비밀번호 변경 OTP 검증 ================= */
+    public void passwordVerifyOtp(AdminPasswordChangeRequest request) {
+
+        Admin admin = getAdminByLoginId(request.loginId());
+
+        if (!otpService.verify(admin.getLoginId(), OtpPurpose.PASSWORD_RESET, request.otpCode())) {
+            throw new BusinessException(ErrorCode.OTP_INVALID);
+        }
+    }
+
+    /* ================= 비밀번호 변경 ================= */
+    public void changePassword(
+            AdminPasswordChangeConfirmRequest request,
+            AdminDetails adminDetails
+    ) {
+        Admin admin = adminRepository.findById(adminDetails.getAdminId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
+
+        validateAdminStatus(admin);
         admin.setPassword(passwordEncoder.encode(request.newPassword()));
     }
 
@@ -149,32 +153,10 @@ public class AdminService {
             throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }
 
-        String loginId = jwtProvider.getSubject(request.refreshToken());
-
-        Admin admin = getAdminByLoginId(loginId);
+        Admin admin = getAdminByLoginId(jwtProvider.getSubject(request.refreshToken()));
         validateAdminStatus(admin);
 
         return issueToken(admin);
-    }
-
-    /* ================= 조회 ================= */
-    public AdminInfoResponse getAdminInfo(AdminDetails adminDetails) {
-
-        Admin admin = adminRepository.findById(adminDetails.getAdminId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
-
-        return AdminInfoResponse.from(admin);
-    }
-
-    public AdminApartmentResponse getAdminApartmentInfo(AdminDetails adminDetails) {
-
-        Admin admin = adminRepository.findById(adminDetails.getAdminId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
-
-        Apartment apartment = admin.getApartment();
-        if (apartment == null) return null;
-
-        return AdminApartmentResponse.from(apartment);
     }
 
     /* ================= 내부 ================= */
@@ -233,8 +215,7 @@ public class AdminService {
     }
 
     private Admin getCurrentAdmin() {
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null ||
                 !(authentication.getPrincipal() instanceof AdminDetails adminDetails)) {
@@ -246,6 +227,6 @@ public class AdminService {
     }
 
     public void logout(AdminDetails adminDetails) {
-        // refresh token 무효화 / blacklist 필요 시 구현
+        // TODO refresh token blacklist
     }
 }
