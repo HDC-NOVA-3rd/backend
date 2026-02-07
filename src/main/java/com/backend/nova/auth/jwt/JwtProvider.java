@@ -2,10 +2,11 @@ package com.backend.nova.auth.jwt;
 
 import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.admin.AdminDetailsService;
+import com.backend.nova.auth.member.MemberDetails;
+import com.backend.nova.auth.member.MemberDetailsService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -20,30 +21,30 @@ import java.util.stream.Collectors;
 
 @Slf4j
 @Component
-@RequiredArgsConstructor
 public class JwtProvider {
 
     /* ================== JWT 기본 설정 ================== */
 
-    private final SecretKey secretKey;                 // JWT 서명용 비밀키
-    private final Long accessTokenExpires;            // Access Token 만료시간
+    private final SecretKey secretKey;
+    private final long accessTokenExpires;
 
     private final AdminDetailsService adminDetailsService;
+    private final MemberDetailsService memberDetailsService;
 
     public JwtProvider(
             @Value("${jwt.secret}") String secretStr,
-            AdminDetailsService adminDetailsService
+            AdminDetailsService adminDetailsService,
+            MemberDetailsService memberDetailsService
     ) {
         byte[] keyBytes = Decoders.BASE64.decode(secretStr);
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
-
-        this.accessTokenExpires = 3600 * 1000L;      // 1시간
+        this.accessTokenExpires = 60 * 60 * 1000L; // 1시간
         this.adminDetailsService = adminDetailsService;
+        this.memberDetailsService = memberDetailsService;
     }
 
     /* ================== 회원가입용 임시 토큰 ================== */
 
-    // OAuth 회원가입 완료 전 임시 토큰 (10분 유효)
     public String createRegisterToken(
             String email,
             String name,
@@ -52,8 +53,7 @@ public class JwtProvider {
             String phoneNumber,
             String birthDate
     ) {
-        Date now = new Date();
-        Date validity = new Date(now.getTime() + 1000 * 60 * 10);
+        Date expiresIn = new Date(System.currentTimeMillis() + 10 * 60 * 1000);
 
         return Jwts.builder()
                 .subject("REGISTER_USER")
@@ -63,21 +63,19 @@ public class JwtProvider {
                 .claim("providerId", providerId)
                 .claim("phone", phoneNumber)
                 .claim("birthDate", birthDate)
-                .expiration(validity)
+                .expiration(expiresIn)
                 .signWith(secretKey)
                 .compact();
     }
 
-    /* ================== 로그인 토큰 생성 ================== */
+    /* ================== Access Token 생성 ================== */
 
-    // 로그인 성공 시 Access Token 발급
     public String createAccessToken(Authentication authentication) {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
-        long now = System.currentTimeMillis();
-        Date expiresIn = new Date(now + accessTokenExpires);
+        Date expiresIn = new Date(System.currentTimeMillis() + accessTokenExpires);
 
         return Jwts.builder()
                 .subject(authentication.getName()) // loginId
@@ -87,9 +85,8 @@ public class JwtProvider {
                 .compact();
     }
 
-    /* ================== 인증 객체 생성 ================== */
+    /* ================== Access Token → Authentication ================== */
 
-    // Access Token → Authentication 변환
     public Authentication getAuthentication(String accessToken) {
         Claims claims = parseClaims(accessToken);
 
@@ -97,23 +94,31 @@ public class JwtProvider {
             throw new RuntimeException("권한 정보가 없는 토큰입니다.");
         }
 
-        // 권한 문자열 → GrantedAuthority 리스트
         Collection<? extends GrantedAuthority> authorities =
                 Arrays.stream(claims.get("auth").toString().split(","))
                         .map(SimpleGrantedAuthority::new)
                         .toList();
 
-        // loginId 기반으로 UserDetails 조회
         String loginId = claims.getSubject();
-        AdminDetails principal = (AdminDetails) adminDetailsService.loadUserByUsername(loginId);
 
-        // JWT 검증이 완료되었으므로 비밀번호는 빈 문자열("") 사용
-        return new UsernamePasswordAuthenticationToken(principal, "", authorities);
+        try {
+            //  Admin 우선
+            AdminDetails admin =
+                    (AdminDetails) adminDetailsService.loadUserByUsername(loginId);
+
+            return new UsernamePasswordAuthenticationToken(admin, "", authorities);
+
+        } catch (Exception e) {
+            //  아니면 Member
+            MemberDetails member =
+                    (MemberDetails) memberDetailsService.loadUserByUsername(loginId);
+
+            return new UsernamePasswordAuthenticationToken(member, "", authorities);
+        }
     }
 
     /* ================== 토큰 검증 ================== */
 
-    // 토큰 유효성 검사
     public boolean validateToken(String token) {
         try {
             Jwts.parser()
@@ -135,12 +140,10 @@ public class JwtProvider {
 
     /* ================== 공통 유틸 ================== */
 
-    // 토큰에서 Subject(loginId) 추출
     public String getSubject(String token) {
         return parseClaims(token).getSubject();
     }
 
-    // Claims 파싱 (만료된 토큰도 Claims 반환)
     private Claims parseClaims(String token) {
         try {
             return Jwts.parser()
