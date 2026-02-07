@@ -90,13 +90,16 @@ public class JwtProvider {
                 .build();
     }
 
-
-
     // Access Token 생성 (Refresh 요청 시 재사용)
     public String createAccessToken(Authentication authentication) {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
+
+        // ADMIN / MEMBER 구분
+        String type = authentication.getPrincipal() instanceof AdminDetails
+                ? "ADMIN"
+                : "MEMBER";
 
         long now = System.currentTimeMillis();
         Date expiresIn = new Date(now + accessTokenExpires);
@@ -104,6 +107,7 @@ public class JwtProvider {
         return Jwts.builder()
                 .subject(authentication.getName()) // adminId or memberId
                 .claim("auth", authorities)
+                .claim("type", type)
                 .expiration(expiresIn)
                 .signWith(secretKey)
                 .compact();
@@ -111,12 +115,17 @@ public class JwtProvider {
 
     // Refresh Token 생성
     public String createRefreshToken(Authentication authentication) {
+        // ADMIN / MEMBER 구분
+        String type = authentication.getPrincipal() instanceof AdminDetails
+                ? "ADMIN"
+                : "MEMBER";
+
         long now = System.currentTimeMillis();
-        Date expiresIn;
-        expiresIn = new Date(now + refreshTokenExpires);
+        Date expiresIn = new Date(now + refreshTokenExpires);
 
         return Jwts.builder()
                 .subject(authentication.getName())
+                .claim("type", type)
                 .expiration(expiresIn)
                 .signWith(secretKey)
                 .compact();
@@ -132,18 +141,18 @@ public class JwtProvider {
             throw new RuntimeException("권한 정보가 없는 토큰입니다.");
         }
 
+        String type = claims.get("type", String.class);
+        String subject = claims.getSubject(); // adminId or memberId
+
         // 권한 문자열 → GrantedAuthority 리스트
         Collection<? extends GrantedAuthority> authorities =
                 Arrays.stream(claims.get("auth").toString().split(","))
                         .map(SimpleGrantedAuthority::new)
                         .toList();
 
-        String subject = claims.getSubject(); // adminId or memberId
-
         /* ================= ADMIN ================= */
-        if (authorities.stream().anyMatch(a -> a.getAuthority().startsWith("ROLE_ADMIN"))) {
-            Long adminId = Long.parseLong(subject);
-            Admin admin = adminRepository.findById(adminId)
+        if ("ADMIN".equals(type)) {
+            Admin admin = adminRepository.findById(Long.parseLong(subject))
                     .orElseThrow(() -> new RuntimeException("Admin not found"));
 
             AdminDetails principal = new AdminDetails(admin);
@@ -151,12 +160,15 @@ public class JwtProvider {
         }
 
         /* ================= MEMBER ================= */
-        Long memberId = Long.parseLong(subject);
-        Member member = memberRepository.findById(memberId)
-                .orElseThrow(() -> new RuntimeException("Member not found"));
+        if ("MEMBER".equals(type)) {
+            Member member = memberRepository.findById(Long.parseLong(subject))
+                    .orElseThrow(() -> new RuntimeException("Member not found"));
 
-        MemberDetails principal = new MemberDetails(member);
-        return new UsernamePasswordAuthenticationToken(principal, "", authorities);
+            MemberDetails principal = new MemberDetails(member);
+            return new UsernamePasswordAuthenticationToken(principal, "", authorities);
+        }
+
+        throw new RuntimeException("Invalid token type");
     }
 
     /* ================== 토큰 검증 ================== */
@@ -185,21 +197,24 @@ public class JwtProvider {
 
     public Authentication getAuthenticationFromRefreshToken(String refreshToken) {
         Claims claims = parseClaims(refreshToken);
+
+        String type = claims.get("type", String.class);
         String subject = claims.getSubject(); // adminId or memberId
 
-        // Admin 먼저 확인
-        if (adminRepository.existsById(Long.parseLong(subject))) {
+        /* ================= ADMIN ================= */
+        if ("ADMIN".equals(type)) {
             Admin admin = adminRepository.findById(Long.parseLong(subject))
                     .orElseThrow(() -> new RuntimeException("Admin not found"));
+
             AdminDetails principal = new AdminDetails(admin);
-            // 권한은 ADMIN 단일로 처리
             return new UsernamePasswordAuthenticationToken(principal, "", principal.getAuthorities());
         }
 
-        // Member 확인
-        if (memberRepository.existsById(Long.parseLong(subject))) {
+        /* ================= MEMBER ================= */
+        if ("MEMBER".equals(type)) {
             Member member = memberRepository.findById(Long.parseLong(subject))
                     .orElseThrow(() -> new RuntimeException("Member not found"));
+
             MemberDetails principal = new MemberDetails(member);
             return new UsernamePasswordAuthenticationToken(principal, "", principal.getAuthorities());
         }
