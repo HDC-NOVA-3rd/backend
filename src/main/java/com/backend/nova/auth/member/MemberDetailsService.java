@@ -35,7 +35,8 @@ public class MemberDetailsService implements UserDetailsService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() ->
                         new UsernameNotFoundException("Member not found id=" + memberId));
-
-        return new MemberDetails(member);
+        Long apartmentId = memberRepository.findApartmentIdByMemberId(member.getId())
+                .orElse(null);
+        return new MemberDetails(member,apartmentId);
     }
 }

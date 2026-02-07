@@ -4,6 +4,7 @@ import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.admin.AdminDetailsService;
 import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.auth.member.MemberDetailsService;
+import com.backend.nova.member.dto.TokenResponse;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -118,7 +119,7 @@ public class JwtProvider {
         return Jwts.builder()
                 .subject(subject)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRE_MS))
+                .expiration(new Date(System.currentTimeMillis() + refreshTokenExpires))
                 .signWith(secretKey)
                 .compact();
     }

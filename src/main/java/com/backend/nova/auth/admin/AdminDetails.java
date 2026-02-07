@@ -46,10 +46,6 @@ public class AdminDetails implements UserDetails {
         return null;
     }
 
-    public Long getApartmentId() {
-        return admin.getApartment().getId();
-    }
-
     @Override
     public boolean isAccountNonExpired() {
         return true;
@@ -68,6 +64,10 @@ public class AdminDetails implements UserDetails {
     @Override
     public boolean isEnabled() {
         return status == AdminStatus.ACTIVE;
+    }
+
+    public Long getApartmentId() {
+        return null;
     }
 }
 
