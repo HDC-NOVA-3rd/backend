@@ -23,24 +23,28 @@ import java.util.stream.Collectors;
 @Component
 public class JwtProvider {
 
-    /* ================== 만료 시간 ================== */
-
-    private static final long ACCESS_TOKEN_EXPIRE_MS   = 1000L * 60 * 30;          // 30분
-    private static final long REFRESH_TOKEN_EXPIRE_MS  = 1000L * 60 * 60 * 24 * 14; // 14일
-    private static final long REGISTER_TOKEN_EXPIRE_MS = 1000L * 60 * 10;          // 10분
-
-    /* ================== 의존성 ================== */
+    /* ================== 설정값 ================== */
 
     private final SecretKey secretKey;
+    private final long accessTokenExpireMs;
+    private final long refreshTokenExpireMs;
+    private final long registerTokenExpireMs;
+
     private final AdminDetailsService adminDetailsService;
     private final MemberDetailsService memberDetailsService;
 
     public JwtProvider(
             @Value("${jwt.secret}") String secret,
+            @Value("${jwt.access-token-expire-ms}") long accessTokenExpireMs,
+            @Value("${jwt.refresh-token-expire-ms}") long refreshTokenExpireMs,
+            @Value("${jwt.register-token-expire-ms}") long registerTokenExpireMs,
             AdminDetailsService adminDetailsService,
             MemberDetailsService memberDetailsService
     ) {
         this.secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
+        this.accessTokenExpireMs = accessTokenExpireMs;
+        this.refreshTokenExpireMs = refreshTokenExpireMs;
+        this.registerTokenExpireMs = registerTokenExpireMs;
         this.adminDetailsService = adminDetailsService;
         this.memberDetailsService = memberDetailsService;
     }
@@ -60,10 +64,10 @@ public class JwtProvider {
                 .collect(Collectors.joining(","));
 
         return Jwts.builder()
-                .subject(authentication.getName())   // loginId
-                .claim("auth", authorities)          // ROLE_*
+                .subject(authentication.getName())
+                .claim("auth", authorities)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRE_MS))
+                .expiration(new Date(System.currentTimeMillis() + accessTokenExpireMs))
                 .signWith(secretKey)
                 .compact();
     }
@@ -72,7 +76,7 @@ public class JwtProvider {
         return Jwts.builder()
                 .subject(subject)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRE_MS))
+                .expiration(new Date(System.currentTimeMillis() + refreshTokenExpireMs))
                 .signWith(secretKey)
                 .compact();
     }
@@ -100,7 +104,7 @@ public class JwtProvider {
                 .claim("phoneNumber", phoneNumber)
                 .claim("birthDate", birthDate)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + REGISTER_TOKEN_EXPIRE_MS))
+                .expiration(new Date(System.currentTimeMillis() + registerTokenExpireMs))
                 .signWith(secretKey)
                 .compact();
     }
@@ -123,13 +127,10 @@ public class JwtProvider {
         String loginId = claims.getSubject();
 
         try {
-            // Admin 우선
             AdminDetails admin =
                     (AdminDetails) adminDetailsService.loadUserByUsername(loginId);
             return new UsernamePasswordAuthenticationToken(admin, "", authorities);
-
         } catch (Exception e) {
-            // Member
             MemberDetails member =
                     (MemberDetails) memberDetailsService.loadUserByUsername(loginId);
             return new UsernamePasswordAuthenticationToken(member, "", authorities);
