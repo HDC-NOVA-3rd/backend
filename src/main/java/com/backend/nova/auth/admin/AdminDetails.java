@@ -27,7 +27,7 @@ public class AdminDetails implements UserDetails {
 
     @Override
     public String getPassword() {
-        return admin.getPasswordHash();
+        return admin.getPassword();
     }
 
     @Override

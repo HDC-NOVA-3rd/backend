@@ -139,7 +139,7 @@ public class AdminService {
             AdminPasswordChangeConfirmRequest request,
             AdminDetails adminDetails
     ) {
-        Admin admin = adminRepository.findById(adminDetails.getAdminId())
+        Admin admin = adminRepository.findById(adminDetails.getAdmin().getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
         validateAdminStatus(admin);
@@ -222,7 +222,7 @@ public class AdminService {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
 
-        return adminRepository.findById(adminDetails.getAdminId())
+        return adminRepository.findById(adminDetails.getAdmin().getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
     }
 
