@@ -4,6 +4,7 @@ import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.admin.AdminDetailsService;
 import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.auth.member.MemberDetailsService;
+import com.backend.nova.member.dto.TokenResponse;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -13,6 +14,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -23,26 +26,57 @@ import java.util.stream.Collectors;
 @Component
 public class JwtProvider {
 
-    /* ================== 만료 시간 ================== */
-
-    private static final long ACCESS_TOKEN_EXPIRE_MS   = 1000L * 60 * 30;          // 30분
-    private static final long REFRESH_TOKEN_EXPIRE_MS  = 1000L * 60 * 60 * 24 * 14; // 14일
-    private static final long REGISTER_TOKEN_EXPIRE_MS = 1000L * 60 * 10;          // 10분
-
-    /* ================== 의존성 ================== */
-
-    private final SecretKey secretKey;
-    private final AdminDetailsService adminDetailsService;
+    private final SecretKey secretKey; // 토큰 서명(암호화/복호화)에 사용할 비밀키 객체
+    private final Long accessTokenExpires;
+    private final Long refreshTokenExpires;
     private final MemberDetailsService memberDetailsService;
+    private final AdminDetailsService adminDetailsService;
 
     public JwtProvider(
-            @Value("${jwt.secret}") String secret,
-            AdminDetailsService adminDetailsService,
-            MemberDetailsService memberDetailsService
+            @Value("${jwt.secret}") String secretStr,
+            MemberDetailsService memberDetailsService,
+            AdminDetailsService adminDetailsService
     ) {
-        this.secretKey = Keys.hmacShaKeyFor(Decoders.BASE64.decode(secret));
-        this.adminDetailsService = adminDetailsService;
+        byte[] keyBytes = Decoders.BASE64.decode(secretStr); //secretStr을 BASE64로 Decode
+        this.secretKey = Keys.hmacShaKeyFor(keyBytes);
+        accessTokenExpires = 300 * 1000L; // 5분
+        refreshTokenExpires = 604800 * 1000L; // 7일
         this.memberDetailsService = memberDetailsService;
+        this.adminDetailsService = adminDetailsService;
+    }
+
+    /**
+     * 로그인 성공 시 반환할 TokenResponse DTO 생성
+     * Access/Refresh 토큰을 발급하고, 프론트엔드에 필요한 사용자 정보와 함께 묶어서 반환
+     */
+    public TokenResponse createTokenDto(Authentication authentication, Long memberId, String name) {
+        String accessToken = createAccessToken(authentication);
+        String refreshToken = createRefreshToken(authentication);
+        log.info("refresh 토큰으로 새로운 access/refresh 발급 {} / {}",accessToken,refreshToken);
+        return TokenResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .memberId(memberId)
+                .name(name)
+                .build();
+    }
+
+    // Register Token (OAuth User가 회원가입이 필요한 경우 발급하는 토큰)
+    public String createRegisterToken(String email, String name, String provider, String providerId, String phoneNumber, String birthDate) {
+        Date now = new Date();
+        Date validity = new Date(now.getTime() + 1000 * 60 * 10); // 10분만 유효
+        log.info("register 토큰 발급 완료");
+        return Jwts.builder()
+                .subject("REGISTER_USER")      // 주제 설정
+                .claim("email", email)   // 데이터 추가 (.put 대신 .claim 사용)
+                .claim("name", name)
+                .claim("provider", provider)
+                .claim("providerId", providerId)
+                .claim("phone", phoneNumber)
+                .claim("birthDate", birthDate)
+                .expiration(validity)          // 만료 시간
+                .signWith(secretKey) // 서명
+                .compact();
     }
 
     /* ================== 토큰 생성 ================== */
@@ -54,16 +88,29 @@ public class JwtProvider {
                 .build();
     }
 
+    // [신규] Access Token만 생성 (Refresh 요청 시 사용)
     public String createAccessToken(Authentication authentication) {
         String authorities = authentication.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.joining(","));
 
+        // Principal에서 apartmentId 추출
+        Long apartmentId = null;
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MemberDetails) {
+            apartmentId = ((MemberDetails) principal).getApartmentId();
+        } else if (principal instanceof AdminDetails) {
+            apartmentId = ((AdminDetails) principal).getApartmentId();
+        }
+
+        long now = (new Date()).getTime();
+        Date accessTokenExpiresIn = new Date(now + accessTokenExpires);
+
         return Jwts.builder()
-                .subject(authentication.getName())   // loginId
-                .claim("auth", authorities)          // ROLE_*
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + ACCESS_TOKEN_EXPIRE_MS))
+                .subject(authentication.getName())
+                .claim("auth", authorities)
+                .claim("apartmentId",apartmentId)
+                .expiration(accessTokenExpiresIn)
                 .signWith(secretKey)
                 .compact();
     }
@@ -72,54 +119,35 @@ public class JwtProvider {
         return Jwts.builder()
                 .subject(subject)
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRE_MS))
+                .expiration(new Date(System.currentTimeMillis() + refreshTokenExpires))
                 .signWith(secretKey)
                 .compact();
     }
 
+    // [신규] Refresh Token만 생성 (내부 호출용)
     public String createRefreshToken(Authentication authentication) {
-        return createRefreshToken(authentication.getName());
-    }
+        long now = (new Date()).getTime();
+        Date refreshTokenExpiresIn = new Date(now + refreshTokenExpires);
 
-    /* ================== OAuth 신규 회원 ================== */
-
-    public String createRegisterToken(
-            String email,
-            String name,
-            String provider,
-            String providerId,
-            String phoneNumber,
-            String birthDate
-    ) {
         return Jwts.builder()
-                .subject("REGISTER")
-                .claim("email", email)
-                .claim("name", name)
-                .claim("provider", provider)
-                .claim("providerId", providerId)
-                .claim("phoneNumber", phoneNumber)
-                .claim("birthDate", birthDate)
-                .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + REGISTER_TOKEN_EXPIRE_MS))
+                .subject(authentication.getName())
+                .expiration(refreshTokenExpiresIn)
                 .signWith(secretKey)
                 .compact();
     }
 
-    /* ================== Authentication 복원 ================== */
-
+    // 검증된 토큰에서 인증 정보(Authentication) 추출 -> validateToken() 이후 실행
     public Authentication getAuthentication(String accessToken) {
         Claims claims = parseClaims(accessToken);
 
-        String auth = claims.get("auth", String.class);
-        if (auth == null) {
+        if (claims.get("auth") == null) {
             throw new RuntimeException("권한 정보가 없는 토큰입니다.");
         }
-
+        // 1. Claims 에서 권한 정보 가져오기
         Collection<? extends GrantedAuthority> authorities =
-                Arrays.stream(auth.split(","))
+                Arrays.stream(claims.get("auth").toString().split(","))
                         .map(SimpleGrantedAuthority::new)
                         .toList();
-
         String loginId = claims.getSubject();
 
         try {
@@ -136,23 +164,24 @@ public class JwtProvider {
         }
     }
 
-    /* ================== 검증 ================== */
-
+    // Access 토큰 유효성 검사 (요청 시 Filter에서 가장 먼저 실행)
     public boolean validateToken(String token) {
         try {
-            Jwts.parser()
-                    .verifyWith(secretKey)
-                    .build()
-                    .parseSignedClaims(token);
+            // secretKey 기반으로 입력된 token 파싱
+            Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(token);
             return true;
-        } catch (JwtException | IllegalArgumentException e) {
-            log.info("JWT 검증 실패: {}", e.getMessage());
-            return false;
+        } catch (io.jsonwebtoken.security.SecurityException | MalformedJwtException e) {
+            log.info("잘못된 JWT 서명입니다.");
+        } catch (ExpiredJwtException e) {
+            log.info("만료된 JWT 토큰입니다.");
+        } catch (UnsupportedJwtException e) {
+            log.info("지원되지 않는 JWT 토큰입니다.");
+        } catch (IllegalArgumentException e) {
+            log.info("JWT 토큰이 잘못되었습니다.");
         }
+        return false;
     }
-
-    /* ================== 유틸 ================== */
-
+    // 토큰에서 Subject(사용자 ID) 추출
     public String getSubject(String token) {
         return parseClaims(token).getSubject();
     }
@@ -167,5 +196,8 @@ public class JwtProvider {
         } catch (ExpiredJwtException e) {
             return e.getClaims();
         }
+    }
+    public Long getApartmentId(String token) {
+        return parseClaims(token).get("apartmentId", Long.class);
     }
 }

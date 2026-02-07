@@ -1,5 +1,6 @@
-package com.backend.nova.apartment.entity;
+package com.backend.nova.facility.entity;
 
+import com.backend.nova.apartment.entity.Apartment;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
