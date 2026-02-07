@@ -77,9 +77,6 @@ springdoc:
 # jwt Token
 jwt:
   secret: ${JWT_TOKEN}
-  access-token-expire-ms: 1800000      # 30분
-  refresh-token-expire-ms: 1209600000  # 14일
-  register-token-expire-ms: 600000     # 10분
 # openweather api key
 openweather:
   api-key: ${OPENWEATHER_API_KEY}
