@@ -8,7 +8,7 @@ import java.util.List;
 @Service
 public class ChatSuggestionService {
 
-    public ChatSuggestionResponse getSuggestions(Long residentId) {
+    public ChatSuggestionResponse getSuggestions(Long memberId) {
         // - 향후 "입주민 권한/거주 동/호"에 따라 추천질문 다르게 내려주기 쉬움
         // 지금은 일단 공통 추천질문으로 내려줌
 
