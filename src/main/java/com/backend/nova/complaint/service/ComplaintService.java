@@ -124,18 +124,18 @@ public class ComplaintService {
 
     /* ================= 관리자가 민원 답변 등록 ================= */
     public void createAnswer(Long complaintId, Long adminId, ComplaintAnswerCreateRequest request) {
-        // 1️⃣ 민원 재조회 (영속 상태 보장)
+        // 1 민원 재조회 (영속 상태 보장)
         Complaint complaint = complaintRepository.findById(complaintId)
                 .orElseThrow(() -> new IllegalStateException("민원 조회 실패"));
 
-        // 2️⃣ 관리자 조회
+        // 2 관리자 조회
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new IllegalArgumentException("관리자 없음"));
 
-        // 3️⃣ 권한 체크
+        // 3 권한 체크
         validateAnswerPermission(complaint, admin);
 
-        // 4️⃣ 상태 검증
+        // 4 상태 검증
         if (complaint.getStatus() == ComplaintStatus.COMPLETED) {
             throw new IllegalStateException("완료된 민원에는 답변을 등록할 수 없습니다.");
         }
@@ -144,17 +144,17 @@ public class ComplaintService {
             throw new IllegalStateException("답변 등록 불가한 상태입니다.");
         }
 
-        // 5️⃣ ComplaintAnswer 생성 (엔티티 Builder 사용)
+        // 5 ComplaintAnswer 생성 (엔티티 Builder 사용)
         ComplaintAnswer answer = ComplaintAnswer.builder()
                 .complaint(complaint)
                 .admin(admin)
                 .resultContent(request.resultContent())
                 .build();
 
-        // 6️⃣ 저장
+        // 6 저장
         complaintAnswerRepository.save(answer);
 
-        // 7️⃣ 첫 답변이면 상태 변경
+        // 7 첫 답변이면 상태 변경
         if (complaint.getStatus() == ComplaintStatus.ASSIGNED) {
             complaint.changeStatus(ComplaintStatus.IN_PROGRESS);
         }
