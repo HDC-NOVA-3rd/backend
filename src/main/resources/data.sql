@@ -37,6 +37,10 @@ VALUES
     (1, 'TEMP', 24, 'C', NOW(6), NOW(6)),
     (1, 'HUMIDITY', 45, '%', NOW(6), NOW(6)),
     (1, 'LIGHT', 320, 'lux', NOW(6), NOW(6));
+INSERT INTO device (room_id, device_code, name, type, power, brightness, target_temp, updated_at)
+VALUES
+    (1, 'light-1', '거실 전등', 'LED', false, 80, null, NOW()),
+    (1, 'fan-1', '거실 팬', 'FAN', false, null, null, NOW());
 
 INSERT INTO facility (apartment_id, name, description, start_hour, end_hour, reservation_available)
 VALUES

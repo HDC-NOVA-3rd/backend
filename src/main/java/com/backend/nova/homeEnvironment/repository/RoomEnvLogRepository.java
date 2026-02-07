@@ -7,7 +7,9 @@ import java.util.Optional;
 
 public interface RoomEnvLogRepository extends JpaRepository<RoomEnvLog, Long> {
 
-
-
-    Optional<Object> findTop1ByRoomId_IdAndSensorTypeOrderByRecordedAtDesc(Long id, String sensorType);
+    // 특정 방(roomId)의 특정 센서(sensorType) 최신 1건
+    Optional<RoomEnvLog> findFirstByRoom_IdAndSensorTypeOrderByRecordedAtDesc(
+            Long roomId,
+            String sensorType
+    );
 }

@@ -141,6 +141,7 @@ public class SecurityConfig {
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
+                        .requestMatchers("/api/room/**").permitAll()
                         .anyRequest().authenticated()
                 )
 

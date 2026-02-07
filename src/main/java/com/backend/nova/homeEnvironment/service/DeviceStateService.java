@@ -1,0 +1,61 @@
+package com.backend.nova.homeEnvironment.service;
+
+import com.backend.nova.homeEnvironment.dto.DeviceStateUpdateRequest;
+import com.backend.nova.homeEnvironment.entity.Device;
+import com.backend.nova.homeEnvironment.repository.DeviceRepository;
+import com.backend.nova.homeEnvironment.repository.RoomRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class DeviceStateService {
+
+    private final RoomRepository roomRepository;
+    private final DeviceRepository deviceRepository;
+
+    /**
+     * roomId 방에 있는 디바이스들의 상태를 부분 업데이트한다.
+     * - request.devices 안에 들어온 값만 반영
+     */
+    @Transactional
+    public void patchDevicesState(Long roomId, DeviceStateUpdateRequest request) {
+
+        // 1) 방 존재 체크 (없는 roomId면 바로 에러)
+        roomRepository.findById(roomId)
+                .orElseThrow(() -> new IllegalArgumentException("방을 찾을 수 없습니다. roomId=" + roomId));
+
+        if (request == null || request.devices() == null || request.devices().isEmpty()) {
+            throw new IllegalArgumentException("변경할 디바이스가 없습니다.");
+        }
+
+        // 2) devices 리스트 순회하며 업데이트
+        for (DeviceStateUpdateRequest.DevicePatch patch : request.devices()) {
+
+            if (patch == null || patch.deviceCode() == null || patch.deviceCode().isBlank()) {
+                throw new IllegalArgumentException("deviceCode는 필수입니다.");
+            }
+
+            Device device = deviceRepository
+                    .findByRoom_IdAndDeviceCode(roomId, patch.deviceCode())
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "해당 방에 디바이스가 없습니다. roomId=" + roomId + ", deviceCode=" + patch.deviceCode()
+                    ));
+
+            // 들어온 것만 업데이트(부분 업데이트)
+            if (patch.power() != null) {
+                device.setPower(patch.power());
+            }
+            if (patch.brightness() != null) {
+                // Device.setBrightness 안에서 0~100 clamp 해두었으니 그대로 호출
+                device.setBrightness(patch.brightness());
+            }
+            if (patch.targetTemp() != null) {
+                // 원하는 범위 제한을 하고 싶으면 여기서 체크해도 됨
+                device.setTargetTemp(patch.targetTemp());
+            }
+            deviceRepository.save(device);
+        }
+    }
+}
