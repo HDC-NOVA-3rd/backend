@@ -1,10 +1,12 @@
 package com.backend.nova.oauth2.handler;
 
 import com.backend.nova.auth.jwt.JwtProvider;
+import com.backend.nova.member.dto.TokenResponse;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
 import com.backend.nova.oauth2.dto.CustomOAuth2User;
 import com.backend.nova.oauth2.dto.OAuth2Response;
+import com.backend.nova.oauth2.repository.AuthCodeInMemoryRepository;
 import com.backend.nova.oauth2.repository.OAuthRedirectCookieRepository;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -23,6 +25,7 @@ import com.backend.nova.auth.member.MemberDetails;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Optional;
+import java.util.UUID;
 
 // [시점] UserService까지 문제없이 실행되고, 로그인이 '완전 성공' 했을 때 실행된다.
 // 여기서 서버의 DB를 확인하고, 앱(App)에게 JWT 토큰을 돌려보내주는 로직 구성.
@@ -32,7 +35,8 @@ import java.util.Optional;
 public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
     private final JwtProvider jwtProvider;
     private final MemberRepository memberRepository;
-    private final OAuthRedirectCookieRepository oAuthRedirectCookieRepository; // 쿠키 삭제용
+    private final OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
+    private final AuthCodeInMemoryRepository authCodeRepository; // In memory 환경 token 저장소
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
@@ -55,6 +59,8 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
         String targetUri = getRedirectUri(request);
 
         String targetUrl;
+        // 랜덤 인증 코드 생성 (공통)
+        String authCode = UUID.randomUUID().toString();
 
         // [CASE 1] 기존 가입된 회원 -> 계정 연동 및 로그인 처리
         if (optionalMember.isPresent()) {
@@ -67,25 +73,23 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
             // OAuth 인증 객체 대신, DB의 Member 정보로 새로운 Authentication 생성
             // 이유: 이렇게 해야 토큰의 Subject에 'loginId'가 들어갑니다.
-            MemberDetails memberDetails = new MemberDetails(existMember);
+            Long apartmentId = memberRepository.findApartmentIdByMemberId(existMember.getId())
+                    .orElse(null);
+            MemberDetails memberDetails = new MemberDetails(existMember,apartmentId);
             Authentication newAuth = new UsernamePasswordAuthenticationToken(memberDetails,null, memberDetails.getAuthorities());
 
-            // access + refresh 토큰 발급
-            String accessToken = jwtProvider.createAccessToken(newAuth);
-            String refreshToken = jwtProvider.createRefreshToken(newAuth);
+            TokenResponse tokenResponse = jwtProvider.createTokenDto(newAuth, existMember.getId(), existMember.getName());
 
+            // 메모리에 저장 (Code -> TokenResponse)
+            authCodeRepository.save(authCode, tokenResponse);
 
-            // 앱으로 돌아갈 URL 생성 (쿼리 파라미터에 토큰을 붙여서 전달)
-            // ex) exp://...?status=LOGIN&token=eyJhbG...
+            // 앱으로 돌아갈 URL 생성 (쿼리 파라미터에 status, code를 붙여서 전달)
             targetUrl = UriComponentsBuilder.fromUriString(targetUri)
                     .queryParam("status", "LOGIN") // 상태 구분값
-                    .queryParam("token", accessToken)
-                    .queryParam("refreshToken",refreshToken)
-                    .build()
-                    .encode(StandardCharsets.UTF_8)
-                    .toUriString();
-            log.info("기존 회원(이메일 일치) 소셜 로그인 연동 및 성공: {}", email);
+                    .queryParam("code", authCode)
+                    .build().encode(StandardCharsets.UTF_8).toUriString();
 
+            log.info("로그인 성공. AuthCode 생성: {}", authCode);
         }
         // [CASE 2] 신규 회원 -> 회원가입 페이지로 이동
         else {
@@ -99,16 +103,18 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
                     birthDate
             );
 
+            // [핵심] 가입용 토큰도 메모리에 저장 (Code -> String(RegisterToken))
+            // 회원가입 정보도 URL에 노출되면 위험하므로 똑같이 코드로 변환합니다.
+            authCodeRepository.save(authCode, registerToken);
+
             targetUrl = UriComponentsBuilder.fromUriString(targetUri)
                     .queryParam("status", "REGISTER") // 상태 구분값
-                    .queryParam("token", registerToken) // 이 토큰을 가지고 앱이 다시 회원가입 API(/signup)를 호출함
+                    .queryParam("code", authCode)
                     .build().encode(StandardCharsets.UTF_8).toUriString();
-            log.info("신규 회원 가입 요청: {}", email);
+            log.info("신규 회원. AuthCode 생성: {}", authCode);
         }
-
         // 3. 인증 관련 쿠키 삭제 (보안 및 용량 관리)
         oAuthRedirectCookieRepository.removeAuthorizationRequestCookies(request, response);
-
         // 4. 리다이렉트 수행 (브라우저가 exp:// 스키마를 인식해서 앱을 켬)
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }

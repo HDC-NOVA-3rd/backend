@@ -2,11 +2,11 @@ package com.backend.nova.chat.service;
 
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.entity.Dong;
-import com.backend.nova.apartment.entity.Facility;
+import com.backend.nova.facility.entity.Facility;
 import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.backend.nova.apartment.repository.DongRepository;
-import com.backend.nova.apartment.repository.FacilityRepository;
+import com.backend.nova.facility.repository.FacilityRepository;
 import com.backend.nova.apartment.repository.HoRepository;
 import com.backend.nova.apartment.service.ApartmentWeatherService;
 import com.backend.nova.chat.dto.*;

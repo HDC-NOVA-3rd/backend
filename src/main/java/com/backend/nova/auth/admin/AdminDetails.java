@@ -1,37 +1,49 @@
 package com.backend.nova.auth.admin;
 
-
 import com.backend.nova.admin.entity.Admin;
+import com.backend.nova.admin.entity.AdminStatus;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Collections;
 
 @Getter
 public class AdminDetails implements UserDetails {
 
-    private final Admin admin;
+    private final Long adminId;
+    private final String loginId;
+    private final String role;
+
+    private final AdminStatus status;
+    private final LocalDateTime lockedUntil;
 
     public AdminDetails(Admin admin) {
-        this.admin = admin;
+        this.adminId = admin.getId();
+        this.loginId = admin.getLoginId();
+        this.role = admin.getRole().name();
+        this.status = admin.getStatus();
+        this.lockedUntil = admin.getLockedUntil();
     }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // 간단히 ROLE_ADMIN 하나만
-        return Collections.singleton(() -> "ROLE_ADMIN");
-    }
-
-    @Override
-    public String getPassword() {
-        return admin.getPasswordHash();
+        return Collections.singleton(
+                new SimpleGrantedAuthority("ROLE_" + role)
+        );
     }
 
     @Override
     public String getUsername() {
-        return admin.getLoginId();
+        return loginId; // ⭐ JWT subject 와 반드시 동일
+    }
+
+    @Override
+    public String getPassword() {
+        return null;
     }
 
     @Override
@@ -41,7 +53,7 @@ public class AdminDetails implements UserDetails {
 
     @Override
     public boolean isAccountNonLocked() {
-        return admin.getLockedUntil() == null || admin.getLockedUntil().isBefore(java.time.LocalDateTime.now());
+        return lockedUntil == null || lockedUntil.isBefore(LocalDateTime.now());
     }
 
     @Override
@@ -51,6 +63,11 @@ public class AdminDetails implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return admin.getStatus() != null && admin.getStatus().equals("ACTIVE");
+        return status == AdminStatus.ACTIVE;
+    }
+
+    public Long getApartmentId() {
+        return null;
     }
 }
+

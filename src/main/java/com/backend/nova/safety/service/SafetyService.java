@@ -1,8 +1,8 @@
 package com.backend.nova.safety.service;
 
 import com.backend.nova.apartment.entity.Dong;
-import com.backend.nova.apartment.entity.Facility;
-import com.backend.nova.apartment.repository.FacilityRepository;
+import com.backend.nova.facility.entity.Facility;
+import com.backend.nova.facility.repository.FacilityRepository;
 import com.backend.nova.apartment.repository.DongRepository;
 import com.backend.nova.safety.dto.SafetySensorInboundPayload;
 import com.backend.nova.safety.dto.SafetyEventLogResponse;

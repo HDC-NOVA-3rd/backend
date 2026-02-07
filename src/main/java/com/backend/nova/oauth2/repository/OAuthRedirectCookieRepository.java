@@ -3,6 +3,8 @@ package com.backend.nova.oauth2.repository;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.stereotype.Component;
@@ -92,13 +94,20 @@ public class OAuthRedirectCookieRepository implements AuthorizationRequestReposi
         return Optional.empty();
     }
 
-    // 응답에 새 쿠키 추가
+    // ================= [ Cookie Helper Methods (수정됨) ] =================
+
+    // 응답에 새 쿠키 추가 - ResponseCookie를 사용하여 SameSite 설정 적용 (CSRF 공격 방지)
     private void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
-        Cookie cookie = new Cookie(name, value);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true); // HttpOnly Cookie 설정
-        cookie.setMaxAge(maxAge);
-        response.addCookie(cookie);
+        ResponseCookie cookie = ResponseCookie.from(name, value)
+                .path("/")
+                .httpOnly(true)
+                .secure(false) // 개발환경(HTTP)이므로 false. 배포 시 true로 변경 필요!
+                .sameSite("Lax") // [핵심] SameSite=Lax 설정
+                .maxAge(maxAge)
+                .build();
+
+        // HttpServletResponse의 쿠키 메서드 대신 헤더에 직접 추가
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     // 쿠키 삭제 (만료시간을 0으로 설정)
@@ -107,10 +116,15 @@ public class OAuthRedirectCookieRepository implements AuthorizationRequestReposi
         if (cookies != null && cookies.length > 0) {
             for (Cookie cookie : cookies) {
                 if (cookie.getName().equals(name)) {
-                    cookie.setValue("");
-                    cookie.setPath("/");
-                    cookie.setMaxAge(0);
-                    response.addCookie(cookie);
+                    ResponseCookie deleteCookie = ResponseCookie.from(name, "")
+                            .path("/")
+                            .httpOnly(true)
+                            .secure(false) // 개발환경이므로 false
+                            .sameSite("Lax") // 생성 때와 동일하게 맞춰야 삭제됨
+                            .maxAge(0) // 즉시 만료
+                            .build();
+
+                    response.addHeader(HttpHeaders.SET_COOKIE, deleteCookie.toString());
                 }
             }
         }

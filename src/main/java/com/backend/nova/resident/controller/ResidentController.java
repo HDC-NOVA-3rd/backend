@@ -5,6 +5,7 @@ import com.backend.nova.resident.dto.ResidentResponse;
 import com.backend.nova.resident.dto.ResidentVerifyResponse;
 import com.backend.nova.resident.service.ResidentService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -13,10 +14,11 @@ import org.springframework.web.bind.annotation.*;
 import java.net.URI;
 import java.util.List;
 
-@Tag(name = "Resident", description = "입주민 관리 API")
+@Tag(name = "Resident", description = "입주민 관리 API (관리자 전용)")
 @RestController
 @RequestMapping("/api/resident")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 public class ResidentController {
 
     private final ResidentService residentService;
@@ -63,7 +65,7 @@ public class ResidentController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "입주민 정보 검증", description = "입주민 정보(호 ID, 이름, 전화번호)가 일치하는지 확인합니다.")
+    @Operation(summary = "입주민 정보 검증", description = "입주민 정보(호 ID, 이름, 전화번호)가 일치하는지 확인합니다.", security = {})
     @PostMapping("/verify")
     public ResponseEntity<ResidentVerifyResponse> verifyResident(@RequestBody ResidentRequest requestDto) {
         ResidentVerifyResponse verifyResDto = residentService.verifyResident(requestDto);
