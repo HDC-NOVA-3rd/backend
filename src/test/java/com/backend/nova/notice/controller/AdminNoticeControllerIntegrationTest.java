@@ -194,7 +194,7 @@ class AdminNoticeControllerIntegrationTest {
         Admin admin = Admin.builder()
                 .loginId("admin-" + uuid)
                 .email("admin-" + uuid + "@test.com")
-                .passwordHash("pw")
+                .password("pw")
                 .name("테스트 관리자")
                 .role(AdminRole.ADMIN)
                 .status(AdminStatus.ACTIVE)
