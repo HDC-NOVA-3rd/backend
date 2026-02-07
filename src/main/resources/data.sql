@@ -37,6 +37,7 @@ VALUES
     (1, 'HUMIDITY', 45, '%', NOW(6), NOW(6)),
     (1, 'LIGHT', 320, 'lux', NOW(6), NOW(6));
 
+-- 시설(facility) 등록
 INSERT INTO facility (apartment_id, name, description, start_hour, end_hour, reservation_available)
 VALUES
     (1, '헬스장', '지하 1층', '06:00:00', '22:00:00', 1),
@@ -69,6 +70,67 @@ INSERT INTO safety_event_log (apartment_id, dong_id, facility_id, manual, reques
 VALUES
     (1, 1, NULL, 0, 'seed', 124, 'HEAT', 75.0, 'C', 'DANGER', NOW(6)),
     (1, NULL, 2, 0, 'seed', 123, 'SMOKE', 650.0, 'ppm', 'DANGER', NOW(6));
+
+-- admin 테이블 더미 데이터
+-- Admin 엔티티 기반 삽입, 비밀번호는 BCrypt 해시, apartment_id 참조
+INSERT INTO admin
+(id, birth_date, created_at, email, failed_login_count, locked_until, last_login_at, login_id, name, password, phone_number, profile_img, role, status, updated_at, apartment_id, 기타컬럼)
+VALUES
+    (1, '1980-01-01', '2026-02-04 15:42:36.657856', 'ahncsk0709@gmail.com', 0, NULL, NULL, 'superadmin', '슈퍼 관리자', '$2a$10$ToC2gp6a8i7NR0BvJ.JhjudZ2vGdWsyfPeQv/1eB40MwM2qQ5XOGa', '01000000000', NULL, 'SUPER_ADMIN', 'ACTIVE', '2026-02-04 15:42:36.657856', 1, ''),
+    (2, '1988-01-10', '2026-02-04 15:42:36.664893', 'ahncsk00@naver.com', 0, '2026-02-06 14:23:48.310425', NULL, 'admin01', '자이아파트 관리자', '$2a$10$U3Bfce5whxhtwNUYc5ure.cwY6LAX261h3s6CV2e2mkM6p497yT32', '01099998888', NULL, 'ADMIN', 'ACTIVE', '2026-02-06 14:23:50.584493', 1, '');
+-- notice: 공지/대상동/발송로그 더미 데이터
+INSERT INTO admin (login_id, password_hash, name, email, status, role, apartment_id, failed_login_count, created_at, updated_at)
+VALUES ('seed-admin', 'seed-password-hash', '시드 관리자', 'seed-admin@nova.local', 'ACTIVE', 'ADMIN', 1, 0, NOW(6), NOW(6));
+
+-- 전체 공지
+INSERT INTO notice (admin_id, title, content, target_scope, created_at, updated_at)
+VALUES (
+    (SELECT id FROM admin WHERE login_id = 'seed-admin'),
+    '단지 전체 안내',
+    '이번 주 금요일 오전 10시부터 정전 점검이 진행됩니다.',
+    'ALL',
+    NOW(6),
+    NOW(6)
+);
+
+-- 101동 대상 공지
+INSERT INTO notice (admin_id, title, content, target_scope, created_at, updated_at)
+VALUES (
+    (SELECT id FROM admin WHERE login_id = 'seed-admin'),
+    '101동 소독 일정 안내',
+    '101동은 화요일 오후 2시에 공동 구역 방역을 진행합니다.',
+    'DONG',
+    NOW(6),
+    NOW(6)
+);
+
+-- 동 대상 매핑 (101동 공지 -> 101동)
+INSERT INTO notice_target_dong (notice_id, dong_id, created_at)
+VALUES (
+    (SELECT id FROM notice WHERE title = '101동 소독 일정 안내'),
+    (SELECT id FROM dong WHERE apartment_id = 1 AND dong_no = '101동'),
+    NOW(6)
+);
+
+-- 발송 로그 샘플
+INSERT INTO notice_send_log (notice_id, recipient_id, title, content, sent_at, is_read)
+VALUES
+(
+    (SELECT id FROM notice WHERE title = '단지 전체 안내'),
+    (SELECT id FROM resident WHERE phone = '01011112222'),
+    '단지 전체 안내',
+    '이번 주 금요일 오전 10시부터 정전 점검이 진행됩니다.',
+    NOW(6),
+    0
+),
+(
+    (SELECT id FROM notice WHERE title = '101동 소독 일정 안내'),
+    (SELECT id FROM resident WHERE phone = '01033334444'),
+    '101동 소독 일정 안내',
+    '101동은 화요일 오후 2시에 공동 구역 방역을 진행합니다.',
+    NOW(6),
+    1
+);
 
 -- ---------------------------------------------------------
 -- 추가 시설(Facility) 등록 (ID 3~6 자동 생성 가정)

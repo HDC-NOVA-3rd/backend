@@ -3,7 +3,6 @@ package com.backend.nova.auth.member;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -12,15 +11,31 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class MemberDetailsService implements UserDetailsService {
+
     private final MemberRepository memberRepository;
+
+    /* ================= loginId 기반 ================= */
+
     @Override
-    public UserDetails loadUserByUsername(String loginId) throws UsernameNotFoundException {
+    public UserDetails loadUserByUsername(String loginId)
+            throws UsernameNotFoundException {
 
         Member member = memberRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new UsernameNotFoundException(loginId));
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("Member not found: " + loginId));
 
         Long apartmentId = memberRepository.findApartmentIdByMemberId(member.getId())
                 .orElse(null);
         return new MemberDetails(member,apartmentId);
+    }
+
+    /* ================= ID 기반 (JWT 전용) ================= */
+
+    public UserDetails loadUserById(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() ->
+                        new UsernameNotFoundException("Member not found id=" + memberId));
+
+        return new MemberDetails(member);
     }
 }

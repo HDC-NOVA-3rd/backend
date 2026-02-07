@@ -4,7 +4,6 @@ import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.admin.AdminDetailsService;
 import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.auth.member.MemberDetailsService;
-import com.backend.nova.member.dto.TokenResponse;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -19,9 +18,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Date;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -81,14 +78,12 @@ public class JwtProvider {
                 .compact();
     }
 
-    public JwtToken generateToken(Authentication authentication) {
-        String accessToken = createAccessToken(authentication);
-        String refreshToken = createRefreshToken(authentication);
+    /* ================== 토큰 생성 ================== */
 
+    public JwtToken generateToken(Authentication authentication) {
         return JwtToken.builder()
-                .grantType("Bearer")
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
+                .accessToken(createAccessToken(authentication))
+                .refreshToken(createRefreshToken(authentication.getName()))
                 .build();
     }
 
@@ -119,6 +114,15 @@ public class JwtProvider {
                 .compact();
     }
 
+    public String createRefreshToken(String subject) {
+        return Jwts.builder()
+                .subject(subject)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRE_MS))
+                .signWith(secretKey)
+                .compact();
+    }
+
     // [신규] Refresh Token만 생성 (내부 호출용)
     public String createRefreshToken(Authentication authentication) {
         long now = (new Date()).getTime();
@@ -142,23 +146,21 @@ public class JwtProvider {
         Collection<? extends GrantedAuthority> authorities =
                 Arrays.stream(claims.get("auth").toString().split(","))
                         .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toList());
-        // "ROLE_USER,ROLE_ADMIN" 문자열 split -> GrantedAuthority 객체 리스트 변환
+                        .toList();
+        String loginId = claims.getSubject();
 
-        boolean isMember = authorities.stream()
-                .anyMatch(a -> "MEMBER".equals(a.getAuthority()));
+        try {
+            // Admin 우선
+            AdminDetails admin =
+                    (AdminDetails) adminDetailsService.loadUserByUsername(loginId);
+            return new UsernamePasswordAuthenticationToken(admin, "", authorities);
 
-        if (isMember) {
-            UserDetails userDetails = memberDetailsService.loadUserByUsername(claims.getSubject());
-            return new UsernamePasswordAuthenticationToken(userDetails, "", authorities);
+        } catch (Exception e) {
+            // Member
+            MemberDetails member =
+                    (MemberDetails) memberDetailsService.loadUserByUsername(loginId);
+            return new UsernamePasswordAuthenticationToken(member, "", authorities);
         }
-
-
-        // User: UserDetails 구현체
-        // 사전에 검증된 토큰이므로 비밀번호는 빈 문자열("")로 둔다.
-        UserDetails userDetails = new User(claims.getSubject(), "", authorities);
-        log.info("accessToken 인증 완료: {}",userDetails);
-        return new UsernamePasswordAuthenticationToken(userDetails, "", authorities);
     }
 
     // Access 토큰 유효성 검사 (요청 시 Filter에서 가장 먼저 실행)
@@ -183,10 +185,13 @@ public class JwtProvider {
         return parseClaims(token).getSubject();
     }
 
-    // accessToken Payload(Claims)를 반환하는 메서드
-    private Claims parseClaims(String accessToken) {
+    private Claims parseClaims(String token) {
         try {
-            return Jwts.parser().verifyWith(secretKey).build().parseSignedClaims(accessToken).getPayload();
+            return Jwts.parser()
+                    .verifyWith(secretKey)
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
         } catch (ExpiredJwtException e) {
             return e.getClaims();
         }

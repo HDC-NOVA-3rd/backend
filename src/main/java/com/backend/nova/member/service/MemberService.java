@@ -64,7 +64,7 @@ public class MemberService {
     public TokenResponse login(LoginRequest loginRequest) {
         // 입력된 ID, PW 기반으로 검증되지 않은 토큰 생성
         UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(loginRequest.loginId(), loginRequest.password());
-        
+
         // 커스텀 Provider를 통해 직접 인증 처리 (Manager를 거치지 않아 순환참조 방지)
         Authentication authentication = memberAuthenticationProvider.authenticate(authenticationToken);
 
