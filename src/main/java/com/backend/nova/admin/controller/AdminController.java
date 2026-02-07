@@ -3,8 +3,8 @@ package com.backend.nova.admin.controller;
 import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.service.AdminService;
 import com.backend.nova.auth.admin.AdminDetails;
-import com.backend.nova.admin.dto.AdminRefreshTokenRequest;
 import com.backend.nova.admin.dto.AdminTokenResponse;
+import com.backend.nova.member.dto.RefreshTokenRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -120,7 +120,7 @@ public class AdminController {
      */
     @Operation(summary = "Access 토큰 재발급", description = "Access 토큰이 만료되는 경우 Refresh 토큰을 사용하여 새로운 Access 토큰을 발급받습니다.")
     @PostMapping("/refresh")
-    public ResponseEntity<AdminTokenResponse> refresh(@RequestBody AdminRefreshTokenRequest request) {
+    public ResponseEntity<AdminTokenResponse> refresh(@RequestBody RefreshTokenRequest request) {
         return ResponseEntity.ok(adminService.refresh(request));
     }
 
