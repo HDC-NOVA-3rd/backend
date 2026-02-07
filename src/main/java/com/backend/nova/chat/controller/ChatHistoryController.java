@@ -23,17 +23,17 @@ public class ChatHistoryController {
     @Operation(
             summary = "이전 대화(세션) 목록 조회",
             description = """
-        residentId 기준으로 사용자의 대화 세션 목록을 최신순으로 조회합니다.
+        memberId 기준으로 사용자의 대화 세션 목록을 최신순으로 조회합니다.
         - 앱 '이전 대화' 화면에서 대화방 리스트로 사용합니다.
         - lastMessage/lastMessageAt은 미리보기용 정보입니다.
         """)
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "조회 성공"),
-            @ApiResponse(responseCode = "404", description = "residentId 없음")
+            @ApiResponse(responseCode = "404", description = "memberId 없음")
     })
     @GetMapping("/sessions")
-    public List<ChatSessionSummaryResponse> sessions(@RequestParam Long residentId) {
-        return chatHistoryService.getSessions(residentId);
+    public List<ChatSessionSummaryResponse> sessions(@RequestParam Long memberId) {
+        return chatHistoryService.getSessions(memberId);
     }
     @Operation(
             summary = "특정 세션 메시지 조회",

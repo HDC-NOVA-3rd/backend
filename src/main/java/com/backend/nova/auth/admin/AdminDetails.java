@@ -55,4 +55,9 @@ public class AdminDetails implements UserDetails {
         return admin.getStatus() == AdminStatus.ACTIVE;
     }
 
+    public Long getApartmentId() {
+        return null;
+    }
+}
+
 }

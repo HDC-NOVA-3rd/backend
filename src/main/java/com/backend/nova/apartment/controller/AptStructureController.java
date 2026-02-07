@@ -1,7 +1,9 @@
 package com.backend.nova.apartment.controller;
 
+import com.backend.nova.facility.dto.FacilityResponse;
 import com.backend.nova.apartment.service.AptStructureService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -51,5 +53,17 @@ public class AptStructureController {
     public ResponseEntity<List<HoResponse>> getHoList(@PathVariable Long dongId) {
         List<HoResponse> hos = aptStructureService.getHoListByDongId(dongId);
         return ResponseEntity.ok(hos);
+    }
+
+    // 커뮤니티 시설 목록 조회 API (아파트 ID 기준)
+    @Operation(
+            summary = "특정 아파트의 시설(Facility) 목록 조회",
+            description = "선택한 아파트 ID에 소속된 모든 커뮤니티 시설 리스트를 반환합니다."
+    )
+    @GetMapping("/{apartmentId}/facility")
+    @SecurityRequirement(name = "bearerAuth")
+    public ResponseEntity<List<FacilityResponse>> getFacilityList(@PathVariable Long apartmentId) {
+        List<FacilityResponse> facilities = aptStructureService.getFacilityListByApartmentId(apartmentId);
+        return ResponseEntity.ok(facilities);
     }
 }
