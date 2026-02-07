@@ -309,6 +309,7 @@ public class ChatService {
                     "FREE_CHAT",
                     Map.of()
             );
+            // 명령어를 통한 디바이스 제어
             case "DEVICE_CONTROL" -> handleDeviceControl(sessionId, req.memberId(), cmd);
 
             default -> new ChatResponse(sessionId, cmd.reply(), cmd.intent(), cmd.slots());
