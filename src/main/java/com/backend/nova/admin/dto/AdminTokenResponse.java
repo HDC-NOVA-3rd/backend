@@ -1,13 +1,14 @@
-package com.backend.nova.member.dto;
+package com.backend.nova.admin.dto;
 
 import com.backend.nova.auth.jwt.JwtToken;
 import lombok.Builder;
 
 @Builder
-public record TokenResponse(
+public record AdminTokenResponse(
         String accessToken,
         String refreshToken,
-        Long memberId,
-        String name
+        Long adminId,
+        String name,
+        String role
 ) {
 }

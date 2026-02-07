@@ -45,4 +45,6 @@ public abstract class ControllerTestSupport {
 
     @MockitoBean
     protected ClientRegistrationRepository clientRegistrationRepository;
+
+
 }

@@ -31,8 +31,8 @@ public class Admin {
     private String loginId;
 
     /** 비밀번호 해시 */
-    @Column(name = "password_hash", nullable = false)
-    private String passwordHash;
+    @Column(name = "password", nullable = false)
+    private String password;
 
     /** 관리자 이름 */
     @Column(nullable = false, length = 100)
@@ -90,8 +90,6 @@ public class Admin {
     /** 수정 시각 */
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    /* ===== lifecycle only ===== */
 
     @PrePersist
     protected void onCreate() {
