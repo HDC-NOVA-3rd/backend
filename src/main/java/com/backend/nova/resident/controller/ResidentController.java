@@ -5,19 +5,20 @@ import com.backend.nova.resident.dto.ResidentResponse;
 import com.backend.nova.resident.dto.ResidentVerifyResponse;
 import com.backend.nova.resident.service.ResidentService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
 import java.util.List;
 
-@Tag(name = "Resident", description = "입주민 관리 API")
+@Tag(name = "Resident", description = "입주민 관리 API (관리자 전용)")
 @RestController
 @RequestMapping("/api/resident")
 @RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth")
 public class ResidentController {
 
     private final ResidentService residentService;
@@ -39,13 +40,8 @@ public class ResidentController {
     @Operation(summary = "입주민 등록", description = "새로운 입주민을 등록합니다.")
     @PostMapping
     public ResponseEntity<?> createResident(@RequestBody ResidentRequest requestDto) {
-        try {
-            Long residentId = residentService.createResident(requestDto);
-            return ResponseEntity.created(URI.create("/api/resident/" + residentId)).build();
-        } catch (DataIntegrityViolationException e) {
-            // DB unique 제약조건 위반 시 발생
-            return ResponseEntity.badRequest().body("이미 등록된 휴대폰 번호입니다.");
-        }
+        Long residentId = residentService.createResident(requestDto);
+        return ResponseEntity.created(URI.create("/api/resident/" + residentId)).build();
     }
 
     @Operation(summary = "입주민 정보 수정", description = "입주민 정보를 수정합니다.")
@@ -69,7 +65,7 @@ public class ResidentController {
         return ResponseEntity.ok().build();
     }
 
-    @Operation(summary = "입주민 정보 검증", description = "입주민 정보(호 ID, 이름, 전화번호)가 일치하는지 확인합니다.")
+    @Operation(summary = "입주민 정보 검증", description = "입주민 정보(호 ID, 이름, 전화번호)가 일치하는지 확인합니다.", security = {})
     @PostMapping("/verify")
     public ResponseEntity<ResidentVerifyResponse> verifyResident(@RequestBody ResidentRequest requestDto) {
         ResidentVerifyResponse verifyResDto = residentService.verifyResident(requestDto);
