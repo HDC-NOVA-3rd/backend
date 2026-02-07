@@ -1,8 +1,11 @@
 package com.backend.nova;
 
 import com.backend.nova.auth.admin.AdminAuthenticationProvider;
+import com.backend.nova.auth.admin.AdminDetailsService;
+import com.backend.nova.auth.jwt.JwtAuthenticationEntryPoint;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
+import com.backend.nova.auth.member.MemberDetailsService;
 import com.backend.nova.config.SecurityConfig;
 import com.backend.nova.oauth2.handler.OAuthSuccessHandler;
 import com.backend.nova.oauth2.repository.OAuthRedirectCookieRepository;
@@ -46,5 +49,12 @@ public abstract class ControllerTestSupport {
     @MockitoBean
     protected ClientRegistrationRepository clientRegistrationRepository;
 
+    @MockitoBean
+    protected JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
+    @MockitoBean
+    protected AdminDetailsService adminDetailsService;
+
+    @MockitoBean
+    protected MemberDetailsService memberDetailsService;
 }

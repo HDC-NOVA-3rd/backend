@@ -131,3 +131,55 @@ VALUES
     NOW(6),
     1
 );
+
+-- ---------------------------------------------------------
+-- 추가 시설(Facility) 등록 (ID 3~6 자동 생성 가정)
+-- ---------------------------------------------------------
+
+-- 3. 실내 골프연습장 (06~23시, 예약 가능)
+INSERT INTO facility (apartment_id, name, description, start_hour, end_hour, reservation_available)
+VALUES (1, '실내 골프연습장', '지하 2층 스포츠 센터', '06:00:00', '23:00:00', 1);
+
+-- 4. 게스트하우스 (13~22시, 예약 가능, 가족 단위 숙박)
+INSERT INTO facility (apartment_id, name, description, start_hour, end_hour, reservation_available)
+VALUES (1, '게스트하우스', '105동 1층', '13:00:00', '22:00:00', 1);
+
+-- 5. 프리미엄 독서실 (24시간, 예약 가능)
+INSERT INTO facility (apartment_id, name, description, start_hour, end_hour, reservation_available)
+VALUES (1, '프리미엄 독서실', '커뮤니티 센터 2층', '00:00:00', '23:59:59', 1);
+
+-- 6. 주민 카페 (10~19시, 예약 불가능 - Walk-in 전용 테스트)
+INSERT INTO facility (apartment_id, name, description, start_hour, end_hour, reservation_available)
+VALUES (1, '주민 카페', '커뮤니티 센터 로비', '10:00:00', '19:00:00', 0);
+
+
+-- ---------------------------------------------------------
+-- 추가 공간(Space) 등록
+-- *기존 데이터가 2개 있으므로 Facility ID는 3번부터 시작한다고 가정*
+-- ---------------------------------------------------------
+
+-- [Facility ID: 3] 골프연습장 공간들
+-- 무료 타석과 유료 게임룸이 섞여 있는 경우 테스트
+INSERT INTO space (facility_id, name, max_capacity, min_capacity, price)
+VALUES
+    (3, '일반 타석 1', 1, 1, 0),      -- 1인 전용, 무료
+    (3, '일반 타석 2', 1, 1, 0),
+    (3, '스크린 골프룸 A', 4, 1, 20000); -- 최대 4인, 유료
+
+-- [Facility ID: 4] 게스트하우스 공간들
+-- 수용 인원 범위(min~max) 필터링 로직 테스트
+INSERT INTO space (facility_id, name, max_capacity, min_capacity, price)
+VALUES
+    (4, 'Standard Room (20평)', 4, 1, 50000), -- 1~4명 수용
+    (4, 'Royal Suite (40평)', 8, 4, 120000);  -- 4~8명 수용 (최소 인원 제한 있음)
+
+-- [Facility ID: 5] 독서실 공간들
+-- 저렴한 유료 좌석 테스트
+INSERT INTO space (facility_id, name, max_capacity, min_capacity, price)
+VALUES
+    (5, '1인 집중석 A', 1, 1, 2000),
+    (5, '1인 집중석 B', 1, 1, 2000),
+    (5, '오픈 데스크', 1, 1, 0);
+
+-- [Facility ID: 6] 주민 카페
+-- 공간(Space) 데이터가 없는 경우(Empty List 반환)를 테스트하기 위해 insert 생략

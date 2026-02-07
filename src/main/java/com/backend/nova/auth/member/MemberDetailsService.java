@@ -24,7 +24,9 @@ public class MemberDetailsService implements UserDetailsService {
                 .orElseThrow(() ->
                         new UsernameNotFoundException("Member not found: " + loginId));
 
-        return new MemberDetails(member);
+        Long apartmentId = memberRepository.findApartmentIdByMemberId(member.getId())
+                .orElse(null);
+        return new MemberDetails(member,apartmentId);
     }
 
     /* ================= ID 기반 (JWT 전용) ================= */
@@ -33,7 +35,8 @@ public class MemberDetailsService implements UserDetailsService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() ->
                         new UsernameNotFoundException("Member not found id=" + memberId));
-
-        return new MemberDetails(member);
+        Long apartmentId = memberRepository.findApartmentIdByMemberId(member.getId())
+                .orElse(null);
+        return new MemberDetails(member,apartmentId);
     }
 }

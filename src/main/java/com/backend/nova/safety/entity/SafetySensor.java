@@ -2,7 +2,7 @@ package com.backend.nova.safety.entity;
 
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.entity.Ho;
-import com.backend.nova.apartment.entity.Space;
+import com.backend.nova.facility.entity.Space;
 import com.backend.nova.safety.enums.SensorType;
 import jakarta.persistence.*;
 import lombok.Getter;

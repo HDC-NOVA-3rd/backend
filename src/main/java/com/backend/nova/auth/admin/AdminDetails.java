@@ -65,5 +65,9 @@ public class AdminDetails implements UserDetails {
     public boolean isEnabled() {
         return status == AdminStatus.ACTIVE;
     }
+
+    public Long getApartmentId() {
+        return null;
+    }
 }
 
