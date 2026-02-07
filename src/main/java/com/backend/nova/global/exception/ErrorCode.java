@@ -25,6 +25,9 @@ public enum ErrorCode {
     APARTMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "아파트를 찾을 수 없습니다."),
     HO_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 호 정보를 찾을 수 없습니다."),
 
+    // ================= Notice =================
+    NOTICE_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 공지를 찾을 수 없습니다."),
+
 
     // ================= OTP =================
     OTP_NOT_FOUND(HttpStatus.NOT_FOUND, "OTP를 찾을 수 없습니다."),
