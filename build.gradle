@@ -57,6 +57,9 @@ dependencies {
 	implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
     // Spring Boot Mail
     implementation 'org.springframework.boot:spring-boot-starter-mail'
+    // Spring Actuator (모니터링 툴)
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
 }
 
 tasks.named('test') {
