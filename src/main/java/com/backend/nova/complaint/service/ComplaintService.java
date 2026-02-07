@@ -3,6 +3,8 @@ package com.backend.nova.complaint.service;
 import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.entity.AdminRole;
 import com.backend.nova.admin.repository.AdminRepository;
+import com.backend.nova.auth.admin.AdminDetails;
+import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.complaint.dto.*;
 import com.backend.nova.complaint.entity.Complaint;
 import com.backend.nova.complaint.entity.ComplaintAnswer;
@@ -14,6 +16,7 @@ import com.backend.nova.complaint.repository.ComplaintRepository;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -217,13 +220,40 @@ public class ComplaintService {
 
 
     //민원 상세 조회
-    public ComplaintResponse getComplaintDetail(Long complaintId) {
-        Complaint complaint = complaintRepository.findWithAllById(complaintId);
-        if (complaint == null) {
-            throw new IllegalArgumentException("민원 없음");
+    @Transactional(readOnly = true)
+    public ComplaintResponse getComplaintDetail(Long complaintId, Object principal) {
+
+        Complaint complaint = complaintRepository.findById(complaintId)
+                .orElseThrow(() -> new IllegalArgumentException("민원 없음"));
+
+
+        // ─────────────────────────
+        // 입주민
+        // ─────────────────────────
+        if (principal instanceof MemberDetails member) {
+
+            if (!complaint.getMember().getId().equals(member.getMemberId())) {
+                throw new AccessDeniedException("본인 민원만 조회할 수 있습니다.");
+            }
+
+            return ComplaintResponse.from(complaint);
         }
-        return ComplaintResponse.from(complaint);
+
+        // ─────────────────────────
+        // 관리자
+        // ─────────────────────────
+        if (principal instanceof AdminDetails admin) {
+
+            if (!complaint.getApartment().getId().equals(admin.getApartmentId())) {
+                throw new AccessDeniedException("관리 아파트 민원만 조회할 수 있습니다.");
+            }
+
+            return ComplaintResponse.from(complaint);
+        }
+
+        throw new AccessDeniedException("접근 권한 없음");
     }
+
 
 
     // 멤버 본인 민원 목록

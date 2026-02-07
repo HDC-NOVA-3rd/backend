@@ -21,7 +21,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
@@ -103,6 +102,7 @@ public class SecurityConfig {
                         // 인증 없이 접근 가능
                         .requestMatchers("/api/admin/login/**").permitAll()
                         .requestMatchers("/api/admin/password/**").permitAll()
+                        .requestMatchers("/api/admin/complaint/**").permitAll()
 
                         // 관리자 생성 (슈퍼 관리자만)
                         .requestMatchers(HttpMethod.POST, "/api/admin")

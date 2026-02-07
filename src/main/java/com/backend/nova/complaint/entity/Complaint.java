@@ -1,5 +1,6 @@
 package com.backend.nova.complaint.entity;
 
+import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.admin.entity.Admin;
 import jakarta.persistence.*;
@@ -28,6 +29,12 @@ public class Complaint {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "admin_id")
     private Admin admin;
+
+    // Complaint
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "apartment_id", nullable = false)
+    private Apartment apartment;
+
 
     // 민원 유형
     @Enumerated(EnumType.STRING)
