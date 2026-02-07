@@ -2,9 +2,9 @@ spring:
   config:
     import: optional:classpath:config/secrets.yaml #secrets.yaml 파일로 값 읽어오기
   datasource:
-    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1 # 테스트 전용 메모리 DB
-    username: sa
-    driver-class-name: org.h2.Driver
+    url: jdbc:mariadb://${DB_IP}:${DB_PORT}/${DB_TABLE}?serverTimezone=Asia/Seoul # DB 접속 URL (Timezone: Asia/Seoul)
+    username: ${DB_USER} # DB 사용자 계정
+    password: ${DB_PW} # DB 비밀번호
 
   jpa:
     hibernate:
