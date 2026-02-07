@@ -14,7 +14,7 @@ spring:
       mail.smtp.auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH}
       mail.smtp.starttls.enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE}
   datasource:
-    url: jdbc:mysql://${DB_IP}:${DB_PORT}/${DB_TABLE}?serverTimezone=Asia/Seoul # DB 접속 URL (Timezone: Asia/Seoul)
+    url: jdbc:mariadb://${DB_IP}:${DB_PORT}/${DB_TABLE}?serverTimezone=Asia/Seoul # DB 접속 URL (Timezone: Asia/Seoul)
     username: ${DB_USER} # DB 사용자 계정
     password: ${DB_PW} # DB 비밀번호
   sql:
@@ -84,3 +84,9 @@ openweather:
   api-key: ${OPENWEATHER_API_KEY}
 otp:
   secret: ${OTP_SECRET}
+# Monitoring System
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "*"
