@@ -12,7 +12,5 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
     // 최신 N개 (최신순)
     List<ChatMessage> findByChatSession_SessionIdOrderByCreatedAtDesc(String sessionId, Pageable pageable);
     Optional<ChatMessage> findTopByChatSession_SessionIdOrderByCreatedAtDesc(String sessionId);
-
-
     List<ChatMessage> findByChatSession_SessionIdOrderByCreatedAtAsc(String sessionId);
 }

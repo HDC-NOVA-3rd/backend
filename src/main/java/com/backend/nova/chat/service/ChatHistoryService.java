@@ -18,10 +18,10 @@ public class ChatHistoryService {
     private final ChatSessionRepository chatSessionRepository;
     private final ChatMessageRepository chatMessageRepository;
 
-    public List<ChatSessionSummaryResponse> getSessions(Long residentId) {
+    public List<ChatSessionSummaryResponse> getSessions(Long memberId) {
 
         return chatSessionRepository
-                .findByResident_IdOrderByLastMessageAtDesc(residentId)
+                .findByMember_IdOrderByLastMessageAtDesc(memberId)
                 .stream()
                 .map(session -> {
                     // 마지막 메시지 1건 조회

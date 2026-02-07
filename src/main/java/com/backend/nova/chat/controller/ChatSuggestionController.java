@@ -23,8 +23,8 @@ public class ChatSuggestionController {
     )
     @GetMapping("/suggestions")
     public ChatSuggestionResponse suggestions(
-            @RequestParam(required = false) Long residentId
+            @RequestParam(required = false) Long memberId
     ) {
-        return chatSuggestionService.getSuggestions(residentId);
+        return chatSuggestionService.getSuggestions(memberId);
     }
 }

@@ -23,4 +23,6 @@ public interface ResidentRepository extends JpaRepository<Resident, Long> {
     @EntityGraph(attributePaths = {"ho"})
     Optional<Resident> findWithHoById(Long id);
 
+    List<Resident> findByHo_Dong_IdIn(List<Long> dongIds);
+
 }

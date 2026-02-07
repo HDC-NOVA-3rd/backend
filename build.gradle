@@ -32,6 +32,8 @@ dependencies {
     annotationProcessor 'org.projectlombok:lombok'
     //Security
     implementation 'org.springframework.boot:spring-boot-starter-security'
+    //OAuth
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
     //JWT
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
     runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6' , 'io.jsonwebtoken:jjwt-jackson:0.12.6'
@@ -52,6 +54,8 @@ dependencies {
 	// Spring Integration MQTT
 	implementation 'org.springframework.integration:spring-integration-mqtt'
 	implementation 'org.eclipse.paho:org.eclipse.paho.client.mqttv3:1.2.5'
+    // Spring Boot Mail
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
 }
 
 tasks.named('test') {
