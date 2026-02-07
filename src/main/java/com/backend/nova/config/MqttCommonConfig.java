@@ -9,8 +9,14 @@ import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
 
 @Configuration
 public class MqttCommonConfig {
-    @Value("${spring.mqtt.url}") //yaml 파일에서 속성 가져오기
+    @Value("${spring.mqtt.url}")
     private String brokerUrl;
+
+    @Value("${spring.mqtt.username:}")
+    private String username;
+
+    @Value("${spring.mqtt.password:}")
+    private String password;
 
     //스프링프레임워크에서 브로커에 접속할 수 있는 객체를 만드는 factory 객체 생성
     @Bean
@@ -20,6 +26,14 @@ public class MqttCommonConfig {
         options.setServerURIs(new String[]{brokerUrl});
         options.setAutomaticReconnect(true);
         options.setCleanSession(true);
+
+        // 인증 적용 (allow_anonymous false일 때를 위함)
+        if (username != null && !username.isBlank()) {
+            options.setUserName(username);
+        }
+        if (password != null && !password.isBlank()) {
+            options.setPassword(password.toCharArray());
+        }
 
         factory.setConnectionOptions(options);
         return factory;

@@ -39,7 +39,8 @@ public class MqttSafetyInboundHandler {
 
         try {
             SafetySensorInboundPayload inboundPayload =
-                    objectMapper.readValue(payload, SafetySensorInboundPayload.class);
+                    objectMapper.readValue(payload, SafetySensorInboundPayload.class)
+                            .setTS();
             if (!inboundPayload.isValid()) {
                 log.warn("MQTT safety ignored: invalid payload topic={}, payload={}", topic, payload);
                 return;
