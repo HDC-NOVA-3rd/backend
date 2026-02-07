@@ -229,4 +229,12 @@ public class AdminService {
     public void logout(AdminDetails adminDetails) {
         // TODO refresh token blacklist
     }
+
+    public AdminInfoResponse getAdminInfo(AdminDetails adminDetails) {
+        return null;
+    }
+
+    public AdminApartmentResponse getAdminApartmentInfo(AdminDetails adminDetails) {
+        return null;
+    }
 }
