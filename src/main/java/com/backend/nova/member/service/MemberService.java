@@ -1,9 +1,9 @@
 package com.backend.nova.member.service;
 
 import com.backend.nova.auth.jwt.JwtProvider;
-import com.backend.nova.auth.jwt.JwtToken;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.auth.member.MemberDetails;
+import com.backend.nova.auth.member.MemberDetailsService;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
 import com.backend.nova.member.dto.*;
@@ -18,10 +18,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Collections;
 import java.util.UUID;
 
 @Service
@@ -35,6 +33,7 @@ public class MemberService {
     private final MemberAuthenticationProvider memberAuthenticationProvider;
     private final JwtProvider jwtProvider;
     private final AuthCodeInMemoryRepository authCodeRepository;
+    private final MemberDetailsService memberDetailsService;
 
     @Transactional
     public TokenResponse refresh(RefreshTokenRequest request) {
@@ -45,28 +44,20 @@ public class MemberService {
             throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN); // 400 Bad Request
         }
 
-        // 2. 토큰에서 사용자 ID 추출
+        // 2. 토큰에서 LoginID 추출
         String loginId = jwtProvider.getSubject(refreshToken);
 
-        // 3. 사용자 존재 여부 확인
-        Member member = memberRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND)); // 404 NOT_FOUND
+        // 3. LoginID 기반 memberDetails 생성
+        MemberDetails memberDetails = (MemberDetails) memberDetailsService.loadUserByUsername(loginId);
 
-        // 4. 새로운 인증 객체 생성 (권한은 MEMBER 부여)
+        // 4. 새로운 인증 객체 생성
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                member.getLoginId(),
+                memberDetails,
                 null,
-                Collections.singletonList(new SimpleGrantedAuthority("MEMBER"))
+                memberDetails.getAuthorities()
         );
-
-        // 5. Access Token만 새로 생성!
-        String newAccessToken = jwtProvider.createAccessToken(authentication);
-
-        return TokenResponse.builder()
-                .accessToken(newAccessToken)
-                .memberId(member.getId())
-                .name(member.getName())
-                .build();
+        // 새로운 인증 객체 기반 Access, Refresh 재발급
+        return jwtProvider.createTokenDto(authentication,memberDetails.getMemberId(),memberDetails.getName());
     }
 
     @Transactional
@@ -77,16 +68,9 @@ public class MemberService {
         // 커스텀 Provider를 통해 직접 인증 처리 (Manager를 거치지 않아 순환참조 방지)
         Authentication authentication = memberAuthenticationProvider.authenticate(authenticationToken);
 
-        JwtToken jwtToken = jwtProvider.generateToken(authentication);
+        MemberDetails memberDetails = (MemberDetails) authentication.getPrincipal();
 
-        MemberDetails userDetails = (MemberDetails) authentication.getPrincipal();
-
-        return TokenResponse.builder()
-                .accessToken(jwtToken.accessToken())
-                .refreshToken(jwtToken.refreshToken())
-                .memberId(userDetails.getMemberId())
-                .name(userDetails.getName())
-                .build();
+        return jwtProvider.createTokenDto(authentication,memberDetails.getMemberId(),memberDetails.getName());
     }
 
     @Transactional
@@ -113,54 +97,30 @@ public class MemberService {
 
     @Transactional
     public TokenResponse registerMember(SignupRequest request) {
+        // 기존 회원이 존재하는 지 확인
         if (memberRepository.existsByLoginId(request.loginId())) {
-            if (request.loginType() != LoginType.NORMAL) {
-                Member existingMember = memberRepository.findByLoginId(request.loginId())
-                        .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-
-                existingMember.updateOAuthInfo(request.loginType().name(), request.loginId(), request.profileImg());
-
-                Authentication authentication = new UsernamePasswordAuthenticationToken(
-                        existingMember.getLoginId(),
-                        null,
-                        Collections.singletonList(new SimpleGrantedAuthority("MEMBER"))
-                );
-
-                JwtToken jwtToken = jwtProvider.generateToken(authentication);
-
-                return TokenResponse.builder()
-                        .accessToken(jwtToken.accessToken())
-                        .refreshToken(jwtToken.refreshToken())
-                        .memberId(existingMember.getId())
-                        .name(existingMember.getName())
-                        .build();
-            }
             throw new BusinessException(ErrorCode.DUPLICATE_LOGIN_ID); // 409 Conflict 발생
         }
 
+        // 실 입주민이 존재하는 지 확인
         Resident resident = residentRepository.findById(request.residentId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND)); // 404 Not Found 발생
 
         String encodedPassword = passwordEncoder.encode(request.password());
         Member member = request.toEntity(resident, encodedPassword);
 
-        Member savedMember = memberRepository.save(member);
+        memberRepository.save(member);
+
+        MemberDetails memberDetails = new MemberDetails(member,resident.getHo().getDong().getApartment().getId());
 
         // 회원가입 후 자동 로그인을 위한 토큰 생성
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                savedMember.getLoginId(),
+                memberDetails,
                 null,
-                Collections.singletonList(new SimpleGrantedAuthority("MEMBER"))
+                memberDetails.getAuthorities()
         );
 
-        JwtToken jwtToken = jwtProvider.generateToken(authentication);
-
-        return TokenResponse.builder()
-                .accessToken(jwtToken.accessToken())
-                .refreshToken(jwtToken.refreshToken())
-                .memberId(savedMember.getId())
-                .name(savedMember.getName())
-                .build();
+        return jwtProvider.createTokenDto(authentication,memberDetails.getMemberId(),memberDetails.getName());
     }
 
     public MemberInfoResponse getMemberInfo(String loginId) {

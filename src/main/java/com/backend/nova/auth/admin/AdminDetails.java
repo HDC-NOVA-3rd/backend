@@ -34,6 +34,10 @@ public class AdminDetails implements UserDetails {
         return admin.getLoginId();
     }
 
+    public Long getApartmentId() {
+        return admin.getApartment().getId();
+    }
+
     @Override
     public boolean isAccountNonExpired() {
         return true;

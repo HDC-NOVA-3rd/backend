@@ -1,6 +1,9 @@
 package com.backend.nova.auth.jwt;
 
+import com.backend.nova.auth.admin.AdminDetails;
+import com.backend.nova.auth.admin.AdminDetailsService;
 import com.backend.nova.auth.member.MemberDetails;
+import com.backend.nova.auth.member.MemberDetailsService;
 import com.backend.nova.member.dto.TokenResponse;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
@@ -28,22 +31,30 @@ public class JwtProvider {
     private final SecretKey secretKey; // 토큰 서명(암호화/복호화)에 사용할 비밀키 객체
     private final Long accessTokenExpires;
     private final Long refreshTokenExpires;
+    private final MemberDetailsService memberDetailsService;
+    private final AdminDetailsService adminDetailsService;
 
-    public JwtProvider(@Value("${jwt.secret}") String secretStr) {
+    public JwtProvider(
+            @Value("${jwt.secret}") String secretStr,
+            MemberDetailsService memberDetailsService,
+            AdminDetailsService adminDetailsService
+    ) {
         byte[] keyBytes = Decoders.BASE64.decode(secretStr); //secretStr을 BASE64로 Decode
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         accessTokenExpires = 300 * 1000L; // 5분
         refreshTokenExpires = 604800 * 1000L; // 7일
+        this.memberDetailsService = memberDetailsService;
+        this.adminDetailsService = adminDetailsService;
     }
 
     /**
-     * [신규] 로그인 성공 시 반환할 TokenResponse DTO 생성
+     * 로그인 성공 시 반환할 TokenResponse DTO 생성
      * Access/Refresh 토큰을 발급하고, 프론트엔드에 필요한 사용자 정보와 함께 묶어서 반환
      */
     public TokenResponse createTokenDto(Authentication authentication, Long memberId, String name) {
         String accessToken = createAccessToken(authentication);
         String refreshToken = createRefreshToken(authentication);
-
+        log.info("refresh 토큰으로 새로운 access/refresh 발급 {} / {}",accessToken,refreshToken);
         return TokenResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -52,13 +63,14 @@ public class JwtProvider {
                 .build();
     }
 
+    // Register Token (OAuth User가 회원가입이 필요한 경우 발급하는 토큰)
     public String createRegisterToken(String email, String name, String provider, String providerId, String phoneNumber, String birthDate) {
         Date now = new Date();
         Date validity = new Date(now.getTime() + 1000 * 60 * 10); // 10분만 유효
-
+        log.info("register 토큰 발급 완료");
         return Jwts.builder()
                 .subject("REGISTER_USER")      // 주제 설정
-                .claim("email", email)         // 데이터 추가 (.put 대신 .claim 사용)
+                .claim("email", email)   // 데이터 추가 (.put 대신 .claim 사용)
                 .claim("name", name)
                 .claim("provider", provider)
                 .claim("providerId", providerId)
@@ -87,8 +99,13 @@ public class JwtProvider {
                 .collect(Collectors.joining(","));
 
         // Principal에서 apartmentId 추출
-        MemberDetails userDetails = (MemberDetails) authentication.getPrincipal();
-        Long apartmentId = userDetails.getApartmentId();
+        Long apartmentId = null;
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof MemberDetails) {
+            apartmentId = ((MemberDetails) principal).getApartmentId();
+        } else if (principal instanceof AdminDetails) {
+            apartmentId = ((AdminDetails) principal).getApartmentId();
+        }
 
         long now = (new Date()).getTime();
         Date accessTokenExpiresIn = new Date(now + accessTokenExpires);
@@ -96,7 +113,7 @@ public class JwtProvider {
         return Jwts.builder()
                 .subject(authentication.getName())
                 .claim("auth", authorities)
-                .claim("apartmentId", apartmentId)
+                .claim("apartmentId",apartmentId)
                 .expiration(accessTokenExpiresIn)
                 .signWith(secretKey)
                 .compact();
@@ -128,10 +145,20 @@ public class JwtProvider {
                         .collect(Collectors.toList());
         // "ROLE_USER,ROLE_ADMIN" 문자열 split -> GrantedAuthority 객체 리스트 변환
 
+        boolean isMember = authorities.stream()
+                .anyMatch(a -> "MEMBER".equals(a.getAuthority()));
+
+        if (isMember) {
+            UserDetails userDetails = memberDetailsService.loadUserByUsername(claims.getSubject());
+            return new UsernamePasswordAuthenticationToken(userDetails, "", authorities);
+        }
+
+
         // User: UserDetails 구현체
         // 사전에 검증된 토큰이므로 비밀번호는 빈 문자열("")로 둔다.
-        UserDetails principal = new User(claims.getSubject(), "", authorities);
-        return new UsernamePasswordAuthenticationToken(principal, "", authorities);
+        UserDetails userDetails = new User(claims.getSubject(), "", authorities);
+        log.info("accessToken 인증 완료: {}",userDetails);
+        return new UsernamePasswordAuthenticationToken(userDetails, "", authorities);
     }
 
     // Access 토큰 유효성 검사 (요청 시 Filter에서 가장 먼저 실행)
