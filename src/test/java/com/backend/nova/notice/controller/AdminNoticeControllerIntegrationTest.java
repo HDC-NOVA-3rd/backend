@@ -26,7 +26,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -83,6 +85,9 @@ class AdminNoticeControllerIntegrationTest {
 
     @Autowired
     NoticeTargetDongRepository noticeTargetDongRepository;
+
+    @MockitoBean
+    private JavaMailSender javaMailSender; // ← 이렇게 Mock으로 등록
 
     @BeforeEach
     void cleanDb() {
@@ -194,7 +199,7 @@ class AdminNoticeControllerIntegrationTest {
         Admin admin = Admin.builder()
                 .loginId("admin-" + uuid)
                 .email("admin-" + uuid + "@test.com")
-                .passwordHash("pw")
+                .password("pw")
                 .name("테스트 관리자")
                 .role(AdminRole.ADMIN)
                 .status(AdminStatus.ACTIVE)

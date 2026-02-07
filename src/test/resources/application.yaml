@@ -60,3 +60,6 @@ jwt:
 
 openweather:
   api-key: ${OPENWEATHER_API_KEY}
+
+otp:
+  secret: ${OTP_SECRET}
