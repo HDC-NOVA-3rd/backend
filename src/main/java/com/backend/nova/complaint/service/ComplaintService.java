@@ -3,8 +3,8 @@ package com.backend.nova.complaint.service;
 import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.entity.AdminRole;
 import com.backend.nova.admin.repository.AdminRepository;
+import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.auth.admin.AdminDetails;
-import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.complaint.dto.*;
 import com.backend.nova.complaint.entity.Complaint;
 import com.backend.nova.complaint.entity.ComplaintAnswer;
@@ -38,8 +38,16 @@ public class ComplaintService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원 없음"));
 
+
+        // 멤버의 아파트 조회
+        Apartment apartment = member.getResident()
+                .getHo()
+                .getDong()
+                .getApartment();
+
         Complaint complaint = Complaint.builder()
                 .member(member)
+                .apartment(apartment)
                 .type(request.type())
                 .title(request.title())
                 .content(request.content())
@@ -67,8 +75,9 @@ public class ComplaintService {
             throw new IllegalStateException("본인 민원만 삭제 가능");
         }
 
-        complaintRepository.delete(complaint);
+        complaint.softDelete();
     }
+
 
     //공통 권한 체크
     private void validateAnswerPermission(Complaint complaint, Admin admin) {
@@ -93,15 +102,46 @@ public class ComplaintService {
         Admin admin = adminRepository.findById(adminId)
                 .orElseThrow(() -> new IllegalArgumentException("관리자 없음"));
 
-        if (admin.getRole() != AdminRole.SUPER_ADMIN) {
-            throw new IllegalStateException("담당자 배정/변경 권한 없음");
-        }
-
         Admin targetAdmin = adminRepository.findById(targetAdminId)
                 .orElseThrow(() -> new IllegalArgumentException("대상 관리자 없음"));
 
-        complaint.assignAdmin(targetAdmin);
+        // ─────────────────────────
+        // 아파트 소속 체크
+        // ─────────────────────────
+        if (!complaint.getApartment().getId().equals(admin.getApartment().getId())) {
+            throw new IllegalStateException("자기 아파트의 민원만 배정할 수 있습니다.");
+        }
+
+        // (선택) targetAdmin도 같은 아파트인지까지 체크하고 싶다면
+        if (!complaint.getApartment().getId().equals(targetAdmin.getApartment().getId())) {
+            throw new IllegalStateException("같은 아파트 관리자에게만 배정할 수 있습니다.");
+        }
+
+        // ─────────────────────────
+        // 일반 관리자 제약
+        // ─────────────────────────
+        if (admin.getRole() == AdminRole.ADMIN) {
+
+            if (complaint.getAdmin() != null) {
+                throw new IllegalStateException("일반 관리자는 재배정할 수 없습니다.");
+            }
+
+            if (!admin.getId().equals(targetAdmin.getId())) {
+                throw new IllegalStateException("본인에게만 배정할 수 있습니다.");
+            }
+        }
+
+        // ─────────────────────────
+        // 배정 / 재배정
+        // ─────────────────────────
+        if (complaint.getAdmin() == null) {
+            complaint.assignAdmin(targetAdmin);
+        } else {
+            complaint.reassignAdmin(targetAdmin);
+        }
     }
+
+
 
 
     /* ================= 권한별 관리자가 민원 진행 상태 변경 ================= */
@@ -115,7 +155,8 @@ public class ComplaintService {
         // SUPER_ADMIN은 무조건 가능
         if (admin.getRole() != AdminRole.SUPER_ADMIN) {
             // 배정 담당자만 가능
-            if (!admin.getId().equals(complaint.getAdmin().getId())) {
+            if (complaint.getAdmin() == null ||
+                    !admin.getId().equals(complaint.getAdmin().getId())) {
                 throw new IllegalStateException("상태 변경 권한 없음");
             }
         }
@@ -213,63 +254,54 @@ public class ComplaintService {
     }
 
     /* ================= 공통 민원 조회 ================= */
-    private Complaint findComplaint(Long complaintId) {
-        return complaintRepository.findById(complaintId)
+    public Complaint findComplaint(Long id) {
+        return complaintRepository.findActiveById(id)
                 .orElseThrow(() -> new IllegalArgumentException("민원 없음"));
     }
 
 
     //민원 상세 조회
     @Transactional(readOnly = true)
-    public ComplaintResponse getComplaintDetail(Long complaintId, Object principal) {
-
+    public ComplaintResponse getComplaintDetail(Long complaintId) {
         Complaint complaint = complaintRepository.findById(complaintId)
                 .orElseThrow(() -> new IllegalArgumentException("민원 없음"));
 
-
-        // ─────────────────────────
-        // 입주민
-        // ─────────────────────────
-        if (principal instanceof MemberDetails member) {
-
-            if (!complaint.getMember().getId().equals(member.getMemberId())) {
-                throw new AccessDeniedException("본인 민원만 조회할 수 있습니다.");
-            }
-
-            return ComplaintResponse.from(complaint);
-        }
-
-        // ─────────────────────────
-        // 관리자
-        // ─────────────────────────
-        if (principal instanceof AdminDetails admin) {
-
-            if (!complaint.getApartment().getId().equals(admin.getApartmentId())) {
-                throw new AccessDeniedException("관리 아파트 민원만 조회할 수 있습니다.");
-            }
-
-            return ComplaintResponse.from(complaint);
-        }
-
-        throw new AccessDeniedException("접근 권한 없음");
+        return ComplaintResponse.from(complaint);
     }
+
 
 
 
     // 멤버 본인 민원 목록
     public List<ComplaintResponse> getComplaintsByMember(Long memberId) {
-        return complaintRepository.findByMember_Id(memberId).stream()
+        return complaintRepository.findByMember_IdAndDeletedFalse(memberId).stream()
                 .map(ComplaintResponse::from)
                 .toList();
     }
 
     // 관리자 전체 조회 (아파트 기준)
     public List<ComplaintResponse> getComplaintsByApartment(Long apartmentId) {
-        return complaintRepository.findByMember_Resident_Ho_Dong_Apartment_Id(apartmentId)
+        return complaintRepository.findByMember_Resident_Ho_Dong_Apartment_IdAndDeletedFalse(apartmentId)
                 .stream()
                 .map(ComplaintResponse::from)
                 .toList();
     }
+
+    @Transactional(readOnly = true)
+    public List<ComplaintResponse> getDeletedComplaints(AdminDetails adminDetails) {
+
+        if (adminDetails.getRoleEnum() != AdminRole.SUPER_ADMIN) {
+            throw new AccessDeniedException("슈퍼 관리자만 조회할 수 있습니다.");
+        }
+
+        Long apartmentId = adminDetails.getApartmentId();
+
+        return complaintRepository.findByDeletedTrueAndApartment_Id(apartmentId).stream()
+                .map(ComplaintResponse::from)
+                .toList();
+    }
+
+
 
 //    @Transactional
 //    public void deleteComplaint(Long memberId) {

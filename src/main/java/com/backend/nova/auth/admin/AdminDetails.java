@@ -3,6 +3,8 @@ package com.backend.nova.auth.admin;
 
 import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.entity.AdminStatus;
+import com.backend.nova.admin.entity.AdminRole;
+
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -34,6 +36,15 @@ public class AdminDetails implements UserDetails {
         this.apartmentId = admin.getApartment().getId(); // 여기서만 접근
     }
 
+    public AdminRole getRoleEnum() {
+        return AdminRole.valueOf(this.role);
+    }
+
+    public boolean isSuperAdmin() {
+        return getRoleEnum() == AdminRole.SUPER_ADMIN;
+    }
+
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return Collections.singleton(
@@ -48,8 +59,10 @@ public class AdminDetails implements UserDetails {
 
     @Override
     public String getPassword() {
-        return null; // JWT 기반
+        return null;
     }
+
+
 
     @Override
     public boolean isAccountNonExpired() {

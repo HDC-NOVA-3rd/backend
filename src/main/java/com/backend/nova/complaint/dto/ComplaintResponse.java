@@ -16,6 +16,7 @@ public record ComplaintResponse(
         String content,
         Long memberId,
         Long adminId,
+        Long apartmentId,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
@@ -28,6 +29,7 @@ public record ComplaintResponse(
                 .content(complaint.getContent())
                 .memberId(complaint.getMember().getId())
                 .adminId(complaint.getAdmin() != null ? complaint.getAdmin().getId() : null)
+                .apartmentId(complaint.getApartment().getId())
                 .createdAt(complaint.getCreatedAt())
                 .updatedAt(complaint.getUpdatedAt())
                 .build();

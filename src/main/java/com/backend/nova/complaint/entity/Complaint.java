@@ -54,6 +54,9 @@ public class Complaint {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Column(nullable = false)
+    private boolean deleted;
+
     // 등록일
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -62,14 +65,16 @@ public class Complaint {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    /* ================== 생성/수정 로직 ================== */
+    /* ================== 생성/수정 ================== */
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = this.createdAt;
-        this.status = ComplaintStatus.RECEIVED; // 기본값: 민원 접수
+        this.status = ComplaintStatus.RECEIVED;
+        this.deleted = false;
     }
+
 
     @PreUpdate
     protected void onUpdate() {
@@ -90,6 +95,9 @@ public class Complaint {
         this.status = ComplaintStatus.ASSIGNED;
     }
 
+    public void reassignAdmin(Admin admin) {
+        this.admin = admin;
+    }
 
     public void changeStatus(ComplaintStatus nextStatus) {
         if (!this.status.canChangeTo(nextStatus)) {
@@ -99,5 +107,10 @@ public class Complaint {
         }
         this.status = nextStatus;
     }
+
+    public void softDelete() {
+        this.deleted = true;
+    }
+
 
 }
