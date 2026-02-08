@@ -301,18 +301,4 @@ public class ComplaintService {
                 .toList();
     }
 
-
-
-//    @Transactional
-//    public void deleteComplaint(Long memberId) {
-//        complaintRepository.deleteById(memberId);
-//    }
-//    @Transactional
-//    public void deleteAllComplaints(Long hoId) {
-//        if (!hoRepository.existsById(hoId)) {
-//            throw new IllegalArgumentException("해당 호가 없습니다. id=" + hoId);
-//        }
-//        complaintRepository.deleteByHoId(hoId);
-//    }
-
 }

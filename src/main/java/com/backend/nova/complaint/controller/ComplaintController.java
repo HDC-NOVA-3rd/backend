@@ -236,29 +236,4 @@ public class ComplaintController {
         return ResponseEntity.noContent().build();
     }
 
-
-    //    //관리자
-    //    @Operation(summary = "단지별 민원 리스트 삭제", description = "아파트 단지 ID로 해당 세대의 민원을 모두 삭제합니다.")
-    //    @DeleteMapping("/apartment/{apartmentId}")
-    //    public ResponseEntity<Void> deleteAllComplaints(@PathVariable Long apartmentId) {
-    //        complaintService.deleteAllComplaints(apartmentId);
-    //        return ResponseEntity.ok().build();
-    //    }
-    //
-    //    //관리자
-    //    @Operation(summary = "호별 민원 리스트 삭제", description = "호 ID로 해당 세대의 민원을 모두 삭제합니다.")
-    //    @DeleteMapping("/ho/{hoId}")
-    //    public ResponseEntity<Void> deleteAllComplaints(@PathVariable Long hoId) {
-    //        complaintService.deleteAllComplaints(hoId);
-    //        return ResponseEntity.ok().build();
-    //    }
-    //
-    //    //사용자
-    //    @Operation(summary = "멤버별 민원 리스트 삭제", description = "멤버 ID로 해당 세대의 민원을 모두 삭제합니다.")
-    //    @DeleteMapping("/member/{memberId}")
-    //    public ResponseEntity<Void> deleteAllComplaints(@PathVariable Long memberId) {
-    //        complaintService.deleteAllComplaints(memberId);
-    //        return ResponseEntity.ok().build();
-    //    }
-
 }
