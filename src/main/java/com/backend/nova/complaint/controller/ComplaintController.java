@@ -191,7 +191,7 @@ public class ComplaintController {
     /* ================= 아파트별 민원 목록 조회 (관리자) ================= */
     @Operation(summary = "아파트별 민원 목록 조회", description = "관리자가 아파트 단지별 민원 목록을 조회합니다.")
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("list/admin")
+    @GetMapping("list/apartment")
     public ResponseEntity<List<ComplaintResponse>> getComplaintsByAdminApartment(
             @AuthenticationPrincipal AdminDetails adminDetails) {
 

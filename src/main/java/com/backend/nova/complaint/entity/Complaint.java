@@ -30,7 +30,7 @@ public class Complaint {
     @JoinColumn(name = "admin_id")
     private Admin admin;
 
-    // Complaint
+    // apartment
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "apartment_id", nullable = false)
     private Apartment apartment;
