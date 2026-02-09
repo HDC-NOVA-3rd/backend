@@ -1151,7 +1151,7 @@ public class ChatService {
 
         // 2) 최신 로그 1건
         RoomEnvLog log = (RoomEnvLog) roomEnvLogRepository
-                .findFirstByRoom_IdAndSensorTypeOrderByRecordedAtDesc(room.getId(), sensorType)
+                .findTop1ByRoomId_IdAndSensorTypeOrderByRecordedAtDesc(room.getId(), sensorType)
                 .orElseThrow(() -> new IllegalArgumentException("환경 로그가 없습니다: " + roomName + " / " + sensorType));
 
         String unit = safeString(log.getUnit());
