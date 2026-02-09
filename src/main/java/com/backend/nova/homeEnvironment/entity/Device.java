@@ -46,26 +46,43 @@ public class Device {
     private LocalDateTime updatedAt;
 
     public void changePower(Boolean power) {
-        this.power = Boolean.TRUE.equals(power);
-        this.updatedAt = LocalDateTime.now();
-    }
+        boolean p = Boolean.TRUE.equals(power);
 
-    public void changeBrightness(Integer brightness) {
-        // null 허용(LED 아닌 경우)
-        if (brightness == null) {
-            this.brightness = null;
+        if (!p) {
+            this.power = false;
             this.updatedAt = LocalDateTime.now();
             return;
         }
 
-        int v = Math.max(0, Math.min(100, brightness));
-        this.brightness = v;
-
-        // 밝기 1 이상이면 자동 ON, 0이면 OFF
-        this.power = (v > 0);
+        // LED만 밝기 기준으로 ON 여부 결정
+        if (this.type == DeviceType.LED) {
+            int b = (this.brightness == null) ? 0 : this.brightness;
+            this.power = b > 0;
+        } else {
+            this.power = true;
+        }
 
         this.updatedAt = LocalDateTime.now();
     }
+
+
+    public void changeBrightness(Integer brightness) {
+        if (brightness == null) {
+            this.brightness = null; // LED 아닌 경우
+            this.updatedAt = LocalDateTime.now();
+            return;
+        }
+
+        int b = Math.max(0, Math.min(100, brightness));
+        this.brightness = b;
+
+        // 밝기 0이면 OFF, 1~100이면 ON
+        this.power = b > 0;
+
+        this.updatedAt = LocalDateTime.now();
+    }
+
+
 
     public void changeTargetTemp(Integer targetTemp) {
         this.targetTemp = targetTemp;
@@ -73,7 +90,7 @@ public class Device {
     }
 
     @PrePersist // JPA가 INSERT 하기 직전 딱 한 번 실행
-    void prePersist() { 
+    void prePersist() {
         if (updatedAt == null) updatedAt = LocalDateTime.now();
         if (power == null) power = false;
     }

@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class MqttEnvInboundHandler {
 
-    //@ServiceActivator(inputChannel = "mqttEnvInputChannel")
+    @ServiceActivator(inputChannel = "mqttEnvInputChannel")
     public void handleEnvMessage(Message<String> message) {
         String payload = message.getPayload();
         String topic = (String) message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC);
