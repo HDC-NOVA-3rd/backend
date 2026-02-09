@@ -23,6 +23,9 @@ import com.backend.nova.safety.repository.SensorLogRepository;
 import com.backend.nova.safety.repository.SensorRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -52,6 +55,7 @@ public class SafetyService {
     private final SafetyStatusRepository safetyStatusRepository;
     private final SensorLogRepository sensorLogRepository;
     private final SensorRepository sensorRepository;
+    private final MessageChannel mqttSafetyOutboundChannel;
 
     public List<SafetyStatusResponse> listSafetyStatus(Long apartmentId) {
         if (apartmentId == null || apartmentId <= 0) {
@@ -314,6 +318,9 @@ public class SafetyService {
                     .eventAt(eventAt)
                     .build();
             safetyEventLogRepository.save(eventLog);
+
+            // MQTT로 프론트엔드에 업데이트 전송
+            publishSafetyUpdate(scopeContext, statusTo, reason, eventAt);
         }
 
         if (isDanger && scopeContext.facility() != null) {
@@ -321,6 +328,41 @@ public class SafetyService {
             facilityRepository.save(scopeContext.facility());
             log.info("Safety alert requested deviceId={}, scope={}", deviceId, scopeContext);
         }
+    }
+
+    private void publishSafetyUpdate(ScopeContext scopeContext, SafetyStatus statusTo, SafetyReason reason, LocalDateTime eventAt) {
+        try {
+            SafetyStatusResponse response = createSafetyStatusResponse(scopeContext, statusTo, reason, eventAt);
+            String jsonPayload = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(response);
+            
+            Message<String> message = MessageBuilder.withPayload(jsonPayload)
+                    .setHeader("mqtt_topic", "hdc/frontend/safety/update")
+                    .build();
+            
+            mqttSafetyOutboundChannel.send(message);
+            log.info("Published safety update to MQTT: apartmentId={}, status={}", scopeContext.apartmentId(), statusTo);
+        } catch (Exception e) {
+            log.error("Failed to publish safety update to MQTT", e);
+        }
+    }
+
+    private SafetyStatusResponse createSafetyStatusResponse(ScopeContext scopeContext, SafetyStatus statusTo, SafetyReason reason, LocalDateTime eventAt) {
+        String dongNo = null;
+        String facilityName = null;
+
+        if (scopeContext.dongId() != null) {
+            dongNo = dongRepository.findById(scopeContext.dongId())
+                    .map(Dong::getDongNo)
+                    .orElse(null);
+        }
+
+        if (scopeContext.facilityId() != null) {
+            facilityName = facilityRepository.findById(scopeContext.facilityId())
+                    .map(Facility::getName)
+                    .orElse(null);
+        }
+
+        return new SafetyStatusResponse(dongNo, facilityName, statusTo, reason, eventAt);
     }
 
     private static String currentAdminRequestFrom() {
