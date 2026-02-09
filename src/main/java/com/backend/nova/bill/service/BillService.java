@@ -22,6 +22,61 @@ public class BillService {
 
     private final BillRepository billRepository;
 
+    @Service
+    @RequiredArgsConstructor
+    @Transactional(readOnly = true)
+    public class BillService {
+
+        private final BillRepository billRepository;
+
+        public List<BillResponse> getBillsByApartment(Long apartmentId) {
+            return billRepository.findByHo_Dong_Apartment_Id(apartmentId)
+                    .stream().map(this::toResponse).toList();
+        }
+
+        public List<BillResponse> getBillsByHo(Long hoId) {
+            return billRepository.findByHo_Id(hoId)
+                    .stream().map(this::toResponse).toList();
+        }
+
+        public BillResponse getBillForAdmin(Long billId, Long apartmentId) {
+            Bill bill = billRepository.findByIdAndHo_Dong_Apartment_Id(billId, apartmentId)
+                    .orElseThrow(() -> new BusinessException(BILL_NOT_FOUND_OR_NO_PERMISSION));
+            return toResponse(bill);
+        }
+
+        public BillResponse getBillForMember(Long billId, Long hoId) {
+            Bill bill = billRepository.findByIdAndHo_Id(billId, hoId)
+                    .orElseThrow(() -> new BusinessException(BILL_NOT_FOUND_OR_NO_PERMISSION));
+            return toResponse(bill);
+        }
+
+        public List<BillResponse> getUnpaidBillsByApartment(Long apartmentId) {
+            return billRepository.findByHo_Dong_Apartment_IdAndStatus(apartmentId, BillStatus.READY)
+                    .stream().map(this::toResponse).toList();
+        }
+
+        public List<BillResponse> getUnpaidBillsByHo(Long hoId) {
+            return billRepository.findByHo_IdAndStatus(hoId, BillStatus.READY)
+                    .stream().map(this::toResponse).toList();
+        }
+
+        public List<BillResponse> getUnpaidBillsByMonth(String month, Long apartmentId) {
+            return billRepository.findByHo_Dong_Apartment_IdAndMonthAndStatus(
+                            apartmentId, month, BillStatus.READY)
+                    .stream().map(this::toResponse).toList();
+        }
+
+        public List<BillResponse> getConfirmedOrReadyBills(Long hoId) {
+            return billRepository.findByHoIdAndStatusIn(
+                            hoId,
+                            List.of(BillStatus.OPEN, BillStatus.READY, BillStatus.PAID))
+                    .stream().map(this::toResponse).toList();
+        }
+
+        // toResponse() 생략 (기존과 동일)
+    }
+
     //YearMonth ym = YearMonth.now();
     //String month = ym.toString(); // "2025-02"
 
