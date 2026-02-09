@@ -4,10 +4,8 @@ import com.backend.nova.apartment.entity.Ho;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
-import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Table(
@@ -33,14 +31,14 @@ public class Bill {
     @JoinColumn(name = "ho_id", nullable = false)
     private Ho ho;
 
-    // 고지서 UUID
+    // 고지서 UID
     @Column(name = "bill_uuid", nullable = false, unique = true)
-    private UUID billUuid;
+    private String billUid;
 
 
     // 청구월 (YYYY-MM)
     @Column(nullable = false, length = 7)
-    private YearMonth month;
+    private String month;
 
     // 총 금액
     @Column(nullable = false)
@@ -71,6 +69,12 @@ public class Bill {
     public void updateTotalPrice(int totalPrice) {
         this.totalPrice = totalPrice;
     }
+
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
+
 
 
 }

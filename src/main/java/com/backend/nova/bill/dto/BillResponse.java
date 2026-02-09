@@ -3,7 +3,6 @@ package com.backend.nova.bill.dto;
 import com.backend.nova.bill.entity.BillStatus;
 import lombok.*;
 
-import java.time.YearMonth;
 import java.util.List;
 
 @Getter
@@ -14,7 +13,7 @@ import java.util.List;
 public class BillResponse {
     private Long id;
     private Long hoId;
-    private YearMonth month;
+    private String month;
     private Integer totalPrice;
     private BillStatus status;
     private List<BillItemResponse> items;

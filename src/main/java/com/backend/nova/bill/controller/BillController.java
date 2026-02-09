@@ -39,4 +39,32 @@ public class BillController {
                 billService.getBill(billId, authentication)
         );
     }
+
+
+    // =============================
+// 미납 고지서 조회
+// =============================
+    @GetMapping("/unpaid")
+    @PreAuthorize("hasAnyRole('ADMIN','MEMBER')")
+    public ResponseEntity<List<BillResponse>> getUnpaidBills(
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                billService.getUnpaidBills(authentication)
+        );
+    }
+
+    @GetMapping("/unpaid/{month}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<BillResponse>> getUnpaidBillsByMonth(
+            @PathVariable String month,
+            Authentication authentication
+    ) {
+        return ResponseEntity.ok(
+                billService.getUnpaidBillsByMonth(month, authentication)
+        );
+    }
+
+
+
 }

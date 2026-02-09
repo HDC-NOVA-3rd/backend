@@ -7,6 +7,8 @@ import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/bill")
 @RequiredArgsConstructor
@@ -14,8 +16,11 @@ public class BillPdfController {
 
     private final BillPdfService billPdfService;
 
-    @GetMapping("/{billId}/pdf")
-    public ResponseEntity<byte[]> downloadBillPdf(
+    // =============================
+    // PK 기반 (내부용 / 테스트용)
+    // =============================
+    @GetMapping("/id/{billId}/pdf")
+    public ResponseEntity<byte[]> downloadBillPdfById(
             @PathVariable Long billId,
             Authentication authentication
     ) {
@@ -29,6 +34,26 @@ public class BillPdfController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION,
                         "attachment; filename=bill-" + billId + ".pdf")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(pdf);
+    }
+
+    // =============================
+    // UUID 기반 (권장 / 운영용)
+    // =============================
+    @GetMapping("/{billUuid}/pdf")
+    public ResponseEntity<byte[]> downloadPdfByUuid(
+            @PathVariable UUID billUuid,
+            @RequestParam(defaultValue = "false") boolean preview,
+            Authentication authentication
+    ) {
+        byte[] pdf = billPdfService.generateBillPdfByUuid(billUuid, authentication);
+
+        String disposition = preview ? "inline" : "attachment";
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        disposition + "; filename=bill-" + billUuid + ".pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(pdf);
     }

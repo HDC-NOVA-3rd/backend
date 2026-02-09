@@ -2,9 +2,8 @@ package com.backend.nova.bill.service;
 
 import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.apartment.repository.HoRepository;
-import com.backend.nova.bill.dto.BillItemResponse;
-import com.backend.nova.bill.dto.BillRequest;
-import com.backend.nova.bill.dto.BillResponse;
+import com.backend.nova.auth.admin.AdminDetails;
+import com.backend.nova.bill.dto.*;
 import com.backend.nova.bill.entity.Bill;
 import com.backend.nova.bill.entity.BillItem;
 import com.backend.nova.bill.entity.BillStatus;
@@ -12,10 +11,14 @@ import com.backend.nova.bill.repository.BillRepository;
 //import com.backend.nova.meter.entity.UtilityFee;
 //import com.backend.nova.meter.repository.UtilityFeeRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -28,6 +31,112 @@ public class BillGenerationService {
     //private final MeterFeeRepository meterFeeRepository;
     private final BillRepository billRepository;
 
+
+
+
+    // =============================
+// 고지서 발행 (관리자 전용)
+// =============================
+    public BillResponse issueBill(
+            BillReadyRequest request,
+            Authentication authentication
+    ) {
+        // 1. 관리자 권한 체크
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof AdminDetails admin)) {
+            throw new AccessDeniedException("고지서 발행 권한이 없습니다.");
+        }
+
+        String month = request.getMonth(); // "2025-02"
+        Long hoId = request.getHoId();
+
+        // 2. 사전 중복 체크 (친절한 에러)
+        if (billRepository.existsByHo_IdAndMonth(hoId, month)) {
+            throw new IllegalStateException(
+                    "이미 해당 월의 고지서가 발행되어 있습니다. (month=" + month + ")"
+            );
+        }
+
+        // 3. Ho 조회 (아파트 권한 체크 포함)
+        Ho ho = hoRepository.findByIdAndDong_Apartment_Id(
+                        hoId, admin.getApartmentId()
+                )
+                .orElseThrow(() -> new IllegalArgumentException("해당 세대를 찾을 수 없습니다."));
+
+        // 4. 고지서 생성
+        Bill bill = Bill.builder()
+                .ho(ho)
+                .billUid(UUID.randomUUID().toString())
+                .month(month)
+                .status(BillStatus.READY)
+                .createdAt(LocalDateTime.now())
+                .issuedAt(LocalDateTime.now())
+                .build();
+
+        Bill savedBill = billRepository.save(bill);
+
+        return toResponse(savedBill);
+    }
+
+    // =============================
+    // 월별 고지서 일괄 발행 (아파트 전체)
+    // =============================
+    public BillBulkReadyResponse issueBillsForApartment(
+            BillBulkReadyRequest request,
+            Authentication authentication
+    ) {
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof AdminDetails admin)) {
+            throw new AccessDeniedException("고지서 발행 권한이 없습니다.");
+        }
+
+        String month = request.getMonth(); // YYYY-MM
+        Long apartmentId = admin.getApartmentId();
+
+        // 1. 아파트 내 모든 세대 조회
+        List<Ho> hos = hoRepository.findByDong_Apartment_Id(apartmentId);
+
+        int total = hos.size();
+        int issued = 0;
+        int skipped = 0;
+
+        for (Ho ho : hos) {
+
+            // 2. 이미 발행된 세대는 스킵
+            if (billRepository.existsByHo_IdAndMonth(ho.getId(), month)) {
+                skipped++;
+                continue;
+            }
+
+            try {
+                Bill bill = Bill.builder()
+                        .ho(ho)
+                        .billUid(UUID.randomUUID().toString())
+                        .month(month)
+                        .status(BillStatus.READY)
+                        .createdAt(LocalDateTime.now())
+                        .issuedAt(LocalDateTime.now())
+                        .build();
+
+                billRepository.save(bill);
+                issued++;
+
+            } catch (DataIntegrityViolationException e) {
+                // 동시성 / 레이스 상황 대비 (DB unique)
+                skipped++;
+            }
+        }
+
+        return BillBulkReadyResponse.builder()
+                .month(month)
+                .totalHoCount(total)
+                .issuedCount(issued)
+                .skippedCount(skipped)
+                .build();
+    }
+
+
+
     // =============================
     // 테스트용 고지서 생성 (운영 제거)
     // =============================
@@ -38,7 +147,7 @@ public class BillGenerationService {
         Bill bill = Bill.builder()
                 .ho(ho)
                 .month(request.getMonth())
-                .billUuid(UUID.randomUUID())
+                .billUid("BILL-" + UUID.randomUUID())
                 .status(BillStatus.READY)
                 .createdAt(LocalDateTime.now())
                 .build();

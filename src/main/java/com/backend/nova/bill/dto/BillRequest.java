@@ -2,7 +2,6 @@ package com.backend.nova.bill.dto;
 
 import lombok.*;
 
-import java.time.YearMonth;
 import java.util.List;
 
 @Getter
@@ -12,7 +11,7 @@ import java.util.List;
 @Builder
 public class BillRequest {
     private Long hoId;
-    private YearMonth month;
+    private String month;
     private Integer totalPrice;
     private List<BillItemRequest> items;
 }
