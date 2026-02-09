@@ -1,8 +1,6 @@
 package com.backend.nova.bill.controller;
 
-import com.backend.nova.bill.dto.BillReadyRequest;
-import com.backend.nova.bill.dto.BillRequest;
-import com.backend.nova.bill.dto.BillResponse;
+import com.backend.nova.bill.dto.*;
 import com.backend.nova.bill.service.BillGenerationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -43,8 +41,8 @@ public class BillGenerationController {
 // =============================
     @PostMapping("/issue/bulk")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<BillBulkIssueResponse> issueBillsBulk(
-            @RequestBody BillBulkIssueRequest request,
+    public ResponseEntity<BillBulkReadyResponse> issueBillsBulk(
+            @RequestBody BillBulkReadyRequest request,
             Authentication authentication
     ) {
         return ResponseEntity.ok(

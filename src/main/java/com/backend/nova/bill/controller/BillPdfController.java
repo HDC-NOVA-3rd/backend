@@ -41,7 +41,7 @@ public class BillPdfController {
     // =============================
     // UUID 기반 (권장 / 운영용)
     // =============================
-    @GetMapping("/{billUuid}/pdf")
+    @GetMapping("/{billUid}/pdf")
     public ResponseEntity<byte[]> downloadPdfByUuid(
             @PathVariable UUID billUuid,
             @RequestParam(defaultValue = "false") boolean preview,
