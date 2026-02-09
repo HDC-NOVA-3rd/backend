@@ -2,7 +2,7 @@ package com.backend.nova.chat.entity;
 
 
 import com.backend.nova.member.entity.Member;
-import com.backend.nova.resident.entity.Resident;
+
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -34,6 +34,17 @@ public class ChatSession {
     @Column(name = "last_message_at")
     private LocalDateTime lastMessageAt;
 
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+
+    public void softDelete() {
+        this.deletedAt = LocalDateTime.now();
+    }
+
+    public boolean isDeleted() {
+        return deletedAt != null;
+    }
 
     @PrePersist
     public void prePersist() {
