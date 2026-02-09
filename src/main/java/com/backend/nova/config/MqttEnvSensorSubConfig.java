@@ -22,8 +22,11 @@ public class MqttEnvSensorSubConfig {
     @Value("${spring.mqtt.topic.env}")
     private String envTopic;
 
+    //DirectChannel = 구독자(= @ServiceActivator) 1명만 안정적으로 사용 가능
+    //PublishSubscribeChannel = 구독자 여러 명 동시 수신 가능
     @Bean
     public MessageChannel mqttEnvInputChannel() {
+        // return new DirectChannel();
         return new PublishSubscribeChannel();
     }
 

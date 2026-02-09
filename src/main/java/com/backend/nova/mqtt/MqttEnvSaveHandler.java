@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @Service
 @Slf4j
 @RequiredArgsConstructor
-public class MqttEnvSaveHandler {
+public class MqttEnvSaveHandler{
 
     private final ObjectMapper objectMapper;
     private final RoomRepository roomRepository;
@@ -35,13 +35,13 @@ public class MqttEnvSaveHandler {
 
             Room room = roomRepository.findById(p.roomId).orElseThrow();
 
-            RoomEnvLog entity = RoomEnvLog.create(
-                    room,
-                    p.sensorType,
-                    p.value,
-                    p.unit == null ? "" : p.unit,
-                    LocalDateTime.now()
-            );
+            RoomEnvLog entity = RoomEnvLog.builder()
+                    .room(room)
+                    .sensorType(p.sensorType)
+                    .sensorValue(p.value)
+                    .unit(p.unit == null ? "" : p.unit)
+                    .recordedAt(LocalDateTime.now())
+                    .build();
 
             roomEnvLogRepository.save(entity);
 

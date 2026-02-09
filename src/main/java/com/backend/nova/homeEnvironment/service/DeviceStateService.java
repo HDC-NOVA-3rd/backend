@@ -44,17 +44,10 @@ public class DeviceStateService {
                     ));
 
             // 들어온 것만 업데이트(부분 업데이트)
-            if (patch.power() != null) {
-                device.setPower(patch.power());
-            }
-            if (patch.brightness() != null) {
-                // Device.setBrightness 안에서 0~100 clamp 해두었으니 그대로 호출
-                device.setBrightness(patch.brightness());
-            }
-            if (patch.targetTemp() != null) {
-                // 원하는 범위 제한을 하고 싶으면 여기서 체크해도 됨
-                device.setTargetTemp(patch.targetTemp());
-            }
+            if (patch.power() != null) device.changePower(patch.power());
+            if (patch.brightness() != null) device.changeBrightness(patch.brightness());
+            if (patch.targetTemp() != null) device.changeTargetTemp(patch.targetTemp());
+
             deviceRepository.save(device);
         }
     }

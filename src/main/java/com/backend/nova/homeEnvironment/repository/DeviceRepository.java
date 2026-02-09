@@ -12,6 +12,6 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     List<Device> findAllByRoom_Id(Long roomId);
     // deviceCode로 기기 하나 찾기
     Optional<Device> findByDeviceCode(String deviceCode);
-    // "이 roomId 안에서" deviceCode로 찾기 (안전)
+    // "이 roomId 안에서" deviceCode로 찾기
     Optional<Device> findByRoom_IdAndDeviceCode(Long roomId, String deviceCode);
 }
