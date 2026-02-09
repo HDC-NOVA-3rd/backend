@@ -1,4 +1,4 @@
-package com.backend.nova.common.security;
+package com.backend.nova.global.security.util;
 
 import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.member.MemberDetails;
