@@ -1,4 +1,4 @@
-package com.backend.nova.apartmentbill.entity;
+package com.backend.nova.management.entity;
 
 import com.backend.nova.apartment.entity.Apartment;
 import jakarta.persistence.*;
@@ -20,7 +20,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-public class ApartmentBillItem {
+public class ManagementFee {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -58,6 +58,10 @@ public class ApartmentBillItem {
 
     public void deactivate() {
         this.active = false;
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void deactivateAt() {
         this.updatedAt = LocalDateTime.now();
     }
 

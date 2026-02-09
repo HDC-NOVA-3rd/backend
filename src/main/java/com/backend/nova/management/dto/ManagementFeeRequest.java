@@ -1,9 +1,9 @@
-package com.backend.nova.apartmentbill.dto;
+package com.backend.nova.management.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
-public record ApartmentBillItemRequest(
+public record ManagementFeeRequest(
 
         @NotBlank(message = "관리비 항목명은 필수입니다.")
         @Size(max = 50, message = "관리비 항목명은 50자 이내여야 합니다.")
