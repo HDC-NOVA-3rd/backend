@@ -10,6 +10,7 @@ import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.backend.nova.apartment.repository.DongRepository;
 import com.backend.nova.apartment.repository.HoRepository;
+import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.notice.dto.NoticeCreateRequest;
 import com.backend.nova.notice.dto.NoticeCreateResponse;
 import com.backend.nova.notice.dto.NoticeSendRequest;
@@ -30,12 +31,13 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.hasSize;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -87,7 +89,7 @@ class AdminNoticeControllerIntegrationTest {
     NoticeTargetDongRepository noticeTargetDongRepository;
 
     @MockitoBean
-    private JavaMailSender javaMailSender; // ← 이렇게 Mock으로 등록
+    JavaMailSender javaMailSender;
 
     @BeforeEach
     void cleanDb() {
@@ -107,13 +109,13 @@ class AdminNoticeControllerIntegrationTest {
         Apartment apartment = createApartment();
         Admin admin = createAdmin(apartment);
         Ho ho = createHo(createDong(apartment));
-        createResident(ho, "김영희", "010-0000-0001");
+        createResident(ho, "홍길동", "010-0000-0001");
         createResident(ho, "이영희", "010-0000-0002");
 
-        NoticeCreateRequest createRequest = new NoticeCreateRequest("정기 소독 안내", "다음주 화요일 소독 예정", null);
+        NoticeCreateRequest createRequest = new NoticeCreateRequest("정기 소독 안내", "다음주 월요일 소독 예정", null);
 
         String createResponseJson = mockMvc.perform(post("/api/admin/notice")
-                        .with(user(admin.getId().toString()).roles("ADMIN"))
+                        .with(adminAuth(admin))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRequest)))
                 .andExpect(status().isCreated())
@@ -125,18 +127,16 @@ class AdminNoticeControllerIntegrationTest {
 
         NoticeCreateResponse createResponse = objectMapper.readValue(createResponseJson, NoticeCreateResponse.class);
 
-        NoticeSendRequest sendRequest = new NoticeSendRequest(null);
-
         mockMvc.perform(post("/api/admin/notice/{noticeId}/send-alert", createResponse.noticeId())
-                        .with(user(admin.getId().toString()).roles("ADMIN"))
+                        .with(adminAuth(admin))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(sendRequest)))
+                        .content(objectMapper.writeValueAsString(new NoticeSendRequest(null))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.sentCount").value(2));
 
         mockMvc.perform(get("/api/admin/notice/log")
-                        .with(user(admin.getId().toString()).roles("ADMIN")))
+                        .with(adminAuth(admin)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(2)))
                 .andExpect(jsonPath("$[0].type").value("notice"));
@@ -148,19 +148,48 @@ class AdminNoticeControllerIntegrationTest {
         Apartment apartment = createApartment();
         Admin admin = createAdmin(apartment);
 
-        NoticeSendRequest sendRequest = new NoticeSendRequest(null);
-
         mockMvc.perform(post("/api/admin/notice/{noticeId}/send-alert", 999L)
-                        .with(user(admin.getId().toString()).roles("ADMIN"))
+                        .with(adminAuth(admin))
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(sendRequest)))
+                        .content(objectMapper.writeValueAsString(new NoticeSendRequest(null))))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.code").value("NOTICE_NOT_FOUND"));
     }
 
+    @Test
+    @DisplayName("공지 전송 - 동 단위 전송")
+    void sendNotice_byDong() throws Exception {
+        Apartment apartment = createApartment();
+        Admin admin = createAdmin(apartment);
+        Dong dong = createDong(apartment);
+        Ho ho = createHo(dong);
+        createResident(ho, "홍길동", "010-0000-0001");
+        createResident(ho, "이영희", "010-0000-0002");
+
+        NoticeCreateRequest createRequest = new NoticeCreateRequest("공지", "동 공지", List.of(dong.getId()));
+        String createResponseJson = mockMvc.perform(post("/api/admin/notice")
+                        .with(adminAuth(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        NoticeCreateResponse createResponse = objectMapper.readValue(createResponseJson, NoticeCreateResponse.class);
+
+        mockMvc.perform(post("/api/admin/notice/{noticeId}/send-alert", createResponse.noticeId())
+                        .with(adminAuth(admin))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new NoticeSendRequest(List.of(dong.getId())))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.sentCount").value(2));
+    }
+
     private Apartment createApartment() {
         Apartment apartment = Apartment.builder()
-                .name("테스트 아파트-" + UUID.randomUUID())
+                .name("테스트 아파트" + UUID.randomUUID())
                 .address("서울시 테스트구 테스트동")
                 .latitude(37.5665)
                 .longitude(126.9780)
@@ -209,35 +238,12 @@ class AdminNoticeControllerIntegrationTest {
         return adminRepository.saveAndFlush(admin);
     }
 
-    @Test
-    @DisplayName("공지 전송 - 동 단위 전송")
-    void sendNotice_byDong() throws Exception {
-        Apartment apartment = createApartment();
-        Admin admin = createAdmin(apartment);
-        Dong dong = createDong(apartment);
-        Ho ho = createHo(dong);
-        createResident(ho, "김영희", "010-0000-0001");
-        createResident(ho, "이영희", "010-0000-0002");
-
-        NoticeCreateRequest createRequest = new NoticeCreateRequest("공지", "동 공지", List.of(dong.getId()));
-        String createResponseJson = mockMvc.perform(post("/api/admin/notice")
-                        .with(user(admin.getId().toString()).roles("ADMIN"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(createRequest)))
-                .andExpect(status().isCreated())
-                .andReturn()
-                .getResponse()
-                .getContentAsString();
-        NoticeCreateResponse createResponse = objectMapper.readValue(createResponseJson, NoticeCreateResponse.class);
-
-        NoticeSendRequest sendRequest = new NoticeSendRequest(List.of(dong.getId()));
-
-        mockMvc.perform(post("/api/admin/notice/{noticeId}/send-alert", createResponse.noticeId())
-                        .with(user(admin.getId().toString()).roles("ADMIN"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(sendRequest)))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.sentCount").value(2));
+    private RequestPostProcessor adminAuth(Admin admin) {
+        AdminDetails adminDetails = new AdminDetails(admin);
+        return authentication(new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                adminDetails,
+                null,
+                adminDetails.getAuthorities()
+        ));
     }
 }

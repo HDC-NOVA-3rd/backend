@@ -5,6 +5,7 @@ import com.backend.nova.admin.entity.AdminRole;
 import com.backend.nova.admin.entity.AdminStatus;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.Apartment;
+import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
 import com.backend.nova.notice.dto.NoticeCreateRequest;
@@ -31,7 +32,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
@@ -255,10 +255,11 @@ class NoticeServiceTest {
     }
 
     private void setAdminAuthentication(Long adminId) {
+        AdminDetails adminDetails = new AdminDetails(buildAdmin(adminId));
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                adminId.toString(),
+                adminDetails,
                 null,
-                List.of(new SimpleGrantedAuthority("ROLE_ADMIN"))
+                adminDetails.getAuthorities()
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }
