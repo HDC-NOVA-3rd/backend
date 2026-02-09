@@ -36,7 +36,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.http.ResponseEntity;
 import org.springframework.integration.mqtt.support.MqttHeaders;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.messaging.MessageChannel;
@@ -48,6 +47,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import com.fasterxml.jackson.core.type.TypeReference;
 
 
 @Service
@@ -216,7 +216,45 @@ public class ChatService {
 
         // 2. 사용자 메시지 저장
         saveMessage(session, Role.USER, req.message());
+        if (session.getPendingIntent() != null && !session.getPendingIntent().isBlank()) {
+            String pendingIntent = session.getPendingIntent();
+            Map<String, Object> pendingSlots = readPendingSlots(session);
 
+            // 이번 입력에서 채울 수 있는 slot만 추출해서 merge
+            Map<String, Object> filled = extractSlotsFromFollowUp(pendingIntent, req.message());
+            pendingSlots.putAll(filled);
+
+            // pending으로 cmd 구성해서 바로 라우팅 시도
+            LlmCommand merged = new LlmCommand(
+                    pendingIntent,
+                    "",
+                    pendingSlots,
+                    false,
+                    ""
+            );
+
+            ChatResponse response = routeByIntent(sessionId, req, merged);
+
+            // 라우팅 결과가 또 clarification이면 pending 유지(업데이트)
+            // 정상 처리면 pending 제거
+            if ("UNKNOWN".equalsIgnoreCase(response.intent())) {
+                // UNKNOWN이면 pending 유지가 더 안전 (원하면 clear해도 됨)
+                writePending(session, pendingIntent, pendingSlots);
+            } else {
+                // response가 clarification이면 routeByIntent에서 writePending 이미 함
+                if (!pendingIntent.equals(session.getPendingIntent())) {
+                    // routeByIntent에서 pending이 다른걸로 덮였을 수도 있음
+                }
+                // 정상 답변이면 pending 제거
+                if (session.getPendingIntent() != null && session.getPendingIntent().equals(pendingIntent)) {
+                    clearPending(session);
+                }
+            }
+
+            // assistant 메시지 저장하고 종료
+            saveMessage(session, Role.ASSISTANT, response.answer());
+            return response;
+        }
         // 3. 룰 기반 먼저 시도
         LlmCommand cmd = ruleBasedCommand(sessionId, req.message(), req.memberId());
 
@@ -224,17 +262,27 @@ public class ChatService {
 
         // 4. 룰로 못 잡으면 LLM 호출
         if (cmd == null) {
-            String systemPrompt = readSystemPromptCached();
-            List<Message> history = buildHistoryMessages(sessionId, systemPrompt);
+            String cacheKey = makeCacheKey(req.memberId(), req.message());
+            LlmCommand cachedCmd = getCached(cacheKey);
 
-            String llmRaw = chatClient
-                    .prompt()
-                    .messages(history)
-                    .user(req.message())
-                    .call()
-                    .content();
+            if (cachedCmd != null) {
+                cmd = cachedCmd;
+            } else {
+                String systemPrompt = readSystemPromptCached();
+                List<Message> history = buildHistoryMessages(sessionId, systemPrompt);
 
-            cmd = parseOrFallback(llmRaw);
+                String llmRaw = chatClient
+                        .prompt()
+                        .messages(history)
+                        .user(req.message())
+                        .call()
+                        .content();
+
+                cmd = parseOrFallback(llmRaw);
+
+                // TTL: 60초
+                putCache(cacheKey, cmd, 60_000);
+            }
         }
 
         // 5. intent 라우팅
@@ -284,8 +332,15 @@ public class ChatService {
         }
         // LLM이 정보가 부족하다고 판단한 경우
         if (cmd.needs_clarification()) {
+            ChatSession session = chatSessionRepository.findById(sessionId)
+                    .orElseThrow(() -> new IllegalArgumentException("세션 없음: " + sessionId));
+
+            // pending 저장 (다음 입력에서 이어가기)
+            writePending(session, cmd.intent(), new HashMap<>(cmd.slots()));
+
             return new ChatResponse(sessionId, cmd.clarify_question(), cmd.intent(), cmd.slots());
-        }// llm이 정보부족이라고 판단을 하면 되묻는 질문만 계속함
+        }
+
 
         // intent별 실제 처리 로직 분기
         return switch (cmd.intent()) {
@@ -323,7 +378,16 @@ public class ChatService {
             // 명령어를 통한 디바이스 제어
             case "DEVICE_CONTROL" -> handleDeviceControl(sessionId, req.memberId(), cmd);
 
-            default -> new ChatResponse(sessionId, cmd.reply(), cmd.intent(), cmd.slots());
+            default -> {
+                // UNKNOWN인데 reply가 있으면, 최소한 UI/로그에서 UNKNOWN으로 박히지 않게 FREE_CHAT로 처리
+                if ("UNKNOWN".equalsIgnoreCase(cmd.intent())
+                        && cmd.reply() != null
+                        && !cmd.reply().isBlank()) {
+                    yield new ChatResponse(sessionId, cmd.reply(), "FREE_CHAT", Map.of());
+                }
+                yield new ChatResponse(sessionId, cmd.reply(), cmd.intent(), cmd.slots());
+            }
+
         };
     }
     private ChatSession getOrCreateSession(String sessionId, Long memberId) {
@@ -525,7 +589,7 @@ public class ChatService {
         // SPACE 룰 (가격/정원/인원/룸/타입) - FACILITY_INFO보다 우선!
         // =========================
         boolean looksSpaceQuery =
-                containsAny(m, "가격", "요금", "얼마", "정원", "인원", "몇 명", "수용", "capacity", "룸", "방", "공간", "좌석", "타입", "종류");
+                containsAny(m, "가격", "비용", "요금", "얼마", "정원", "인원", "몇 명", "수용", "capacity", "룸", "방", "공간", "좌석", "타입", "종류");
 
         if (looksSpaceQuery) {
 
@@ -610,6 +674,17 @@ public class ChatService {
                         ""
                 );
             }
+            //  여기까지 왔는데 공간/가격 키워드가 있었으면 UNKNOWN으로 답변하지 말고 차단
+            if (containsAny(m, "가격", "요금", "얼마", "정원", "몇 명", "인원", "공간", "방")) {
+                return new LlmCommand(
+                        "SPACE_LIST",
+                        "",
+                        Map.of(),
+                        true,
+                        "어느 시설의 공간/가격 정보를 확인할까요?"
+                );
+            }
+
 
             // 공간명 없이 "가격"만 물으면 → 공간 목록 + 가격 보여주는 쪽(SPACE_LIST)이 자연스러움
             return new LlmCommand(
@@ -1028,36 +1103,46 @@ public class ChatService {
         String facilityName = safeString(cmd.slots().get("facility"));
         String infoType = safeString(cmd.slots().get("info_type")); // HOURS / AVAILABLE / DESCRIPTION
 
+        String message = req.message() == null ? "" : req.message();
+
+        // 1) facilityName 없으면: 최근 세션에서 마지막 시설 추론
         if (facilityName.isBlank() || "UNKNOWN".equalsIgnoreCase(facilityName)) {
-            return new ChatResponse(
-                    sessionId,
-                    "어느 시설을 확인할까요? (헬스장/스터디룸/수영장...)",
-                    "FACILITY_INFO",
-                    Map.of("facility", "UNKNOWN", "info_type", "UNKNOWN")
-            );
+            Facility inferred = inferLastFacilityFromSession(sessionId, apartmentId);
+            if (inferred != null) {
+                facilityName = inferred.getName(); // DB에 있는 진짜 이름으로 고정
+            }
         }
 
-        // info_type이 비었으면 서버에서 한번 더 추정(LLM/룰 실수 방지)
+        // 2) infoType이 비었으면 message 기반 추정 (기존 네 로직 유지/강화)
         if (infoType.isBlank() || "UNKNOWN".equalsIgnoreCase(infoType)) {
-            String m = req.message() == null ? "" : req.message();
-            if (containsAny(m, "운영", "시간", "몇 시", "언제", "오픈", "마감")) infoType = "HOURS";
-            else if (containsAny(m, "예약", "가능", "예약 가능", "예약돼", "예약 되")) infoType = "AVAILABLE";
-            else if (containsAny(m, "설명", "소개", "어디", "위치", "층")) infoType = "DESCRIPTION";
+            if (containsAny(message, "운영", "시간", "몇 시", "언제", "오픈", "마감")) infoType = "HOURS";
+            else if (containsAny(message, "예약", "가능", "예약 가능", "예약돼", "예약 되")) infoType = "AVAILABLE";
+            else if (containsAny(message, "설명", "소개", "어디", "위치", "층")) infoType = "DESCRIPTION";
             else {
-                // 정말 모호하면 되묻기
+                // infoType도 못 정하면 되묻기
                 return new ChatResponse(
                         sessionId,
                         "운영시간/예약가능/설명 중 어떤 정보를 확인할까요?",
                         "FACILITY_INFO",
-                        Map.of("facility", facilityName, "info_type", "UNKNOWN")
+                        Map.of("facility", facilityName.isBlank() ? "UNKNOWN" : facilityName, "info_type", "UNKNOWN")
                 );
             }
         }
 
-        Facility facility = facilityRepository
-                .findByApartmentIdAndName(apartmentId, facilityName)
-                .orElseThrow(() -> new IllegalArgumentException("시설 정보를 찾을 수 없습니다: " + facilityName));
+        // 3) 시설 resolve: exact 매치 실패 대비 별칭 매칭으로 안정화
+        Facility facility = resolveFacility(apartmentId, facilityName, sessionId);
 
+        if (facility == null) {
+            // 절대 예외 던지지 말고 되묻기 (500 방지)
+            return new ChatResponse(
+                    sessionId,
+                    "어느 시설을 확인할까요? (헬스장/스터디룸/골프연습장/게스트하우스/독서실/카페...)",
+                    "FACILITY_INFO",
+                    Map.of("facility", "UNKNOWN", "info_type", infoType)
+            );
+        }
+
+        // ===== 여기부터는 기존 네 운영시간/예약가능/설명 분기 로직 그대로 =====
         LocalTime now = LocalTime.now();
         LocalTime start = facility.getStartHour();
         LocalTime end = facility.getEndHour();
@@ -1072,7 +1157,6 @@ public class ChatService {
         boolean reservationAvailable = facility.isReservationAvailable();
         boolean reservableNow = isOpenNow && reservationAvailable;
 
-        //  info_type별 답변 분기
         String answer;
         Map<String, Object> data = new HashMap<>();
         data.put("facility", facility.getName());
@@ -1084,18 +1168,13 @@ public class ChatService {
         data.put("isOpenNow", isOpenNow);
         data.put("reservationAvailable", reservationAvailable);
         data.put("reservableNow", reservableNow);
+
         switch (infoType) {
             case "HOURS" -> {
                 answer = String.format(
                         "%s 운영시간은 %s~%s 입니다. (현재: %s)",
-                        facility.getName(),
-                        start,
-                        end,
-                        isOpenNow ? "운영 중" : "운영 시간 아님"
+                        facility.getName(), start, end, isOpenNow ? "운영 중" : "운영 시간 아님"
                 );
-                data.put("startHour", start);
-                data.put("endHour", end);
-                data.put("isOpenNow", isOpenNow);
             }
             case "AVAILABLE" -> {
                 answer = String.format(
@@ -1104,11 +1183,6 @@ public class ChatService {
                         reservableNow ? "현재 예약 가능합니다" : "현재 예약이 불가능합니다",
                         reservationAvailable ? "" : "예약 기능이 제공되지 않는 시설입니다"
                 ).trim();
-                data.put("reservationAvailable", reservationAvailable);
-                data.put("isOpenNow", isOpenNow);
-                data.put("reservableNow", reservableNow);
-                data.put("startHour", start);
-                data.put("endHour", end);
             }
             case "DESCRIPTION" -> {
                 String desc = safeString(facility.getDescription());
@@ -1118,15 +1192,32 @@ public class ChatService {
             }
             default -> {
                 answer = "운영시간/예약가능/설명 중 어떤 정보를 확인할까요?";
-                data.put("startHour", start);
-                data.put("endHour", end);
-                data.put("reservationAvailable", reservationAvailable);
-                data.put("description", safeString(facility.getDescription()));
             }
         }
 
         return new ChatResponse(sessionId, answer, "FACILITY_INFO", data);
     }
+
+    private Facility resolveFacility(Long apartmentId, String facilityName, String sessionId) {
+        if (facilityName == null || facilityName.isBlank() || "UNKNOWN".equalsIgnoreCase(facilityName)) {
+            return inferLastFacilityFromSession(sessionId, apartmentId);
+        }
+
+        // 1) exact
+        Optional<Facility> exact = facilityRepository.findByApartmentIdAndName(apartmentId, facilityName);
+        if (exact.isPresent()) return exact.get();
+
+        // 2) alias match (골프장 -> 실내 골프연습장 같은 케이스)
+        List<Facility> facilities = facilityRepository.findAllByApartmentId(apartmentId);
+        if (facilities == null || facilities.isEmpty()) return null;
+
+        return facilities.stream()
+                .filter(f -> matchesFacilityWithAlias(facilityName, f.getName()) || matchesFacilityWithAlias(sessionId == null ? "" : facilityName, f.getName()))
+                .sorted((a, b) -> Integer.compare(b.getName().length(), a.getName().length()))
+                .findFirst()
+                .orElse(null);
+    }
+
 
 
 
@@ -1260,9 +1351,16 @@ public class ChatService {
             return new ChatResponse(sessionId, "어느 시설의 공간(룸/좌석)을 볼까요?", "SPACE_LIST", Map.of());
         }
 
-        Facility facility = facilityRepository
-                .findByApartmentIdAndName(apartmentId, facilityName)
-                .orElseThrow(() -> new IllegalArgumentException("시설 정보를 찾을 수 없습니다: " + facilityName));
+        Facility facility = resolveFacility(apartmentId, facilityName, sessionId);
+        if (facility == null) {
+            return new ChatResponse(
+                    sessionId,
+                    "시설을 찾을 수 없습니다. 어느 시설의 공간 정보를 볼까요?",
+                    "SPACE_LIST",
+                    Map.of("facility", "UNKNOWN")
+            );
+        }
+
 
         List<Space> spaces = spaceRepository.findAllByFacilityId(facility.getId());
 
@@ -1360,10 +1458,16 @@ public class ChatService {
         }
 
         // 3) 시설 조회 (아파트 범위 한정)
-        Facility facility = facilityRepository
-                .findByApartmentIdAndName(apartmentId, facilityName)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("시설을 찾을 수 없습니다: " + facilityName));
+        Facility facility = resolveFacility(apartmentId, facilityName, sessionId);
+        if (facility == null) {
+            return new ChatResponse(
+                    sessionId,
+                    "시설을 찾을 수 없습니다. 어느 시설의 공간 정보를 볼까요?",
+                    "SPACE_LIST",
+                    Map.of("facility", "UNKNOWN")
+            );
+        }
+
 
         // 4) 시설 + 공간명으로 Space 조회
         Space space = (Space) spaceRepository.findByFacility_IdAndName(
@@ -1396,6 +1500,61 @@ public class ChatService {
                 data
         );
     }
+    private Map<String, Object> readPendingSlots(ChatSession session) {
+        if (session.getPendingSlotsJson() == null || session.getPendingSlotsJson().isBlank())
+            return new HashMap<>();
+        try {
+            return objectMapper.readValue(session.getPendingSlotsJson(),
+                    new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            return new HashMap<>();
+        }
+    }
+
+    private void writePending(ChatSession session, String intent, Map<String, Object> slots) {
+        try {
+            session.setPendingIntent(intent);
+            session.setPendingSlotsJson(objectMapper.writeValueAsString(slots));
+            chatSessionRepository.save(session);
+        } catch (Exception ignored) {}
+    }
+
+    private void clearPending(ChatSession session) {
+        session.setPendingIntent(null);
+        session.setPendingSlotsJson(null);
+        chatSessionRepository.save(session);
+    }
+
+    private Map<String, Object> extractSlotsFromFollowUp(String intent, String message) {
+        Map<String, Object> slots = new HashMap<>();
+        if (message == null) return slots;
+
+        // FOLLOW-UP에서는 "추측" 금지. 키워드 매칭만.
+        switch (intent) {
+            case "FACILITY_INFO" -> {
+                if (containsAny(message, "운영", "시간", "몇 시", "언제", "오픈", "마감")) slots.put("info_type", "HOURS");
+                else if (containsAny(message, "예약", "가능")) slots.put("info_type", "AVAILABLE");
+                else if (containsAny(message, "설명", "소개", "어디", "위치", "층")) slots.put("info_type", "DESCRIPTION");
+            }
+            case "DEVICE_CONTROL" -> {
+                // 예: "24도" 같은 후속 입력
+                java.util.regex.Matcher mt = java.util.regex.Pattern.compile("(\\d{1,2})\\s*도").matcher(message);
+                if (mt.find()) slots.put("value", Integer.parseInt(mt.group(1)));
+            }
+            case "ENV_STATUS", "ENV_HISTORY" -> {
+                if (containsAny(message, "온도")) slots.put("sensor_type", "TEMP");
+                else if (containsAny(message, "습도")) slots.put("sensor_type", "HUMIDITY");
+                else if (containsAny(message, "조도", "밝기")) slots.put("sensor_type", "LIGHT");
+
+                if (containsAny(message, "거실")) slots.put("room", "거실");
+                else if (containsAny(message, "침실", "안방")) slots.put("room", "침실");
+                else if (containsAny(message, "주방", "부엌")) slots.put("room", "주방");
+                else if (containsAny(message, "욕실", "화장실")) slots.put("room", "화장실");
+            }
+        }
+        return slots;
+    }
+
     private ChatResponse handleSpaceByCapacity(String sessionId, ChatRequest req, LlmCommand cmd) {
         Ho ho = resolveHo(req.memberId());
         Long apartmentId = resolveApartmentId(ho);
@@ -1411,9 +1570,17 @@ public class ChatService {
                     Map.of("facility", facilityName));
         }
 
-        Facility facility = facilityRepository
-                .findByApartmentIdAndName(apartmentId, facilityName)
-                .orElseThrow(() -> new IllegalArgumentException("시설을 찾을 수 없습니다: " + facilityName));
+        Facility facility = resolveFacility(apartmentId, facilityName, sessionId);
+        if (facility == null) {
+            return new ChatResponse(
+                    sessionId,
+                    "시설을 찾을 수 없습니다. 어느 시설에서 인원에 맞는 공간을 찾을까요?",
+                    "SPACE_BY_CAPACITY",
+                    Map.of("facility", "UNKNOWN", "capacity", capacity)
+            );
+        }
+
+
 
         List<Space> spaces = spaceRepository.findSpacesByCapacity(facility.getId(), capacity);
 
@@ -1478,12 +1645,22 @@ public class ChatService {
         return v == null ? "" : String.valueOf(v).trim();
     } //LLM이 주는 slots 전부 object
 
-    private LlmCommand parseOrFallback(String llmRaw) { //llm이 준 텍스트 응답 -> 자바 객체로 변환 하는 작업
+    private LlmCommand parseOrFallback(String llmRaw) {
         try {
             String cleaned = cleanJson(llmRaw);
-            return objectMapper.readValue(cleaned, LlmCommand.class);
+            LlmCommand cmd = objectMapper.readValue(cleaned, LlmCommand.class);
+
+            //  UNKNOWN인데 reply가 길면(=자연어 답변) 강제로 FREE_CHAT로 보정
+            if ("UNKNOWN".equalsIgnoreCase(cmd.intent())
+                    && cmd.reply() != null
+                    && !cmd.reply().isBlank()
+                    && !cmd.needs_clarification()) {
+                return new LlmCommand("FREE_CHAT", cmd.reply(), Map.of(), false, "");
+            }
+
+            return cmd;
         } catch (Exception e) {
-            return new LlmCommand(//JSON 깨졌거나 구조가 다를 때
+            return new LlmCommand(
                     "UNKNOWN",
                     "죄송해요. 요청을 이해하지 못했어요. 조금만 더 구체적으로 말해줄래요?",
                     Map.of("raw", llmRaw),
@@ -1492,6 +1669,7 @@ public class ChatService {
             );
         }
     }
+
 
     private String cleanJson(String raw) {
         if (raw == null) return "";
@@ -1529,4 +1707,5 @@ public class ChatService {
     private void putCache(String key, LlmCommand cmd, long ttlMs) {
         llmCache.put(key, new CacheEntry(System.currentTimeMillis() + ttlMs, cmd)); //현재 시간 + TTL(유효 시간)을 계산해서 expiresAt 설정
     }
+
 }
