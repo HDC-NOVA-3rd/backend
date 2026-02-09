@@ -6,11 +6,11 @@ import com.backend.nova.notice.dto.NoticeLogResponse;
 import com.backend.nova.notice.dto.NoticeSendRequest;
 import com.backend.nova.notice.dto.NoticeSendResponse;
 import com.backend.nova.notice.service.NoticeService;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,7 +18,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/notice")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@SecurityRequirement(name = "bearerAuth")
 public class AdminNoticeController {
 
     private final NoticeService noticeService;

@@ -4,6 +4,7 @@ import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.Dong;
 import com.backend.nova.apartment.repository.DongRepository;
+import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
 import com.backend.nova.member.entity.Member;
@@ -121,16 +122,10 @@ public class NoticeService {
 
     private Admin getCurrentAdmin() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getName() == null) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof AdminDetails adminDetails)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-        Long adminId;
-        try {
-            adminId = Long.parseLong(authentication.getName());
-        } catch (NumberFormatException e) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-        return adminRepository.findById(adminId)
+        return adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
     }
 
