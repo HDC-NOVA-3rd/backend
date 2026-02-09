@@ -2,9 +2,11 @@ package com.backend.nova.notice.controller;
 
 import com.backend.nova.notice.dto.NoticeCreateRequest;
 import com.backend.nova.notice.dto.NoticeCreateResponse;
+import com.backend.nova.notice.dto.NoticeDetailResponse;
 import com.backend.nova.notice.dto.NoticeLogResponse;
 import com.backend.nova.notice.dto.NoticeSendRequest;
 import com.backend.nova.notice.dto.NoticeSendResponse;
+import com.backend.nova.notice.dto.NoticeUpdateRequest;
 import com.backend.nova.notice.service.NoticeService;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
@@ -29,6 +31,27 @@ public class AdminNoticeController {
     ) {
         NoticeCreateResponse response = noticeService.createNotice(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @GetMapping("/{noticeId}")
+    public ResponseEntity<NoticeDetailResponse> getNotice(@PathVariable Long noticeId) {
+        NoticeDetailResponse response = noticeService.getNoticeDetail(noticeId);
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{noticeId}")
+    public ResponseEntity<NoticeDetailResponse> updateNotice(
+            @PathVariable Long noticeId,
+            @RequestBody @Valid NoticeUpdateRequest request
+    ) {
+        NoticeDetailResponse response = noticeService.updateNotice(noticeId, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/{noticeId}")
+    public ResponseEntity<Void> deleteNotice(@PathVariable Long noticeId) {
+        noticeService.deleteNotice(noticeId);
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{noticeId}/send-alert")

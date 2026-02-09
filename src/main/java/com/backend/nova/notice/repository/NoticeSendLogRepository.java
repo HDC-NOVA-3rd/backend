@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface NoticeSendLogRepository extends JpaRepository<NoticeSendLog, Long> {
     List<NoticeSendLog> findAllByOrderBySentAtDesc();
+
+    void deleteAllByNoticeId(Long noticeId);
 }
