@@ -33,7 +33,7 @@ public class AdminDetails implements UserDetails {
         this.role = admin.getRole().name();
         this.status = admin.getStatus();
         this.lockedUntil = admin.getLockedUntil();
-        this.apartmentId = admin.getApartment().getId(); // 여기서만 접근
+        this.apartmentId = admin.getApartment().getId();
     }
 
     public AdminRole getRoleEnum() {
