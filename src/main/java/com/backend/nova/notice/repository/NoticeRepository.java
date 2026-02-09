@@ -17,4 +17,12 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
             order by n.createdAt desc
             """)
     List<Notice> findBoardNotices(Long apartmentId, Long dongId);
+
+    @Query("""
+            select n
+            from Notice n
+            where n.admin.apartment.id = :apartmentId
+            order by n.createdAt desc
+            """)
+    List<Notice> findBoardNoticesForApartment(Long apartmentId);
 }

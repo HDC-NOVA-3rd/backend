@@ -14,4 +14,6 @@ public interface NoticeTargetDongRepository extends JpaRepository<NoticeTargetDo
 
     @Query("select ntd.notice from NoticeTargetDong ntd where ntd.dong.id = :dongId order by ntd.notice.createdAt desc")
     List<Notice> findNoticesByDongIdOrderByCreatedAtDesc(Long dongId);
+
+    void deleteAllByNoticeId(Long noticeId);
 }

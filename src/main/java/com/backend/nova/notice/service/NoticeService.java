@@ -4,6 +4,7 @@ import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.Dong;
 import com.backend.nova.apartment.repository.DongRepository;
+import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
 import com.backend.nova.member.entity.Member;
@@ -11,9 +12,11 @@ import com.backend.nova.member.repository.MemberRepository;
 import com.backend.nova.notice.dto.NoticeBoardResponse;
 import com.backend.nova.notice.dto.NoticeCreateRequest;
 import com.backend.nova.notice.dto.NoticeCreateResponse;
+import com.backend.nova.notice.dto.NoticeDetailResponse;
 import com.backend.nova.notice.dto.NoticeLogResponse;
 import com.backend.nova.notice.dto.NoticeSendRequest;
 import com.backend.nova.notice.dto.NoticeSendResponse;
+import com.backend.nova.notice.dto.NoticeUpdateRequest;
 import com.backend.nova.notice.entity.Notice;
 import com.backend.nova.notice.entity.NoticeSendLog;
 import com.backend.nova.notice.entity.NoticeTargetDong;
@@ -72,6 +75,62 @@ public class NoticeService {
         return new NoticeCreateResponse(true, saved.getId());
     }
 
+    @Transactional(readOnly = true)
+    public NoticeDetailResponse getNoticeDetail(Long noticeId) {
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTICE_NOT_FOUND));
+        List<Long> dongIds = noticeTargetDongRepository.findDongIdsByNoticeId(noticeId);
+        return NoticeDetailResponse.from(notice, dongIds);
+    }
+
+    public NoticeDetailResponse updateNotice(Long noticeId, NoticeUpdateRequest request) {
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTICE_NOT_FOUND));
+
+        Admin admin = getCurrentAdmin();
+        if (!notice.getAdmin().getId().equals(admin.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        notice.updateTitle(request.title());
+        notice.updateContent(request.content());
+
+        List<Long> normalizedDongIds = normalizeIds(request.dongIds());
+        NoticeTargetScope newScope = normalizedDongIds.isEmpty()
+                ? NoticeTargetScope.ALL : NoticeTargetScope.DONG;
+        notice.updateTargetScope(newScope);
+
+        noticeTargetDongRepository.deleteAllByNoticeId(noticeId);
+
+        if (newScope == NoticeTargetScope.DONG) {
+            List<Dong> targets = resolveTargetDongs(request.dongIds(), admin);
+            List<NoticeTargetDong> targetDongs = targets.stream()
+                    .map(dong -> NoticeTargetDong.builder()
+                            .notice(notice)
+                            .dong(dong)
+                            .build())
+                    .toList();
+            noticeTargetDongRepository.saveAll(targetDongs);
+        }
+
+        List<Long> dongIds = noticeTargetDongRepository.findDongIdsByNoticeId(noticeId);
+        return NoticeDetailResponse.from(notice, dongIds);
+    }
+
+    public void deleteNotice(Long noticeId) {
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.NOTICE_NOT_FOUND));
+
+        Admin admin = getCurrentAdmin();
+        if (!notice.getAdmin().getId().equals(admin.getId())) {
+            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        }
+
+        noticeSendLogRepository.deleteAllByNoticeId(noticeId);
+        noticeTargetDongRepository.deleteAllByNoticeId(noticeId);
+        noticeRepository.delete(notice);
+    }
+
     public NoticeSendResponse sendNoticeAlert(Long noticeId, NoticeSendRequest request) {
         Notice notice = noticeRepository.findById(noticeId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.NOTICE_NOT_FOUND));
@@ -109,8 +168,14 @@ public class NoticeService {
 
     @Transactional(readOnly = true)
     public List<NoticeBoardResponse> getNoticesForMember(String loginId) {
-        Member member = memberRepository.findByLoginId(loginId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        return memberRepository.findByLoginId(loginId)
+                .map(this::getMemberBoardNotices)
+                .orElseGet(() -> adminRepository.findByLoginId(loginId)
+                        .map(this::getAdminBoardNotices)
+                        .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED)));
+    }
+
+    private List<NoticeBoardResponse> getMemberBoardNotices(Member member) {
         Long apartmentId = member.getResident().getHo().getDong().getApartment().getId();
         Long dongId = member.getResident().getHo().getDong().getId();
         return noticeRepository.findBoardNotices(apartmentId, dongId)
@@ -119,18 +184,20 @@ public class NoticeService {
                 .toList();
     }
 
+    private List<NoticeBoardResponse> getAdminBoardNotices(Admin admin) {
+        Long apartmentId = admin.getApartment().getId();
+        return noticeRepository.findBoardNoticesForApartment(apartmentId)
+                .stream()
+                .map(NoticeBoardResponse::from)
+                .toList();
+    }
+
     private Admin getCurrentAdmin() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || authentication.getName() == null) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof AdminDetails adminDetails)) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
-        Long adminId;
-        try {
-            adminId = Long.parseLong(authentication.getName());
-        } catch (NumberFormatException e) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
-        }
-        return adminRepository.findById(adminId)
+        return adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
     }
 
