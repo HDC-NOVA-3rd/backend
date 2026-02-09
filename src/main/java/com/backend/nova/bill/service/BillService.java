@@ -192,6 +192,136 @@ public class BillService {
                 .collect(Collectors.toList());
     }
 
+    package com.backend.nova.bill.service;
+
+import com.backend.nova.auth.admin.AdminDetails;
+import com.backend.nova.bill.dto.*;
+import com.backend.nova.bill.entity.Bill;
+import com.backend.nova.bill.entity.BillStatus;
+import com.backend.nova.bill.repository.BillRepository;
+import com.backend.nova.common.exception.BusinessException;
+import com.backend.nova.common.security.SecurityUtil;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+import static com.backend.nova.common.exception.ErrorCode.*;
+
+    @Service
+    @RequiredArgsConstructor
+    @Transactional(readOnly = true)
+    public class BillService {
+
+        private final BillRepository billRepository;
+
+        // 현재 로그인 사용자 기준 고지서 전체 목록
+        public List<BillResponse> getMyBills() {
+            if (SecurityUtil.isAdmin()) {
+                Long apartmentId = SecurityUtil.getCurrentAdminApartmentId();
+                return toResponses(billRepository.findByHoDongApartmentId(apartmentId));
+            }
+
+            if (SecurityUtil.isMember()) {
+                Long hoId = SecurityUtil.getCurrentMemberHoId();
+                return toResponses(billRepository.findByHoId(hoId));
+            }
+
+            throw new BusinessException(FORBIDDEN, "고지서 조회 권한이 없습니다.");
+        }
+
+        public BillResponse getBill(Long billId) {
+            if (SecurityUtil.isAdmin()) {
+                Long apartmentId = SecurityUtil.getCurrentAdminApartmentId();
+                Bill bill = billRepository.findByIdAndHoDongApartmentId(billId, apartmentId)
+                        .orElseThrow(() -> new BusinessException(BILL_NOT_FOUND));
+                return toResponse(bill);
+            }
+
+            if (SecurityUtil.isMember()) {
+                Long hoId = SecurityUtil.getCurrentMemberHoId();
+                Bill bill = billRepository.findByIdAndHoId(billId, hoId)
+                        .orElseThrow(() -> new BusinessException(BILL_NOT_FOUND_OR_NO_PERMISSION));
+                return toResponse(bill);
+            }
+
+            throw new BusinessException(FORBIDDEN, "고지서 조회 권한이 없습니다.");
+        }
+
+        // 미납 고지서 (입주민 → 본인 / 관리자 → 전체)
+        public List<BillResponse> getUnpaidBills() {
+            if (SecurityUtil.isAdmin()) {
+                Long apartmentId = SecurityUtil.getCurrentAdminApartmentId();
+                return toResponses(
+                        billRepository.findByHoDongApartmentIdAndStatus(apartmentId, BillStatus.READY)
+                );
+            }
+
+            if (SecurityUtil.isMember()) {
+                Long hoId = SecurityUtil.getCurrentMemberHoId();
+                return toResponses(
+                        billRepository.findByHoIdAndStatus(hoId, BillStatus.READY)
+                );
+            }
+
+            throw new BusinessException(FORBIDDEN);
+        }
+
+        // 관리자 전용 - 특정 월 미납 목록
+        public List<BillResponse> getUnpaidBillsByMonth(String month) {
+            SecurityUtil.validateAdmin();  // 관리자 아니면 바로 예외
+
+            Long apartmentId = SecurityUtil.getCurrentAdminApartmentId();
+
+            return toResponses(
+                    billRepository.findByHoDongApartmentIdAndMonthAndStatus(
+                            apartmentId, month, BillStatus.READY)
+            );
+        }
+
+        // 입주민 전용 - OPEN + READY + PAID 상태 고지서 목록
+        public List<BillResponse> getConfirmedOrReadyBillsForMember() {
+            SecurityUtil.validateMember();
+
+            Long hoId = SecurityUtil.getCurrentMemberHoId();
+
+            return toResponses(
+                    billRepository.findByHoIdAndStatusIn(
+                            hoId,
+                            List.of(BillStatus.OPEN, BillStatus.READY, BillStatus.PAID)
+                    )
+            );
+        }
+
+        // -------------------------------------------------------------------------
+        //          헬퍼 메서드
+        // -------------------------------------------------------------------------
+        private List<BillResponse> toResponses(List<Bill> bills) {
+            return bills.stream().map(this::toResponse).collect(Collectors.toList());
+        }
+
+        private BillResponse toResponse(Bill bill) {
+            return BillResponse.builder()
+                    .id(bill.getId())
+                    .hoId(bill.getHo().getId())
+                    .month(bill.getMonth())
+                    .totalPrice(bill.getTotalPrice())
+                    .status(bill.getStatus())
+                    .items(
+                            bill.getItems().stream()
+                                    .map(item -> BillItemResponse.builder()
+                                            .id(item.getId())
+                                            .itemType(item.getItemType())
+                                            .name(item.getName())
+                                            .price(item.getPrice())
+                                            .build())
+                                    .toList()
+                    )
+                    .build();
+        }
+    }
 
 }
 
