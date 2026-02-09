@@ -7,9 +7,11 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface SpaceRepository extends JpaRepository<Space, Long> {
+
 
     /**
      * 시설별 공간 목록 조회
@@ -28,4 +30,7 @@ public interface SpaceRepository extends JpaRepository<Space, Long> {
             @Param("facilityId") Long facilityId,
             @Param("reqCapacity") Integer reqCapacity
     );
+
+    // 시실 정보 조회
+    Optional<Space> findByFacility_IdAndName(Long facilityId, String name);
 }

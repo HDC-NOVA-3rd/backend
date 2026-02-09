@@ -6,6 +6,7 @@ import com.backend.nova.facility.entity.Facility;
 import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.backend.nova.apartment.repository.DongRepository;
+import com.backend.nova.facility.entity.Space;
 import com.backend.nova.facility.repository.FacilityRepository;
 import com.backend.nova.apartment.repository.HoRepository;
 import com.backend.nova.apartment.service.ApartmentWeatherService;
@@ -17,6 +18,7 @@ import com.backend.nova.chat.entity.Role;
 import com.backend.nova.chat.repository.ChatMessageRepository;
 import com.backend.nova.chat.repository.ChatSessionRepository;
 import com.backend.nova.chat.repository.DeviceCommandLogRepository;
+import com.backend.nova.facility.repository.SpaceRepository;
 import com.backend.nova.homeEnvironment.entity.Room;
 import com.backend.nova.homeEnvironment.entity.RoomEnvLog;
 import com.backend.nova.homeEnvironment.repository.RoomEnvLogRepository;
@@ -34,6 +36,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.ResponseEntity;
 import org.springframework.integration.mqtt.support.MqttHeaders;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.messaging.MessageChannel;
@@ -45,6 +48,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+
 
 @Service
 public class ChatService {
@@ -66,6 +70,7 @@ public class ChatService {
     private final MemberRepository memberRepository;
     private final DeviceCommandLogRepository deviceCommandLogRepository;
     private final MessageChannel mqttAssistantOutboundChannel;
+    private final SpaceRepository spaceRepository;
 
 
 
@@ -124,7 +129,7 @@ public class ChatService {
             RoomEnvLogRepository roomEnvLogRepository,
             ChatSessionRepository chatSessionRepository,
             ChatMessageRepository chatMessageRepository,
-            ApartmentWeatherService apartmentWeatherService, ApartmentRepository apartmentRepository, DongRepository dongRepository, HoRepository hoRepository, MemberRepository memberRepository, DeviceCommandLogRepository deviceCommandLogRepository, MessageChannel mqttAssistantOutboundChannel//필요한 의존성을 만들어서 필드에 저장
+            ApartmentWeatherService apartmentWeatherService, ApartmentRepository apartmentRepository, DongRepository dongRepository, HoRepository hoRepository, MemberRepository memberRepository, DeviceCommandLogRepository deviceCommandLogRepository, MessageChannel mqttAssistantOutboundChannel, SpaceRepository spaceRepository//필요한 의존성을 만들어서 필드에 저장
     ) {
         this.chatClient = builder.build();
         this.objectMapper = objectMapper;
@@ -142,6 +147,7 @@ public class ChatService {
         // mqtt 제어용
         this.deviceCommandLogRepository = deviceCommandLogRepository;
         this.mqttAssistantOutboundChannel = mqttAssistantOutboundChannel;
+        this.spaceRepository = spaceRepository;
     }
 
     // mqtt 통신
@@ -212,7 +218,9 @@ public class ChatService {
         saveMessage(session, Role.USER, req.message());
 
         // 3. 룰 기반 먼저 시도
-        LlmCommand cmd = ruleBasedCommand(req.message());
+        LlmCommand cmd = ruleBasedCommand(sessionId, req.message(), req.memberId());
+
+
 
         // 4. 룰로 못 잡으면 LLM 호출
         if (cmd == null) {
@@ -303,6 +311,9 @@ public class ChatService {
             // 최근 환경 변화 조회
             case "ENV_HISTORY" -> handleEnvHistory(sessionId, req, cmd);
             // 단지 별 날씨 조회
+            case "SPACE_LIST" -> handleSpaceList(sessionId, req, cmd);
+            case "SPACE_INFO" -> handleSpaceInfo(sessionId, req, cmd);
+            case "SPACE_BY_CAPACITY" -> handleSpaceByCapacity(sessionId, req, cmd);
             case "FREE_CHAT" -> new ChatResponse(
                     sessionId,
                     cmd.reply(),
@@ -372,7 +383,8 @@ public class ChatService {
     // =========================
 
 
-    private LlmCommand ruleBasedCommand(String message) {
+    private LlmCommand ruleBasedCommand(String sessionId, String message, Long memberId) {
+
 
 
         if (message == null) return null;
@@ -504,45 +516,185 @@ public class ChatService {
         }
 
 
-        // ---- FACILITY_INFO 룰 ----
-        // 시설명(필요하면 추가)
-        // ---- FACILITY_INFO 룰 ----
-        String facility = null;
-        if (containsAny(m, "헬스장", "피트니스")) facility = "헬스장";
-        else if (containsAny(m, "미팅룸")) facility = "미팅룸";
-        else if (containsAny(m, "독서실", "스터디룸", "스터디")) facility = "스터디룸";
 
-    // info_type 분류
-        String infoType = null;
-        boolean asksHours = containsAny(m, "운영", "시간", "몇 시", "언제", "오픈", "마감");
-        boolean asksAvailable = containsAny(m, "예약 가능", "예약돼", "예약 되", "가능해", "예약할 수", "예약");
-        boolean asksDesc = containsAny(m, "설명", "소개", "어디", "위치", "층", "어딨어");
+        // ---- FACILITY_INFO 룰 (DB 기반 동적 매칭) ----
 
-        if (asksHours) infoType = "HOURS";
-        else if (asksAvailable) infoType = "AVAILABLE";
-        else if (asksDesc) infoType = "DESCRIPTION";
+        // 시설 관련 키워드가 아예 없으면 패스 (괜히 다 DB조회하지 않게)
+        // ※ "가능"은 오탐 많아서 제외 추천
+        // =========================
+        // SPACE 룰 (가격/정원/인원/룸/타입) - FACILITY_INFO보다 우선!
+        // =========================
+        boolean looksSpaceQuery =
+                containsAny(m, "가격", "요금", "얼마", "정원", "인원", "몇 명", "수용", "capacity", "룸", "방", "공간", "좌석", "타입", "종류");
 
-    // facility가 있고, 시설 관련 의도가 보이면 FACILITY_INFO로 처리
-        if (facility != null) {
-            // infoType이 없으면 서버에서 한 번 더 판단하거나 되묻게 처리
+        if (looksSpaceQuery) {
+
+            // (1) 내 아파트 시설 목록 조회
+            Ho ho = resolveHo(memberId);
+            Long apartmentId = resolveApartmentId(ho);
+            List<Facility> facilities = facilityRepository.findAllByApartmentId(apartmentId);
+
+            // (2) 현재 메시지에 시설명이 있으면 우선 매칭
+            Facility matchedFacility = (facilities == null) ? null : facilities.stream()
+                    .filter(f -> matchesFacilityWithAlias(m, f.getName()))
+                    .sorted((a, b) -> Integer.compare(b.getName().length(), a.getName().length()))
+                    .findFirst()
+                    .orElse(null);
+
+            // (3) 버튼처럼 "가격"만 오는 경우(시설명 없음) → 직전 대화에서 시설 추론
+            if (matchedFacility == null && sessionId != null && !sessionId.isBlank()) {
+                matchedFacility = inferLastFacilityFromSession(sessionId, apartmentId);
+            }
+
+            // 시설을 못 찾으면 되묻기
+            if (matchedFacility == null) {
+                return new LlmCommand(
+                        "SPACE_LIST",
+                        "확인을 위해 질문할게요.",
+                        Map.of(),
+                        true,
+                        "어느 시설의 가격/공간 정보를 볼까요? (헬스장/스터디룸/골프연습장/게스트하우스/독서실/카페)"
+                );
+            }
+
+            // (4) 시설에 속한 공간 목록
+            List<Space> spaces = spaceRepository.findAllByFacilityId(matchedFacility.getId());
+            if (spaces == null || spaces.isEmpty()) {
+                // 공간이 없으면 시설 정보로 fallback
+                return new LlmCommand(
+                        "FACILITY_INFO",
+                        "",
+                        Map.of("facility", matchedFacility.getName(), "info_type", "DESCRIPTION"),
+                        false,
+                        ""
+                );
+            }
+
+            // (5) 메시지에 특정 공간명이 있으면 SPACE_INFO, 아니면 SPACE_LIST
+            Space matchedSpace = spaces.stream()
+                    .filter(s -> containsNorm(m, s.getName()))
+                    .sorted((a, b) -> Integer.compare(b.getName().length(), a.getName().length()))
+                    .findFirst()
+                    .orElse(null);
+
+            // 인원 숫자 추출(예: "4명", "2인") 있으면 SPACE_BY_CAPACITY로 보낼 수도 있음(선택)
+            Integer reqCapacity = null;
+            java.util.regex.Matcher capM = java.util.regex.Pattern.compile("(\\d{1,2})\\s*(명|인)").matcher(m);
+            if (capM.find()) reqCapacity = Integer.parseInt(capM.group(1));
+
+            if (reqCapacity != null) {
+                return new LlmCommand(
+                        "SPACE_BY_CAPACITY",
+                        "",
+                        Map.of("facility", matchedFacility.getName(), "capacity", reqCapacity),
+                        false,
+                        ""
+                );
+            }
+
+            // info_type: PRICE/CAPACITY/LIST (SPACE_INFO 내부에서 문장 분기용)
+            String infoType = "LIST";
+            if (containsAny(m, "가격", "요금", "얼마")) infoType = "PRICE";
+            else if (containsAny(m, "정원", "인원", "몇 명", "수용", "capacity")) infoType = "CAPACITY";
+
+            if (matchedSpace != null) {
+                return new LlmCommand(
+                        "SPACE_INFO",
+                        "",
+                        Map.of(
+                                "facility", matchedFacility.getName(),
+                                "space", matchedSpace.getName(),
+                                "info_type", infoType
+                        ),
+                        false,
+                        ""
+                );
+            }
+
+            // 공간명 없이 "가격"만 물으면 → 공간 목록 + 가격 보여주는 쪽(SPACE_LIST)이 자연스러움
             return new LlmCommand(
-                    "FACILITY_INFO",
+                    "SPACE_LIST",
                     "",
-                    Map.of(
-                            "facility", facility,
-                            "info_type", infoType == null ? "UNKNOWN" : infoType
-                    ),
+                    Map.of("facility", matchedFacility.getName(), "info_type", infoType),
                     false,
                     ""
             );
         }
-        if (containsAny(m, "날씨", "외부", "기온", "공기질", "미세먼지")) {
-            return new LlmCommand("APARTMENT_WEATHER", "", Map.of(), false, "");
-        }
+
 
 
         return null; // 룰로 못 잡으면 LLM로
     }
+
+    /**
+     * 버튼 클릭처럼 "가격"만 들어왔을 때,
+     * 최근 대화에서 마지막으로 언급된 시설을 추론한다.
+     */
+    private Facility inferLastFacilityFromSession(String sessionId, Long apartmentId) {
+        // 최근 메시지 N개 조회 (너 기존 HISTORY_LIMIT 재사용 가능)
+        List<ChatMessage> latest = chatMessageRepository
+                .findByChatSession_SessionIdOrderByCreatedAtDesc(sessionId, PageRequest.of(0, 20));
+
+        if (latest == null || latest.isEmpty()) return null;
+
+        List<Facility> facilities = facilityRepository.findAllByApartmentId(apartmentId);
+        if (facilities == null || facilities.isEmpty()) return null;
+
+        // 최신 메시지부터 훑으며, 텍스트에 시설명이 포함된 경우를 찾음
+        for (ChatMessage msg : latest) {
+            String content = msg.getContent();
+            if (content == null || content.isBlank()) continue;
+
+            Facility matched = facilities.stream()
+                    .filter(f -> matchesFacilityWithAlias(content, f.getName()))
+                    .sorted((a, b) -> Integer.compare(b.getName().length(), a.getName().length()))
+                    .findFirst()
+                    .orElse(null);
+
+            if (matched != null) return matched;
+        }
+        return null;
+    }
+
+    // 시설 별칭 맵 (사용자 표현 → DB 시설명에 포함되는 키워드)
+    private static final Map<String, List<String>> FACILITY_ALIASES = Map.of(
+            "헬스장", List.of("헬스장", "피트니스", "gym"),
+            "스터디룸", List.of("스터디룸", "스터디", "공부방"),
+            "실내 골프연습장", List.of("골프장", "골프", "골프연습장"),
+            "게스트하우스", List.of("게스트하우스", "게하"),
+            "프리미엄 독서실", List.of("독서실", "프리미엄 독서실"),
+            "주민 카페", List.of("카페", "주민카페", "커뮤니티 카페")
+    );
+
+    private boolean matchesFacilityWithAlias(String message, String facilityName) {
+        // 1) 시설명 자체가 포함되면 바로 OK
+        if (containsNorm(message, facilityName)) return true;
+
+        // 2) 별칭 매핑 확인
+        for (Map.Entry<String, List<String>> entry : FACILITY_ALIASES.entrySet()) {
+            String canonical = entry.getKey();
+
+            // DB 시설명이 canonical 을 포함할 때만 alias 검사
+            if (!containsNorm(facilityName, canonical)) continue;
+
+            for (String alias : entry.getValue()) {
+                if (containsNorm(message, alias)) return true;
+            }
+        }
+        return false;
+    }
+
+    private static String norm(String s) {
+        if (s == null) return "";
+        return s.replaceAll("\\s+", "").toLowerCase();
+    }
+
+    private static boolean containsNorm(String text, String keyword) {
+        String t = norm(text);
+        String k = norm(keyword);
+        return !k.isBlank() && t.contains(k);
+    }
+
     private boolean containsAny(String text, String... keywords) {
         for (String k : keywords) {
             if (k != null && !k.isBlank() && text.contains(k)) return true;
@@ -760,7 +912,7 @@ public class ChatService {
                 )
         );
     }
-
+    //ENV_HISTORY
     private ChatResponse handleEnvHistory(
             String sessionId,
             ChatRequest req,
@@ -1024,6 +1176,7 @@ public class ChatService {
                 )
         );
     }
+    //자신의 아파트 날씨 조회
     private ChatResponse handleApartmentWeather(String sessionId, ChatRequest req) {
 
         // 1) memberId → ho → apartmentId
@@ -1093,6 +1246,212 @@ public class ChatService {
             default -> sensorType;
         };
     }
+
+
+
+    private ChatResponse handleSpaceList(String sessionId, ChatRequest req, LlmCommand cmd) {
+        Ho ho = resolveHo(req.memberId());
+        Long apartmentId = resolveApartmentId(ho);
+
+        String facilityName = safeString(cmd.slots().get("facility"));
+        String infoType = safeString(cmd.slots().get("info_type")); // PRICE / CAPACITY / LIST
+
+        if (facilityName.isBlank() || "UNKNOWN".equalsIgnoreCase(facilityName)) {
+            return new ChatResponse(sessionId, "어느 시설의 공간(룸/좌석)을 볼까요?", "SPACE_LIST", Map.of());
+        }
+
+        Facility facility = facilityRepository
+                .findByApartmentIdAndName(apartmentId, facilityName)
+                .orElseThrow(() -> new IllegalArgumentException("시설 정보를 찾을 수 없습니다: " + facilityName));
+
+        List<Space> spaces = spaceRepository.findAllByFacilityId(facility.getId());
+
+        if (spaces.isEmpty()) {
+            return new ChatResponse(sessionId, facilityName + "에 등록된 공간 정보가 없습니다.", "SPACE_LIST", Map.of());
+        }
+
+        List<Map<String, Object>> payload = spaces.stream()
+                .map(s -> Map.<String, Object>of(
+                        "spaceId", s.getId(),
+                        "name", s.getName(),
+                        "minCapacity", s.getMinCapacity(),
+                        "maxCapacity", s.getMaxCapacity(),
+                        "price", s.getPrice()
+                ))
+                .toList();
+
+        //  답변 문장을 infoType에 맞게 구성 (프론트가 answer만 렌더링해도 가격 보이게)
+        String answer;
+        if ("PRICE".equalsIgnoreCase(infoType)) {
+            // 가격 요약: "A 20000원, B 50000원 ..."
+            String priceSummary = spaces.stream()
+                    .map(s -> s.getName() + " " + s.getPrice() + "원")
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse("");
+            answer = facilityName + " 가격은 " + priceSummary + " 입니다.";
+        } else if ("CAPACITY".equalsIgnoreCase(infoType)) {
+            String capSummary = spaces.stream()
+                    .map(s -> s.getName() + " (" + s.getMinCapacity() + "~" + s.getMaxCapacity() + "명)")
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse("");
+            answer = facilityName + " 정원 정보는 " + capSummary + " 입니다.";
+        } else {
+            String names = spaces.stream().map(Space::getName).distinct().reduce((a, b) -> a + ", " + b).orElse("");
+            answer = facilityName + " 공간은 " + names + " 입니다.";
+        }
+
+        return new ChatResponse(
+                sessionId,
+                answer,
+                "SPACE_LIST",
+                Map.of(
+                        "facilityId", facility.getId(),
+                        "facility", facilityName,
+                        "info_type", infoType.isBlank() ? "LIST" : infoType,
+                        "spaces", payload
+                )
+        );
+    }
+
+
+    /**
+     * SPACE_INFO
+     *
+     * 시설(Facility) 내부의 특정 공간(Space)에 대한 상세 정보 조회
+     *
+     * 사용 예:
+     *  - "스터디룸 A 가격 얼마야?"
+     *  - "게스트하우스 Royal Suite 정원 몇 명이야?"
+     *
+     * 처리 흐름:
+     *  1) memberId → ho → apartmentId
+     *  2) apartmentId + facilityName → Facility 조회
+     *  3) facilityId + spaceName → Space 조회
+     *  4) 가격 / 정원 정보 응답
+     */
+    private ChatResponse handleSpaceInfo(String sessionId, ChatRequest req, LlmCommand cmd) {
+
+        // 1) 로그인 사용자 기준 아파트 식별
+        Ho ho = resolveHo(req.memberId());
+        Long apartmentId = resolveApartmentId(ho);
+
+        // 2) 슬롯에서 facility / space 이름 추출
+        String facilityName = safeString(cmd.slots().get("facility"));
+        String spaceName = safeString(cmd.slots().get("space"));
+
+        // 시설명이 없으면 되묻기
+        if (facilityName.isBlank()) {
+            return new ChatResponse(
+                    sessionId,
+                    "어느 시설의 공간을 확인할까요?",
+                    "SPACE_INFO",
+                    Map.of()
+            );
+        }
+
+        // 공간명이 없으면 목록 유도
+        if (spaceName.isBlank()) {
+            return new ChatResponse(
+                    sessionId,
+                    facilityName + "에는 여러 공간이 있어요. 어떤 공간을 확인할까요?",
+                    "SPACE_INFO",
+                    Map.of("facility", facilityName)
+            );
+        }
+
+        // 3) 시설 조회 (아파트 범위 한정)
+        Facility facility = facilityRepository
+                .findByApartmentIdAndName(apartmentId, facilityName)
+                .orElseThrow(() ->
+                        new IllegalArgumentException("시설을 찾을 수 없습니다: " + facilityName));
+
+        // 4) 시설 + 공간명으로 Space 조회
+        Space space = (Space) spaceRepository.findByFacility_IdAndName(
+                facility.getId(),
+                spaceName
+        ).orElseThrow(() ->
+                new IllegalArgumentException("공간을 찾을 수 없습니다: " + spaceName));
+
+        // 5) 응답 데이터 구성
+        Map<String, Object> data = new HashMap<>();
+        data.put("facility", facilityName);
+        data.put("space", space.getName());
+        data.put("minCapacity", space.getMinCapacity());
+        data.put("maxCapacity", space.getMaxCapacity());
+        data.put("price", space.getPrice());
+
+        // 6) 사용자 응답 문장 생성
+        String answer = String.format(
+                "%s의 %s는 최대 %d명까지 이용 가능하며, 가격은 %d원입니다.",
+                facilityName,
+                space.getName(),
+                space.getMaxCapacity(),
+                space.getPrice()
+        );
+
+        return new ChatResponse(
+                sessionId,
+                answer,
+                "SPACE_INFO",
+                data
+        );
+    }
+    private ChatResponse handleSpaceByCapacity(String sessionId, ChatRequest req, LlmCommand cmd) {
+        Ho ho = resolveHo(req.memberId());
+        Long apartmentId = resolveApartmentId(ho);
+
+        String facilityName = safeString(cmd.slots().get("facility"));
+        Integer capacity = (cmd.slots().get("capacity") instanceof Number n) ? n.intValue() : null;
+
+        if (facilityName.isBlank()) {
+            return new ChatResponse(sessionId, "어느 시설에서 인원에 맞는 공간을 찾을까요?", "SPACE_BY_CAPACITY", Map.of());
+        }
+        if (capacity == null) {
+            return new ChatResponse(sessionId, "몇 명 이용할 예정인가요? (예: 4명)", "SPACE_BY_CAPACITY",
+                    Map.of("facility", facilityName));
+        }
+
+        Facility facility = facilityRepository
+                .findByApartmentIdAndName(apartmentId, facilityName)
+                .orElseThrow(() -> new IllegalArgumentException("시설을 찾을 수 없습니다: " + facilityName));
+
+        List<Space> spaces = spaceRepository.findSpacesByCapacity(facility.getId(), capacity);
+
+        if (spaces == null || spaces.isEmpty()) {
+            return new ChatResponse(
+                    sessionId,
+                    facilityName + "에서 " + capacity + "명 이용 가능한 공간이 없습니다.",
+                    "SPACE_BY_CAPACITY",
+                    Map.of("facility", facilityName, "capacity", capacity, "spaces", List.of())
+            );
+        }
+
+        List<Map<String, Object>> payload = spaces.stream()
+                .map(s -> Map.<String, Object>of(
+                        "spaceId", s.getId(),
+                        "name", s.getName(),
+                        "minCapacity", s.getMinCapacity(),
+                        "maxCapacity", s.getMaxCapacity(),
+                        "price", s.getPrice()
+                ))
+                .toList();
+
+        String names = spaces.stream().map(Space::getName).distinct().reduce((a, b) -> a + ", " + b).orElse("");
+
+        return new ChatResponse(
+                sessionId,
+                facilityName + "에서 " + capacity + "명 이용 가능한 공간은 " + names + " 입니다.",
+                "SPACE_BY_CAPACITY",
+                Map.of(
+                        "facilityId", facility.getId(),
+                        "facility", facilityName,
+                        "capacity", capacity,
+                        "spaces", payload
+                )
+        );
+    }
+
+
 
     // =========================
     // 프롬프트 파싱
