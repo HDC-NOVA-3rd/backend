@@ -185,7 +185,7 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/prometheus").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
-
+                        .requestMatchers("/api/room/**").permitAll()
                         .anyRequest().authenticated()
                 )
 
