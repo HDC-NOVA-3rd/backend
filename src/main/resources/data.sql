@@ -78,14 +78,83 @@ VALUES
 
 -- admin 테이블 더미 데이터
 -- Admin 엔티티 기반 삽입, 비밀번호는 BCrypt 해시, apartment_id 참조
-INSERT INTO admin
-(id, birth_date, created_at, email, failed_login_count, locked_until, last_login_at, login_id, name, password, phone_number, profile_img, role, status, updated_at, apartment_id, 기타컬럼)
+-- admin 테이블 더미 데이터
+-- 비밀번호는 BCrypt 해시, apartment_id = 1 기준
+
+INSERT INTO admin (
+    id,
+    birth_date,
+    created_at,
+    updated_at,
+    email,
+    failed_login_count,
+    locked_until,
+    last_login_at,
+    login_id,
+    name,
+    password,
+    phone_number,
+    profile_img,
+    role,
+    status,
+    apartment_id
+)
 VALUES
-    (1, '1980-01-01', '2026-02-04 15:42:36.657856', 'ahncsk0709@gmail.com', 0, NULL, NULL, 'superadmin', '슈퍼 관리자', '$2a$10$ToC2gp6a8i7NR0BvJ.JhjudZ2vGdWsyfPeQv/1eB40MwM2qQ5XOGa', '01000000000', NULL, 'SUPER_ADMIN', 'ACTIVE', '2026-02-04 15:42:36.657856', 1, ''),
-    (2, '1988-01-10', '2026-02-04 15:42:36.664893', 'ahncsk00@naver.com', 0, '2026-02-06 14:23:48.310425', NULL, 'admin01', '자이아파트 관리자', '$2a$10$U3Bfce5whxhtwNUYc5ure.cwY6LAX261h3s6CV2e2mkM6p497yT32', '01099998888', NULL, 'ADMIN', 'ACTIVE', '2026-02-06 14:23:50.584493', 1, '');
--- notice: 공지/대상동/발송로그 더미 데이터
-INSERT INTO admin (login_id, password_hash, name, email, status, role, apartment_id, failed_login_count, created_at, updated_at)
-VALUES ('seed-admin', 'seed-password-hash', '시드 관리자', 'seed-admin@nova.local', 'ACTIVE', 'ADMIN', 1, 0, NOW(6), NOW(6));
+(
+    1,
+    '1980-01-01',
+    '2026-02-04 15:42:36.657856',
+    '2026-02-04 15:42:36.657856',
+    'ahncsk0709@gmail.com',
+    0,
+    NULL,
+    NULL,
+    'superadmin',
+    '슈퍼 관리자',
+    '$2a$10$ToC2gp6a8i7NR0BvJ.JhjudZ2vGdWsyfPeQv/1eB40MwM2qQ5XOGa',
+    '01000000000',
+    NULL,
+    'SUPER_ADMIN',
+    'ACTIVE',
+    1
+),
+(
+    2,
+    '1988-01-10',
+    '2026-02-04 15:42:36.664893',
+    '2026-02-06 14:23:50.584493',
+    'ahncsk00@naver.com',
+    0,
+    '2026-02-06 14:23:48.310425',
+    NULL,
+    'admin01',
+    '자이아파트 관리자',
+    '$2a$10$U3Bfce5whxhtwNUYc5ure.cwY6LAX261h3s6CV2e2mkM6p497yT32',
+    '01099998888',
+    NULL,
+    'ADMIN',
+    'ACTIVE',
+    1
+),
+(
+    3,
+    '1990-05-20',
+    NOW(6),
+    NOW(6),
+    'seed-admin@nova.local',
+    0,
+    NULL,
+    NULL,
+    'seed-admin',
+    '시드 관리자',
+    'seed-password-hash',
+    '01012341234',
+    NULL,
+    'ADMIN',
+    'ACTIVE',
+    1
+);
+   (2, '1988-01-10', '2026-02-04 15:42:36.664893', 'ahncsk00@naver.com', 0, '2026-02-06 14:23:48.310425', NULL, 'admin01', '자이아파트 관리자', '$2a$10$U3Bfce5whxhtwNUYc5ure.cwY6LAX261h3s6CV2e2mkM6p497yT32', '01099998888', NULL, 'ADMIN', 'ACTIVE', '2026-02-06 14:23:50.584493', 1);
 
 -- 전체 공지
 INSERT INTO notice (admin_id, title, content, target_scope, created_at, updated_at)

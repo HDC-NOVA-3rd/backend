@@ -1,0 +1,34 @@
+package com.backend.nova.complaint.repository;
+
+import com.backend.nova.complaint.entity.Complaint;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+import java.util.List;
+import java.util.Optional;
+
+public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
+
+    // ── 기본 조회 ──
+    default Optional<Complaint> findActiveById(Long id) {
+        return findByIdAndDeletedFalse(id);
+    }
+
+    // ── 리스트 조회 ──
+    default List<Complaint> findAllActive() {
+        return findByDeletedFalse();
+    }
+
+    // ID 기준 조회 → Optional로 반환
+    Optional<Complaint> findByIdAndDeletedFalse(Long id);
+
+    // 리스트 조회
+    List<Complaint> findByDeletedFalse();
+    List<Complaint> findByMember_IdAndDeletedFalse(Long memberId);
+    List<Complaint> findByMember_Resident_Ho_Dong_Apartment_IdAndDeletedFalse(Long apartmentId);
+
+    // 삭제된 민원 조회 (슈퍼 관리자)
+    List<Complaint> findByDeletedTrue();
+    List<Complaint> findByDeletedTrueAndApartment_Id(Long apartmentId);
+}
+
+

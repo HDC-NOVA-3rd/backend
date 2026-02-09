@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # 1. Spring Boot 서버 (사용자가 만든 이미지)
+  my-spring-app:
+    image: jungil12532/nova-spring-app:latest  # GitHub Actions로 만든 이미지 주소
+    container_name: spring-server
+    volumes:
+      - ./secrets.yaml:/config/secrets.yaml
+    ports:
+      - "8080:8080"
+    environment:
+      # application.yaml의 'spring.config.import' 값을 덮어씁니다.
+      # classpath(JAR 내부)가 아니라 file(컨테이너 내부 경로)을 바라보게 변경합니다.
+      - SPRING_CONFIG_IMPORT=optional:file:/config/secrets.yaml
+      - TZ=Asia/Seoul  # (추천) 서버 시간 한국 시간으로 맞추기
+    networks:
+      - app-network
+
+  # 2. Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    networks:
+      - app-network
+
+  # 3. Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana  # 그래프 설정이 날아가지 않게 저장소 잡기
+    networks:
+      - app-network
+
+# 모든 컨테이너를 하나의 네트워크로 묶음 (서로 통신 가능하게)
+networks:
+  app-network:
+    driver: bridge
+
+# 그라파나 데이터를 영구 저장할 공간 생성
+volumes:
+  grafana-data:
