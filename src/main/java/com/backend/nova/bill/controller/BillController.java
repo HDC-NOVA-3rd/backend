@@ -42,8 +42,8 @@ public class BillController {
 
 
     // =============================
-// 미납 고지서 조회
-// =============================
+    // 미납 고지서 조회
+    // =============================
     @GetMapping("/unpaid")
     @PreAuthorize("hasAnyRole('ADMIN','MEMBER')")
     public ResponseEntity<List<BillResponse>> getUnpaidBills(
@@ -54,6 +54,9 @@ public class BillController {
         );
     }
 
+    // =============================
+    // 미납 고지서 월별 조회 (관리자)
+    // =============================
     @GetMapping("/unpaid/{month}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<BillResponse>> getUnpaidBillsByMonth(

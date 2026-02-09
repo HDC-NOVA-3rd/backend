@@ -21,11 +21,11 @@ public class BillItem {
     @JoinColumn(name = "bill_id", nullable = false)
     private Bill bill;
 
-    // UTILITY(공과금), MAINTENANCE(관리비), COMMUNITY(커뮤니티 사용료)
+    // METER(공과금), MAINTENANCE(관리비), COMMUNITY(커뮤니티 사용료)
     @Enumerated(EnumType.STRING)
     private BillItemType itemType;
     
-    private Long referenceId; // utility_fee.id / maintenance_fee.id / reservation.id
+    private Long referenceId; // meter_fee.id / maintenance_fee.id / reservation.id
 
     @Column(nullable = false, length = 50)
     private String name;
