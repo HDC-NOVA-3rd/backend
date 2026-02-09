@@ -151,10 +151,10 @@ VALUES
 );
    (2, '1988-01-10', '2026-02-04 15:42:36.664893', 'ahncsk00@naver.com', 0, '2026-02-06 14:23:48.310425', NULL, 'admin01', '자이아파트 관리자', '$2a$10$U3Bfce5whxhtwNUYc5ure.cwY6LAX261h3s6CV2e2mkM6p497yT32', '01099998888', NULL, 'ADMIN', 'ACTIVE', '2026-02-06 14:23:50.584493', 1);
 
--- 전체 공지
+-- 전체 공지 (admin01)
 INSERT INTO notice (admin_id, title, content, target_scope, created_at, updated_at)
 VALUES (
-    (SELECT id FROM admin WHERE login_id = 'seed-admin'),
+    2,
     '단지 전체 안내',
     '이번 주 금요일 오전 10시부터 정전 점검이 진행됩니다.',
     'ALL',
@@ -162,10 +162,10 @@ VALUES (
     NOW(6)
 );
 
--- 101동 대상 공지
+-- 101동 대상 공지 (admin01)
 INSERT INTO notice (admin_id, title, content, target_scope, created_at, updated_at)
 VALUES (
-    (SELECT id FROM admin WHERE login_id = 'seed-admin'),
+    2,
     '101동 소독 일정 안내',
     '101동은 화요일 오후 2시에 공동 구역 방역을 진행합니다.',
     'DONG',

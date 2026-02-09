@@ -61,14 +61,14 @@ public class BillService {
     // 관리자 전용
     // =============================
     private List<BillResponse> getBillsByApartment(Long apartmentId) {
-        return billRepository.findByHo_Apartment_Id(apartmentId)
+        return billRepository.findByHo_Dong_Apartment_Id(apartmentId)
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
 
     private BillResponse getBillForAdmin(Long billId, Long apartmentId) {
-        Bill bill = billRepository.findByIdAndHo_Apartment_Id(billId, apartmentId)
+        Bill bill = billRepository.findByIdAndHo_Dong_Apartment_Id(billId, apartmentId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 고지서를 조회할 수 없습니다."));
         return toResponse(bill);
     }

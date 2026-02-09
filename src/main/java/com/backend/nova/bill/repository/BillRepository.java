@@ -15,10 +15,10 @@ public interface BillRepository extends JpaRepository<Bill, Long> {
     List<Bill> findByHo_Id(Long hoId);
 
     // 관리자: 관리단지(Apartment) 전체 고지서 조회
-    List<Bill> findByHo_Apartment_Id(Long apartmentId);
+    List<Bill> findByHo_Dong_Apartment_Id(Long apartmentId);
 
     // 관리자: 단지 내 특정 고지서 상세 조회
-    Optional<Bill> findByIdAndHo_Apartment_Id(Long id, Long apartmentId);
+    Optional<Bill> findByIdAndHo_Dong_Apartment_Id(Long id, Long apartmentId);
 
     // 사용자: 세대 내 특정 고지서 상세 조회
     Optional<Bill> findByIdAndHo_Id(Long id, Long hoId);
