@@ -7,6 +7,7 @@ import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.auth.member.MemberDetailsService;
 import com.backend.nova.config.SecurityConfig;
+import com.backend.nova.oauth2.handler.OAuthFailureHandler;
 import com.backend.nova.oauth2.handler.OAuthSuccessHandler;
 import com.backend.nova.oauth2.repository.OAuthRedirectCookieRepository;
 import com.backend.nova.oauth2.service.CustomOAuth2UserService;
@@ -42,6 +43,9 @@ public abstract class ControllerTestSupport {
 
     @MockitoBean
     protected OAuthSuccessHandler oAuthSuccessHandler;
+
+    @MockitoBean
+    protected OAuthFailureHandler oAuthFailureHandler;
 
     @MockitoBean
     protected OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
