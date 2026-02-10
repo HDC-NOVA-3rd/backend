@@ -47,38 +47,39 @@ public class ManagementFeeController {
     }
 
     /* ===== 수정 ===== */
-    @PutMapping("/{id}")
+    @PutMapping("/{feeId}")
     public ResponseEntity<ManagementFeeResponse> update(
-            @PathVariable Long id,
+            @PathVariable Long feeId,
             @AuthenticationPrincipal AdminDetails adminDetails,
             @RequestBody ManagementFeeUpdateRequest request
     ) {
         return ResponseEntity.ok(
                 managementFeeService.updateItem(
-                        id,
+                        feeId,
                         adminDetails.getApartmentId(),
                         request
                 )
         );
     }
 
+
     /* ===== 삭제 ===== */
-    @PatchMapping("/{id}/deactivate")
+    @PatchMapping("/{feeId}/deactivate")
     public ResponseEntity<Void> deactivate(
-            @PathVariable Long id,
+            @PathVariable Long feeId,
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        managementFeeService.deactivateItem(id, adminDetails.getApartmentId());
+        managementFeeService.deactivateItem(feeId, adminDetails.getApartmentId());
         return ResponseEntity.noContent().build();
     }
 
     /* ===== 복구 ===== */
-    @PatchMapping("/{id}/restore")
+    @PatchMapping("/{feeId}/restore")
     public ResponseEntity<Void> restore(
-            @PathVariable Long id,
+            @PathVariable Long feeId,
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        managementFeeService.restoreItem(id, adminDetails.getApartmentId());
+        managementFeeService.restoreItem(feeId, adminDetails.getApartmentId());
         return ResponseEntity.noContent().build();
     }
 }
