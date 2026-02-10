@@ -103,6 +103,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/login/**").permitAll()
                         .requestMatchers("/api/admin/password/**").permitAll()
                         .requestMatchers("/api/admin/complaint/**").permitAll()
+                        .requestMatchers("/api/admin/management-fee/**").permitAll()
                         .requestMatchers("/api/resident/verify","/api/member/signup").permitAll()
                         //로그인 페이지 API -> 접근 허용
                         .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
