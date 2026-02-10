@@ -60,6 +60,9 @@ dependencies {
     // Spring Actuator (모니터링 툴)
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+    implementation(platform("org.springframework.ai:spring-ai-bom:1.1.1"))
+    implementation("org.springframework.ai:spring-ai-starter-model-openai-sdk")
+    implementation("org.springframework.ai:spring-ai-starter-model-google-genai")
 }
 
 tasks.named('test') {
