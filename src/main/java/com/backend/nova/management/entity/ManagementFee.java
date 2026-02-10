@@ -4,15 +4,16 @@ import com.backend.nova.apartment.entity.Apartment;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(
-        name = "apartment_bill_item",
+        name = "management_fee",
         uniqueConstraints = {
                 @UniqueConstraint(
-                        name = "uk_apartment_bill_item",
-                        columnNames = {"apartment_id", "name"}
+                        name = "uk_management_fee",
+                        columnNames = {"apartment_id", "name", "active"}
                 )
         }
 )
@@ -35,6 +36,10 @@ public class ManagementFee {
     @Column(nullable = false, length = 50)
     private String name;
 
+    // 가격
+    @Column(nullable = false)
+    BigDecimal price;
+
     // 설명
     @Column(length = 255)
     private String description;
@@ -49,20 +54,60 @@ public class ManagementFee {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(nullable = true)
+    private LocalDateTime deactivatedAt;
 
-    public void update(String name, String description) {
-        this.name = name;
-        this.description = description;
+
+    /* ===== 생성 ===== */
+    public static ManagementFee create(
+            Apartment apartment,
+            String name,
+            String description
+    ) {
+        return ManagementFee.builder()
+                .apartment(apartment)
+                .name(name)
+                .description(description)
+                .active(true)
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+    }
+
+    /* ===== 수정 ===== */
+    public void update(
+            String name,
+            BigDecimal price,
+            String description
+    ) {
+        if (name != null) {
+            this.name = name;
+        }
+        if (price != null) {
+            this.price = price;
+        }
+        if (description != null) {
+            this.description = description;
+        }
         this.updatedAt = LocalDateTime.now();
     }
 
+
+    /* ===== 삭제 ===== */
     public void deactivate() {
+        if (!this.active) return;
         this.active = false;
+        this.deactivatedAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
-    public void deactivateAt() {
+    /* ===== 복구 ===== */
+    public void restore() {
+        if (this.active) return;
+        this.active = true;
+        this.deactivatedAt = null;
         this.updatedAt = LocalDateTime.now();
     }
+
 
 }

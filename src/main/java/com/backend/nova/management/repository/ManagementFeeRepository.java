@@ -9,7 +9,9 @@ import java.util.List;
 @Repository
 public interface ManagementFeeRepository extends JpaRepository<ManagementFee, Long> {
 
-    // 단지 ID로 활성 항목만 조회
-    List<ManagementFee> findByApartmentIdAndActiveTrue(Long apartmentId);
+    List<ManagementFee> findByApartmentId(Long apartmentId); // 전체 항목 조회
+    List<ManagementFee> findByApartmentIdAndActiveTrue(Long apartmentId); // 활성 항목만 조회
+    List<ManagementFee> findByApartmentIdAndActiveFalse(Long apartmentId); // 삭제만 조회
 
+    boolean existsByApartmentIdAndNameAndActiveTrue(Long apartmentId, String name);
 }

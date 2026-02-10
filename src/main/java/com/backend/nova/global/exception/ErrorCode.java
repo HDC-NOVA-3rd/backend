@@ -38,19 +38,27 @@ public enum ErrorCode {
     LOGIN_REQUIRED(HttpStatus.UNAUTHORIZED, "로그인이 필요한 기능입니다."),
     INVALID_AUTH_CODE(HttpStatus.BAD_REQUEST,"유효하지 않거나 만료된 코드입니다."),
 
-    // ==================== Member ==============
+    // ================= Member =================
+    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND, "회원 정보를 찾을 수 없습니다."),
+    RESIDENT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 입주민 정보가 없습니다."),
 
-    /* 404 NOT_FOUND : 리소스를 찾을 수 없음 */
-    MEMBER_NOT_FOUND(HttpStatus.NOT_FOUND,  "회원 정보를 찾을 수 없습니다."),
-    RESIDENT_NOT_FOUND(HttpStatus.NOT_FOUND,  "해당 입주민 정보가 없습니다."),
+    DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "이미 존재하는 아이디입니다."),
+    SOCIAL_LOGIN_RESTRICTED(HttpStatus.CONFLICT, "소셜 로그인 회원은 비밀번호를 변경할 수 없습니다."),
 
-    /* 409 CONFLICT : 중복된 리소스 */
-    DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT,  "이미 존재하는 아이디입니다."),
-    SOCIAL_LOGIN_RESTRICTED(HttpStatus.CONFLICT,  "소셜 로그인 회원은 비밀번호를 변경할 수 없습니다."),
-
-    // ================= Resident (신규 추가) =================
-    /* 409 CONFLICT : 중복된 리소스 */
+    // ================= Resident =================
     RESIDENT_DUPLICATED(HttpStatus.CONFLICT, "이미 등록된 입주민(휴대폰 번호)입니다."),
+
+    // ================= ManagementFee =================
+    MANAGEMENT_FEE_NOT_FOUND(HttpStatus.NOT_FOUND, "관리비 항목을 찾을 수 없습니다."),
+    DUPLICATE_MANAGEMENT_FEE_NAME(HttpStatus.CONFLICT, "이미 존재하는 관리비 항목명입니다."),
+    MANAGEMENT_FEE_INACTIVE(HttpStatus.BAD_REQUEST, "비활성화된 관리비 항목입니다."),
+    MANAGEMENT_FEE_ALREADY_ACTIVE(HttpStatus.BAD_REQUEST, "이미 활성화된 관리비 항목입니다."),
+    MANAGEMENT_FEE_RESTORE_CONFLICT(
+            HttpStatus.CONFLICT,
+            "동일한 이름의 활성 관리비 항목이 존재하여 복구할 수 없습니다."
+    ),
+    ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 리소스에 대한 접근 권한이 없습니다."),
+
     // ================= Common =================
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청값이 올바르지 않습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");

@@ -1,8 +1,9 @@
 package com.backend.nova.management.controller;
 
 import com.backend.nova.auth.admin.AdminDetails;
-import com.backend.nova.management.dto.ManagementFeeRequest;
+import com.backend.nova.management.dto.ManagementFeeCreateRequest;
 import com.backend.nova.management.dto.ManagementFeeResponse;
+import com.backend.nova.management.dto.ManagementFeeUpdateRequest;
 import com.backend.nova.management.service.ManagementFeeService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -19,57 +20,67 @@ public class ManagementFeeController {
 
     private final ManagementFeeService managementFeeService;
 
-    /* ===== 내 단지 관리비 항목 조회 ===== */
+    /* ===== 조회 ===== */
     @GetMapping
-    public ResponseEntity<List<ManagementFeeResponse>> findMyApartmentItems(
-            @AuthenticationPrincipal AdminDetails adminDetails
+    public ResponseEntity<List<ManagementFeeResponse>> findItems(
+            @AuthenticationPrincipal AdminDetails adminDetails,
+            @RequestParam(required = false) Boolean active
     ) {
-        List<ManagementFeeResponse> items =
-                managementFeeService.getItemsByApartment(adminDetails.getApartmentId());
-
-        return ResponseEntity.ok(items);
+        return ResponseEntity.ok(
+                managementFeeService.getItems(
+                        adminDetails.getApartmentId(),
+                        active
+                )
+        );
     }
 
-    /* ===== 관리비 항목 등록 ===== */
+
+    /* ===== 등록 ===== */
     @PostMapping
-    public ResponseEntity<ManagementFeeResponse> createBillItem(
+    public ResponseEntity<ManagementFeeResponse> create(
             @AuthenticationPrincipal AdminDetails adminDetails,
-            @RequestBody ManagementFeeRequest request
+            @RequestBody ManagementFeeCreateRequest request
     ) {
-        ManagementFeeResponse created =
-                managementFeeService.createItem(adminDetails.getApartmentId(), request);
-
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(managementFeeService.createItem(
+                        adminDetails.getApartmentId(), request));
     }
 
-    /* ===== 관리비 항목 수정 ===== */
-    @PutMapping("/{managementFeeId}")
-    public ResponseEntity<ManagementFeeResponse> updateBillItem(
-            @PathVariable Long managementFeeId,
+    /* ===== 수정 ===== */
+    @PutMapping("/{id}")
+    public ResponseEntity<ManagementFeeResponse> update(
+            @PathVariable Long id,
             @AuthenticationPrincipal AdminDetails adminDetails,
-            @RequestBody ManagementFeeRequest request
+            @RequestBody ManagementFeeUpdateRequest request
     ) {
-        ManagementFeeResponse updated =
+        return ResponseEntity.ok(
                 managementFeeService.updateItem(
-                        managementFeeId,
+                        id,
                         adminDetails.getApartmentId(),
                         request
-                );
-
-        return ResponseEntity.ok(updated);
+                )
+        );
     }
 
-    /* ===== 관리비 항목 비활성화 ===== */
-    @PatchMapping("/{managementFeeId}/deactivate")
-    public ResponseEntity<Void> deactivateBillItem(
-            @PathVariable Long managementFeeId,
+    /* ===== 삭제 ===== */
+    @PatchMapping("/{id}/deactivate")
+    public ResponseEntity<Void> deactivate(
+            @PathVariable Long id,
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        managementFeeService.deactivateItem(
-                managementFeeId,
-                adminDetails.getApartmentId()
-        );
+        managementFeeService.deactivateItem(id, adminDetails.getApartmentId());
+        return ResponseEntity.noContent().build();
+    }
+
+    /* ===== 복구 ===== */
+    @PatchMapping("/{id}/restore")
+    public ResponseEntity<Void> restore(
+            @PathVariable Long id,
+            @AuthenticationPrincipal AdminDetails adminDetails
+    ) {
+        managementFeeService.restoreItem(id, adminDetails.getApartmentId());
         return ResponseEntity.noContent().build();
     }
 }
+
 
