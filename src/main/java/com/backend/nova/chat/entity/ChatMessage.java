@@ -20,7 +20,7 @@ public class ChatMessage {
     @JoinColumn(name = "session_id", nullable = false)
     private ChatSession chatSession;
 
-    @Column(name = "content", nullable = false)
+    @Column(name = "content", nullable = false, length = 1000)
     private String content;
 
     @Enumerated(EnumType.STRING)
