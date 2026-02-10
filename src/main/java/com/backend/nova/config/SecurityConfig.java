@@ -7,6 +7,7 @@ import com.backend.nova.auth.jwt.JwtAuthenticationFilter;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.auth.member.MemberDetailsService;
+import com.backend.nova.oauth2.handler.OAuthFailureHandler;
 import com.backend.nova.oauth2.handler.OAuthSuccessHandler;
 import com.backend.nova.oauth2.repository.OAuthRedirectCookieRepository;
 import com.backend.nova.oauth2.service.CustomOAuth2UserService;
@@ -39,6 +40,7 @@ public class SecurityConfig {
     private final AdminAuthenticationProvider adminAuthenticationProvider;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuthSuccessHandler oAuthSuccessHandler;
+    private final OAuthFailureHandler oAuthFailureHandler;
     private final OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final AdminDetailsService adminDetailsService;
@@ -119,7 +121,7 @@ public class SecurityConfig {
 
                 // JWT 인증 필터 등록
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtProvider,adminDetailsService),
+                        new JwtAuthenticationFilter(jwtProvider),
                         UsernamePasswordAuthenticationFilter.class
                 );
 
@@ -162,7 +164,9 @@ public class SecurityConfig {
                         .authorizationEndpoint(authorization -> authorization
                                 .authorizationRequestRepository(oAuthRedirectCookieRepository))
                         // 로그인 성공 시 실행될 핸들러 (JWT를 발급 및 리다이렉트 처리)
-                        .successHandler(oAuthSuccessHandler))
+                        .successHandler(oAuthSuccessHandler)
+                        // 로그인 실패 시 실행 핸들러
+                        .failureHandler(oAuthFailureHandler))
 
                 // 세션 필터 설정 (STATELESS)
                 .sessionManagement(session ->
@@ -191,7 +195,7 @@ public class SecurityConfig {
 
                 // 커스텀 필터 설정 JwtFilter 선행 처리
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtProvider,memberDetailsService),
+                        new JwtAuthenticationFilter(jwtProvider),
                         UsernamePasswordAuthenticationFilter.class
                 );
 

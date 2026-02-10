@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Service;
 
@@ -16,8 +17,16 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     // [예외 발생 가능] 소셜 서버 통신 실패 시 RestClientException 발생
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) throws OAuth2AuthenticationException {
+        OAuth2User oAuth2User;
         // 소셜 로그인 API에서 유저 정보 가져오기
-        OAuth2User oAuth2User = super.loadUser(userRequest);
+        try{
+            oAuth2User = super.loadUser(userRequest);
+        }
+        catch (Exception e){
+            // 외부 서버 통신 실패 시
+            throw new OAuth2AuthenticationException(new OAuth2Error("server_error"), "소셜 로그인 서버와 통신에 실패했습니다.");
+        }
+
         log.info(String.valueOf(oAuth2User));
 
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
@@ -32,7 +41,12 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         }
         else {
             // [예외 발생 가능] application.yaml에 설정되지 않은 이상한 소셜 로그인 요청이 들어온 경우
-            throw new OAuth2AuthenticationException("지원하지 않는 소셜 로그인입니다.");
+            throw new OAuth2AuthenticationException(new OAuth2Error("unsupported_provider"),"지원하지 않는 소셜 로그인입니다.");
+        }
+
+        // 필수 정보(이메일)가 없는 경우 방어
+        if (oAuth2Response.getEmail() == null) {
+            throw new OAuth2AuthenticationException(new OAuth2Error("invalid_scope"), "이메일 정보가 필수입니다.");
         }
 
         // 3. CustomOAuth2User 객체 생성 및 반환 (DB 저장 X)
