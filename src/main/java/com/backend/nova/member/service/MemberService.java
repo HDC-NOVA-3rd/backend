@@ -5,6 +5,7 @@ import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.auth.member.MemberDetailsService;
 import com.backend.nova.global.exception.BusinessException;
+import com.backend.nova.global.exception.CustomAuthenticationException;
 import com.backend.nova.global.exception.ErrorCode;
 import com.backend.nova.member.dto.*;
 import com.backend.nova.member.entity.LoginType;
@@ -41,7 +42,7 @@ public class MemberService {
 
         // 1. Refresh Token 검증
         if (!jwtProvider.validateToken(refreshToken)) {
-            throw new BusinessException(ErrorCode.INVALID_REFRESH_TOKEN); // 400 Bad Request
+            throw new CustomAuthenticationException(ErrorCode.INVALID_REFRESH_TOKEN); // 400
         }
 
         // 2. 토큰에서 LoginID 추출
@@ -79,7 +80,7 @@ public class MemberService {
         Object data = authCodeRepository.getAndRemove(code);
 
         if (data == null) {
-            throw new BusinessException(ErrorCode.INVALID_AUTH_CODE); // "유효하지 않거나 만료된 코드입니다."
+            throw new CustomAuthenticationException(ErrorCode.INVALID_AUTH_CODE); // 400
         }
 
         // 2. 데이터 타입에 따라 응답 DTO 생성
@@ -92,7 +93,7 @@ public class MemberService {
         }
 
         // 예기치 않은 데이터가 들어있는 경우
-        throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+        throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR); //RunTime Exception, 500
     }
 
     @Transactional
