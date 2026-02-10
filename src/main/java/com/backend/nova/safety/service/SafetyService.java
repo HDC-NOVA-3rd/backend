@@ -6,6 +6,7 @@ import com.backend.nova.facility.repository.FacilityRepository;
 import com.backend.nova.apartment.repository.DongRepository;
 import com.backend.nova.safety.dto.SafetySensorInboundPayload;
 import com.backend.nova.safety.dto.SafetyEventLogResponse;
+import com.backend.nova.safety.dto.SafetyMqttUpdatePayload;
 import com.backend.nova.safety.dto.SafetyLockRequest;
 import com.backend.nova.safety.dto.SafetyLockResponse;
 import com.backend.nova.safety.dto.SafetySensorLogResponse;
@@ -21,8 +22,12 @@ import com.backend.nova.safety.repository.SafetyEventLogRepository;
 import com.backend.nova.safety.repository.SafetyStatusRepository;
 import com.backend.nova.safety.repository.SensorLogRepository;
 import com.backend.nova.safety.repository.SensorRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.MessageChannel;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -43,8 +48,8 @@ import java.time.OffsetDateTime;
 @Transactional(readOnly = true)
 public class SafetyService {
     private static final String REQUEST_FROM_MQTT = "mqtt";
-    private static final double SMOKE_DANGER_THRESHOLD = 500.0;
     private static final double HEAT_DANGER_THRESHOLD = 70.0;
+    private static final double GAS_DANGER_THRESHOLD = 500.0;
 
     private final FacilityRepository facilityRepository;
     private final DongRepository dongRepository;
@@ -52,6 +57,8 @@ public class SafetyService {
     private final SafetyStatusRepository safetyStatusRepository;
     private final SensorLogRepository sensorLogRepository;
     private final SensorRepository sensorRepository;
+    private final MessageChannel mqttSafetyOutboundChannel;
+    private final ObjectMapper objectMapper;
 
     public List<SafetyStatusResponse> listSafetyStatus(Long apartmentId) {
         if (apartmentId == null || apartmentId <= 0) {
@@ -143,7 +150,8 @@ public class SafetyService {
         if (apartmentId == null || apartmentId <= 0) {
             return List.of();
         }
-        List<SafetySensorLog> logs = sensorLogRepository.findBySafetySensor_Apartment_IdOrderByIdDesc(apartmentId);
+        // 센서별 최신 로그 1건씩만 조회 (중복/과다 로그 방지)
+        List<SafetySensorLog> logs = sensorLogRepository.findLatestPerSensorByApartmentId(apartmentId);
         Set<Long> sensorIdSet = logs.stream()
                 .map(SafetySensorLog::getSafetySensor)
                 .filter(Objects::nonNull)
@@ -183,27 +191,27 @@ public class SafetyService {
                     Long sensorId = log.getSafetySensor().getId();
                     SafetySensor sensor = sensorById.get(sensorId);
                     String sensorName = sensor == null ? null : sensor.getName();
-                    Long facilityId = null;
                     String facilityName = null;
-                    Long dongId = null;
                     String dongNo = null;
+                    String hoNo = null;
+                    String spaceName = null;
 
                     if (sensor != null && sensor.getSpace() != null && sensor.getSpace().getFacility() != null) {
-                        Facility facility = sensor.getSpace().getFacility();
-                        facilityId = facility.getId();
-                        facilityName = facilityNameById.get(facilityId);
+                        facilityName = facilityNameById.get(sensor.getSpace().getFacility().getId());
+                        spaceName = sensor.getSpace().getName();
                     }
 
                     if (sensor != null && sensor.getHo() != null && sensor.getHo().getDong() != null) {
-                        Dong dong = sensor.getHo().getDong();
-                        dongId = dong.getId();
-                        dongNo = dongNoById.get(dongId);
+                        dongNo = dongNoById.get(sensor.getHo().getDong().getId());
+                        hoNo = sensor.getHo().getHoNo();
                     }
 
                     return new SafetySensorLogResponse(
                             sensorName,
                             dongNo,
+                            hoNo,
                             facilityName,
+                            spaceName,
                             log.getSafetySensor().getSensorType(),
                             log.getValue(),
                             log.getUnit(),
@@ -263,11 +271,32 @@ public class SafetyService {
 
     @Transactional
     public void handleSafetySensor(String deviceId, SafetySensorInboundPayload payload) {
+        if (payload.sensorType() != null && payload.sensorType().equalsIgnoreCase("GAS_DO")) {
+            log.debug("MQTT safety ignored: GAS_DO payload deviceId={}, value={}", deviceId, payload.value());
+            return;
+        }
         SafetySensor safetySensor = resolveSafetySensor(deviceId);
+        if (safetySensor == null) {
+            log.warn("Unknown safety sensor deviceId={}", deviceId);
+            return;
+        }
         ScopeContext scopeContext = resolveScope(safetySensor);
         SensorType sensorType = parseSensorType(payload.sensorType());
 
         LocalDateTime eventAt = parseEventAt(payload.ts());
+
+        // 중복 방지: 같은 센서의 마지막 로그와 값+타임스탬프가 동일하면 스킵
+        Optional<SafetySensorLog> lastLog = sensorLogRepository.findTopBySafetySensorIdOrderByIdDesc(safetySensor.getId());
+        if (lastLog.isPresent()) {
+            SafetySensorLog prev = lastLog.get();
+            boolean sameValue = prev.getValue() != null && prev.getValue().equals(payload.value());
+            boolean sameTime = prev.getRecordedAt() != null && prev.getRecordedAt().equals(eventAt);
+            if (sameValue && sameTime) {
+                log.debug("Duplicate sensor log skipped: deviceId={}, value={}, time={}", deviceId, payload.value(), eventAt);
+                return;
+            }
+        }
+
         SafetySensorLog sensorLog = SafetySensorLog.builder()
                 .safetySensor(safetySensor)
                 .value(payload.value())
@@ -278,7 +307,10 @@ public class SafetyService {
 
         boolean isDanger = isDanger(sensorType, payload.value());
         SafetyStatus statusTo = isDanger ? SafetyStatus.DANGER : SafetyStatus.SAFE;
-        SafetyReason reason = sensorType == SensorType.SMOKE ? SafetyReason.FIRE_SMOKE : SafetyReason.HEAT;
+        SafetyReason reason = switch (sensorType) {
+            case HEAT -> SafetyReason.HEAT;
+            case GAS -> SafetyReason.GAS;
+        };
 
         Optional<SafetyStatusEntity> existingStatus = scopeContext.facilityId() == null
                 ? safetyStatusRepository.findByApartmentIdAndDongId(scopeContext.apartmentId(), scopeContext.dongId())
@@ -316,11 +348,93 @@ public class SafetyService {
             safetyEventLogRepository.save(eventLog);
         }
 
+        // 항상 프론트엔드에 업데이트 전송 (센서 값 변경 시마다)
+        String hoNo = safetySensor.getHo() != null ? safetySensor.getHo().getHoNo() : null;
+        String spaceName = safetySensor.getSpace() != null ? safetySensor.getSpace().getName() : null;
+
+        publishSafetyUpdate(
+            scopeContext,
+            statusTo,
+            reason,
+            eventAt,
+            safetySensor.getId(),
+            hoNo,
+            spaceName,
+            safetySensor.getName(),
+            sensorType,
+            payload.value(),
+            payload.unit(),
+            eventAt
+        );
+
         if (isDanger && scopeContext.facility() != null) {
             scopeContext.facility().changeReservationAvailability(false);
             facilityRepository.save(scopeContext.facility());
             log.info("Safety alert requested deviceId={}, scope={}", deviceId, scopeContext);
         }
+    }
+
+        private void publishSafetyUpdate(
+            ScopeContext scopeContext,
+            SafetyStatus statusTo,
+            SafetyReason reason,
+            LocalDateTime eventAt,
+                Long sensorId,
+                String hoNo,
+                String spaceName,
+                String sensorName,
+                SensorType sensorType,
+                Double value,
+                String unit,
+                LocalDateTime recordedAt
+        ) {
+        try {
+            SafetyStatusResponse response = createSafetyStatusResponse(scopeContext, statusTo, reason, eventAt);
+            SafetyMqttUpdatePayload mqttPayload = new SafetyMqttUpdatePayload(
+                response.dongNo(),
+                response.facilityName(),
+                response.status(),
+                response.reason(),
+                response.updatedAt(),
+                    sensorId,
+                    hoNo,
+                    spaceName,
+                sensorName,
+                sensorType,
+                value,
+                unit,
+                recordedAt
+            );
+            String jsonPayload = objectMapper.writeValueAsString(mqttPayload);
+            
+            Message<String> message = MessageBuilder.withPayload(jsonPayload)
+                    .setHeader("mqtt_topic", "hdc/frontend/safety/update")
+                    .build();
+            
+            mqttSafetyOutboundChannel.send(message);
+            log.info("Published safety update to MQTT: apartmentId={}, status={}", scopeContext.apartmentId(), statusTo);
+        } catch (Exception e) {
+            log.error("Failed to publish safety update to MQTT", e);
+        }
+    }
+
+    private SafetyStatusResponse createSafetyStatusResponse(ScopeContext scopeContext, SafetyStatus statusTo, SafetyReason reason, LocalDateTime eventAt) {
+        String dongNo = null;
+        String facilityName = null;
+
+        if (scopeContext.dongId() != null) {
+            dongNo = dongRepository.findById(scopeContext.dongId())
+                    .map(Dong::getDongNo)
+                    .orElse(null);
+        }
+
+        if (scopeContext.facilityId() != null) {
+            facilityName = facilityRepository.findById(scopeContext.facilityId())
+                    .map(Facility::getName)
+                    .orElse(null);
+        }
+
+        return new SafetyStatusResponse(dongNo, facilityName, statusTo, reason, eventAt);
     }
 
     private static String currentAdminRequestFrom() {
@@ -359,8 +473,8 @@ public class SafetyService {
             return false;
         }
         return switch (sensorType) {
-            case SMOKE -> value >= SMOKE_DANGER_THRESHOLD;
             case HEAT -> value >= HEAT_DANGER_THRESHOLD;
+            case GAS -> value >= GAS_DANGER_THRESHOLD;
         };
     }
 
