@@ -26,6 +26,10 @@ public class ManagementFeeController {
             @AuthenticationPrincipal AdminDetails adminDetails,
             @RequestParam(required = false) Boolean active
     ) {
+        if (adminDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+
         return ResponseEntity.ok(
                 managementFeeService.getItems(
                         adminDetails.getApartmentId(),
@@ -33,6 +37,7 @@ public class ManagementFeeController {
                 )
         );
     }
+
 
 
     /* ===== 등록 ===== */
