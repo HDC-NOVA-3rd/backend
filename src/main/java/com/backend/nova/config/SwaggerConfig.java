@@ -3,14 +3,12 @@ package com.backend.nova.config;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
-import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 public class SwaggerConfig {
-
     @Bean
     public OpenAPI openAPI() {
         // 1. Security 스키마 설정 (JWT 토큰 방식 정의)
@@ -19,14 +17,10 @@ public class SwaggerConfig {
                 .scheme("bearer")
                 .bearerFormat("JWT")
                 .in(SecurityScheme.In.HEADER)
-                .name("Authorization"); // Swagger에서 Authorization 헤더로 자동 매핑
-
-        // 2. SecurityRequirement 생성 → Swagger에서 Authorize 버튼 활성화
-        SecurityRequirement securityRequirement = new SecurityRequirement().addList("bearerAuth");
+                .name("bearerAuth");
 
         return new OpenAPI()
                 .components(new Components().addSecuritySchemes("bearerAuth", securityScheme))
-                .addSecurityItem(securityRequirement) // 모든 API에 기본 적용
                 .info(new Info()
                         .title("NOVA API Document")
                         .version("1.0.0")
