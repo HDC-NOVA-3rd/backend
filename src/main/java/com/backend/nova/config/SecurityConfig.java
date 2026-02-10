@@ -43,8 +43,6 @@ public class SecurityConfig {
     private final OAuthFailureHandler oAuthFailureHandler;
     private final OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-    private final AdminDetailsService adminDetailsService;
-    private final MemberDetailsService memberDetailsService;
 
     /**
      * AuthenticationManager Bean
@@ -101,6 +99,8 @@ public class SecurityConfig {
 
                         // 인증 없이 접근 가능
                         .requestMatchers("/api/admin/login/**").permitAll()
+                        .requestMatchers("/api/admin/password/**").permitAll()
+                        .requestMatchers("/api/admin/complaint/**").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
 
                         // 관리자 생성 (슈퍼 관리자만)
