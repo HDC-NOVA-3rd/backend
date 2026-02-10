@@ -1,5 +1,4 @@
 package com.backend.nova.chat.service;
-
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.entity.Dong;
 import com.backend.nova.facility.entity.Facility;
@@ -25,6 +24,10 @@ import com.backend.nova.homeEnvironment.repository.RoomEnvLogRepository;
 import com.backend.nova.homeEnvironment.repository.RoomRepository;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
+import com.backend.nova.notice.entity.Notice;
+import com.backend.nova.notice.entity.NoticeTargetScope;
+import com.backend.nova.notice.repository.NoticeRepository;
+import com.backend.nova.notice.repository.NoticeTargetDongRepository;
 import com.backend.nova.weather.dto.OpenWeatherResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.ai.chat.client.ChatClient;
@@ -47,6 +50,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import com.fasterxml.jackson.core.type.TypeReference;
 
 
@@ -71,7 +77,8 @@ public class ChatService {
     private final DeviceCommandLogRepository deviceCommandLogRepository;
     private final MessageChannel mqttAssistantOutboundChannel;
     private final SpaceRepository spaceRepository;
-
+    private final NoticeRepository noticeRepository;
+    private final NoticeTargetDongRepository noticeTargetDongRepository;
 
 
     // -------------------------
@@ -129,7 +136,11 @@ public class ChatService {
             RoomEnvLogRepository roomEnvLogRepository,
             ChatSessionRepository chatSessionRepository,
             ChatMessageRepository chatMessageRepository,
-            ApartmentWeatherService apartmentWeatherService, ApartmentRepository apartmentRepository, DongRepository dongRepository, HoRepository hoRepository, MemberRepository memberRepository, DeviceCommandLogRepository deviceCommandLogRepository, MessageChannel mqttAssistantOutboundChannel, SpaceRepository spaceRepository//필요한 의존성을 만들어서 필드에 저장
+            ApartmentWeatherService apartmentWeatherService, ApartmentRepository apartmentRepository,
+            DongRepository dongRepository, HoRepository hoRepository,
+            MemberRepository memberRepository, DeviceCommandLogRepository deviceCommandLogRepository,
+            MessageChannel mqttAssistantOutboundChannel, SpaceRepository spaceRepository, NoticeRepository noticeRepository,
+            NoticeTargetDongRepository noticeTargetDongRepository//필요한 의존성을 만들어서 필드에 저장
     ) {
         this.chatClient = builder.build();
         this.objectMapper = objectMapper;
@@ -144,10 +155,13 @@ public class ChatService {
         this.dongRepository = dongRepository;
         this.hoRepository = hoRepository;
         this.memberRepository = memberRepository;
+        this.spaceRepository = spaceRepository;
+        this.noticeRepository = noticeRepository;
+        this.noticeTargetDongRepository = noticeTargetDongRepository;
         // mqtt 제어용
         this.deviceCommandLogRepository = deviceCommandLogRepository;
         this.mqttAssistantOutboundChannel = mqttAssistantOutboundChannel;
-        this.spaceRepository = spaceRepository;
+
     }
 
     // mqtt 통신
@@ -340,7 +354,19 @@ public class ChatService {
 
             return new ChatResponse(sessionId, cmd.clarify_question(), cmd.intent(), cmd.slots());
         }
+        // NOTICE_LIST pending 상태에서 "2번" 같은 입력이 오면 -> NOTICE_DETAIL로 변환
+        if ("NOTICE_LIST".equalsIgnoreCase(cmd.intent())) {
+            ChatSession s = chatSessionRepository.findById(sessionId)
+                    .orElseThrow(() -> new IllegalArgumentException("세션 없음: " + sessionId));
 
+            if ("NOTICE_LIST".equalsIgnoreCase(s.getPendingIntent())
+                    && cmd.slots() != null
+                    && cmd.slots().get("index") != null) {
+
+                // intent만 NOTICE_DETAIL로 바꿔서 상세로 보내기
+                cmd = new LlmCommand("NOTICE_DETAIL", "", cmd.slots(), false, "");
+            }
+        }
 
         // intent별 실제 처리 로직 분기
         return switch (cmd.intent()) {
@@ -367,8 +393,15 @@ public class ChatService {
             case "ENV_HISTORY" -> handleEnvHistory(sessionId, req, cmd);
             // 단지 별 날씨 조회
             case "SPACE_LIST" -> handleSpaceList(sessionId, req, cmd);
+            // 시설 정보
             case "SPACE_INFO" -> handleSpaceInfo(sessionId, req, cmd);
+            // 시설 상세
             case "SPACE_BY_CAPACITY" -> handleSpaceByCapacity(sessionId, req, cmd);
+            // 공지정보
+            case "NOTICE_LIST" -> handleNoticeList(sessionId, req);
+            // 상세 공지
+            case "NOTICE_DETAIL" -> handleNoticeDetail(sessionId, req, cmd);
+
             case "FREE_CHAT" -> new ChatResponse(
                     sessionId,
                     cmd.reply(),
@@ -448,7 +481,6 @@ public class ChatService {
 
 
     private LlmCommand ruleBasedCommand(String sessionId, String message, Long memberId) {
-
 
 
         if (message == null) return null;
@@ -578,7 +610,10 @@ public class ChatService {
                     ""
             );
         }
-
+        // ---- NOTICE 룰 ----
+        if (containsAny(m, "공지", "공지사항", "알림", "안내")) {
+            return new LlmCommand("NOTICE_LIST", "", Map.of(), false, "");
+        }
 
 
         // ---- FACILITY_INFO 룰 (DB 기반 동적 매칭) ----
@@ -1299,6 +1334,130 @@ public class ChatService {
         );
     }
 
+    // 공지 목록: handleNoticeList
+
+    private ChatResponse handleNoticeList(String sessionId, ChatRequest req) {
+        Ho ho = resolveHo(req.memberId());
+        Long apartmentId = resolveApartmentId(ho);
+        Long dongId = ho.getDong().getId();
+
+        // 단지(ALL) + 내동(DONG) 공지 최신순 조회
+        List<Notice> notices = noticeRepository.findBoardNotices(apartmentId, dongId);
+
+        if (notices == null || notices.isEmpty()) {
+            return new ChatResponse(sessionId, "현재 확인할 공지사항이 없습니다.", "NOTICE_LIST", Map.of("notices", List.of()));
+        }
+
+        // UI용: 10개만 보여주자(원하면 늘려)
+        int limit = Math.min(10, notices.size());
+
+        List<Map<String, Object>> payload = new ArrayList<>();
+        for (int i = 0; i < limit; i++) {
+            Notice n = notices.get(i);
+            payload.add(Map.<String, Object>of(
+                    "index", i + 1,
+                    "noticeId", n.getId(),
+                    "title", safeString(n.getTitle()),
+                    "createdAt", n.getCreatedAt(),
+                    "targetScope", String.valueOf(n.getTargetScope())
+            ));
+        }
+
+        String listText = payload.stream()
+                .map(p -> p.get("index") + "번) " + p.get("title"))
+                .reduce((a, b) -> a + "\n" + b)
+                .orElse("");
+
+        String answer = "공지사항 목록입니다.\n" + listText + "\n\n자세히 볼 번호를 말해줘요. (예: 2번)";
+
+        // pending 저장: 다음 입력에서 index로 noticeId 찾아 상세로
+        ChatSession session = chatSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("세션 없음: " + sessionId));
+
+        Map<String, Object> pending = new HashMap<>();
+        pending.put("notices", payload); // index -> noticeId 매핑
+        writePending(session, "NOTICE_LIST", pending);
+
+        return new ChatResponse(sessionId, answer, "NOTICE_LIST", Map.of("notices", payload));
+    }
+
+
+    //공지 상세: handleNoticeDetail
+    private ChatResponse handleNoticeDetail(String sessionId, ChatRequest req, LlmCommand cmd) {
+        ChatSession session = chatSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("세션 없음: " + sessionId));
+
+        Ho ho = resolveHo(req.memberId());
+        Long apartmentId = resolveApartmentId(ho);
+        Long myDongId = ho.getDong().getId();
+
+        // 1) index -> noticeId 매핑 (pending.notices에서 찾음)
+        Long noticeId = null;
+
+        Object idxObj = cmd.slots().get("index");
+        if (idxObj instanceof Number n) {
+            int index = n.intValue();
+
+            Map<String, Object> pending = readPendingSlots(session);
+            Object noticesObj = pending.get("notices");
+
+            if (noticesObj instanceof List<?> list) {
+                for (Object o : list) {
+                    if (o instanceof Map<?, ?> m) {
+                        Object i = m.get("index");
+                        Object nid = m.get("noticeId");
+                        if (i instanceof Number in && in.intValue() == index && nid instanceof Number nn) {
+                            noticeId = nn.longValue();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (noticeId == null) {
+            // 번호를 못 알아먹으면 다시 질문 (pending 유지)
+            writePending(session, "NOTICE_LIST", readPendingSlots(session));
+            return new ChatResponse(sessionId, "몇 번 공지를 볼까요? (예: 2번)", "NOTICE_DETAIL", Map.of());
+        }
+
+        // 2) 공지 조회
+        Long finalNoticeId = noticeId;
+        Notice notice = noticeRepository.findById(noticeId)
+                .orElseThrow(() -> new IllegalArgumentException("공지 없음: " + finalNoticeId));
+
+//        // 3) 보안 체크: 같은 단지인지
+//        Long noticeApartmentId = notice.getAdmin().getApartment().getId();
+//        if (!noticeApartmentId.equals(apartmentId)) {
+//            throw new IllegalArgumentException("접근 권한이 없습니다.");
+//        }
+
+        // 4) DONG 공지면 내 동 포함인지 체크
+        if (notice.getTargetScope() == NoticeTargetScope.DONG) {
+            List<Long> dongIds = noticeTargetDongRepository.findDongIdsByNoticeId(noticeId);
+            if (dongIds == null || !dongIds.contains(myDongId)) {
+                throw new IllegalArgumentException("접근 권한이 없습니다.");
+            }
+        }
+
+        // 5) 상세 열었으면 pending 제거(1차에서는 읽음 처리 안함)
+        clearPending(session);
+
+        String answer = "📌 " + safeString(notice.getTitle()) + "\n\n" + safeString(notice.getContent());
+
+        return new ChatResponse(
+                sessionId,
+                answer,
+                "NOTICE_DETAIL",
+                Map.of(
+                        "noticeId", notice.getId(),
+                        "title", safeString(notice.getTitle()),
+                        "content", safeString(notice.getContent()),
+                        "createdAt", notice.getCreatedAt(),
+                        "targetScope", String.valueOf(notice.getTargetScope())
+                )
+        );
+    }
 
 
 
@@ -1551,6 +1710,22 @@ public class ChatService {
                 else if (containsAny(message, "주방", "부엌")) slots.put("room", "주방");
                 else if (containsAny(message, "욕실", "화장실")) slots.put("room", "화장실");
             }
+            case "NOTICE_LIST" -> {
+                // 1) "2번", "2 번"
+                Matcher mi = Pattern.compile("(\\d+)\\s*번").matcher(message);
+                if (mi.find()) {
+                    slots.put("index", Integer.parseInt(mi.group(1)));
+                    break;
+                }
+
+                // 2) 버튼 클릭 등: "2"
+                Matcher mi2 = Pattern.compile("^\\s*(\\d+)\\s*$").matcher(message);
+                if (mi2.find()) {
+                    slots.put("index", Integer.parseInt(mi2.group(1)));
+                }
+            }
+
+
         }
         return slots;
     }
