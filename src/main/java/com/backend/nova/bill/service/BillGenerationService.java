@@ -11,15 +11,11 @@ import com.backend.nova.management.entity.ManagementFee;
 import com.backend.nova.management.repository.ManagementFeeRepository;
 //import com.backend.nova.meter.entity.MeterFee;
 //import com.backend.nova.meter.repository.MeterFeeRepository;
-import com.backend.nova.reservation.entity.PaymentMethod;
-import com.backend.nova.reservation.entity.Reservation;
-import com.backend.nova.reservation.entity.Status;
 import com.backend.nova.reservation.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
@@ -73,7 +69,7 @@ public class BillGenerationService {
             // 4. Bill 생성
             Bill bill = Bill.builder()
                     .ho(ho)
-                    .month(yearMonth.toString()) // YYYY-MM
+                    .yearMonth(yearMonth.toString()) // YYYY-MM
                     .billUid("BILL-" + UUID.randomUUID())
                     .status(BillStatus.OPEN)
                     .build();

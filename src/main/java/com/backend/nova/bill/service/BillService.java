@@ -70,7 +70,7 @@ public class BillService {
         return BillResponse.builder()
                 .id(bill.getId())
                 .hoId(bill.getHo().getId())
-                .month(bill.getMonth())
+                .month(bill.getYearMonth())
                 .totalPrice(bill.getTotalPrice())
                 .status(bill.getStatus())
                 .items(

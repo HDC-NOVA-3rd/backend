@@ -39,7 +39,7 @@ public class Bill {
 
     // 청구월 (YYYY-MM)
     @Column(nullable = false, length = 7)
-    private String month;
+    private String yearMonth;
 
     // 총 금액
     @Column(nullable = false)
