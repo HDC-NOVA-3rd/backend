@@ -110,6 +110,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
                         //Swagger 페이지 API -> 접근 허용
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
+                        // 이미지 경로에 권한 x 처리
+                        .requestMatchers("/images/**").permitAll()
 
                         // 관리자 생성 (슈퍼 관리자만)
                         .requestMatchers(HttpMethod.POST, "/api/admin")
@@ -189,6 +191,8 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/prometheus").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
+                        // 이미지 경로에 권한 x 처리
+                        .requestMatchers("/images/**").permitAll()
 
                         .anyRequest().authenticated()
                 )
