@@ -31,11 +31,14 @@ public enum ErrorCode {
     OTP_REQUIRED(HttpStatus.UNAUTHORIZED, "OTP 입력이 필요합니다."),
 
     // ================= Auth =================
-    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."), // 토큰이 없을 경우
+    UNAUTHORIZED(HttpStatus.UNAUTHORIZED, "인증이 필요합니다."), //토큰이 없을 경우
     FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
+
+    // Token 관련
     INVALID_TOKEN(HttpStatus.UNAUTHORIZED, "유효하지 않은 토큰입니다."),
     ACCESS_TOKEN_EXPIRED(HttpStatus.UNAUTHORIZED, "Access Token이 만료되었습니다."), // 401
     INVALID_REFRESH_TOKEN(HttpStatus.BAD_REQUEST, "유효하지 않거나 만료된 Refresh Token입니다."),
+
     LOGIN_REQUIRED(HttpStatus.UNAUTHORIZED, "로그인이 필요한 기능입니다."),
     INVALID_AUTH_CODE(HttpStatus.BAD_REQUEST,"유효하지 않거나 만료된 코드입니다."),
     ACCESS_DENIED(HttpStatus.FORBIDDEN, "해당 리소스에 대한 접근 권한이 없습니다."),
