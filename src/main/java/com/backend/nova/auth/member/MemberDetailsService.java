@@ -2,20 +2,16 @@ package com.backend.nova.auth.member;
 
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
-import com.backend.nova.resident.entity.Resident;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
+//@Transactional(readOnly = true)
 public class MemberDetailsService implements UserDetailsService {
 
     private final MemberRepository memberRepository;
@@ -30,19 +26,10 @@ public class MemberDetailsService implements UserDetailsService {
                 .orElseThrow(() ->
                         new UsernameNotFoundException("Member not found: " + loginId));
 
-        Resident resident = member.getResident();
-
-        Long apartmentId = resident.getHo().getDong().getApartment().getId();
-        Long hoId = resident.getHo().getId();
-
-        return new MemberDetails(
-                member,
-                apartmentId,
-                hoId,
-                List.of(new SimpleGrantedAuthority("ROLE_MEMBER"))
-        );
+        Long apartmentId = memberRepository.findApartmentIdByMemberId(member.getId())
+                .orElse(null);
+        return new MemberDetails(member,apartmentId);
     }
-
 
     /* ================= ID 기반 (JWT 전용) ================= */
 
@@ -50,15 +37,8 @@ public class MemberDetailsService implements UserDetailsService {
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() ->
                         new UsernameNotFoundException("Member not found id=" + memberId));
-
-        Resident resident = member.getResident();
-
-        return new MemberDetails(
-                member,
-                resident.getHo().getDong().getApartment().getId(),
-                resident.getHo().getId(),
-                List.of(new SimpleGrantedAuthority("ROLE_MEMBER"))
-        );
+        Long apartmentId = memberRepository.findApartmentIdByMemberId(member.getId())
+                .orElse(null);
+        return new MemberDetails(member,apartmentId);
     }
-
 }
