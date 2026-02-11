@@ -139,30 +139,12 @@ VALUES
     'ADMIN',
     'ACTIVE',
     1
-),
-(
-    3,
-    '1990-05-20',
-    NOW(6),
-    NOW(6),
-    'seed-admin@nova.local',
-    0,
-    NULL,
-    NULL,
-    'seed-admin',
-    '시드 관리자',
-    'seed-password-hash',
-    '01012341234',
-    NULL,
-    'ADMIN',
-    'ACTIVE',
-    1
 );
 
 -- 전체 공지
 INSERT INTO notice (admin_id, title, content, target_scope, created_at, updated_at)
 VALUES (
-    (SELECT id FROM admin WHERE login_id = 'seed-admin'),
+    (SELECT id FROM admin WHERE login_id = 'admin01'),
     '단지 전체 안내',
     '이번 주 금요일 오전 10시부터 정전 점검이 진행됩니다.',
     'ALL',
@@ -173,7 +155,7 @@ VALUES (
 -- 101동 대상 공지
 INSERT INTO notice (admin_id, title, content, target_scope, created_at, updated_at)
 VALUES (
-    (SELECT id FROM admin WHERE login_id = 'seed-admin'),
+    (SELECT id FROM admin WHERE login_id = 'admin01'),
     '101동 소독 일정 안내',
     '101동은 화요일 오후 2시에 공동 구역 방역을 진행합니다.',
     'DONG',
