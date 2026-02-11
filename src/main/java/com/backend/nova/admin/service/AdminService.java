@@ -21,6 +21,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +35,9 @@ public class AdminService {
     private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
     private final JwtProvider jwtProvider;
+
+    // 메모리 기반 refresh token 블랙리스트
+    private final Set<String> refreshTokenBlacklist = ConcurrentHashMap.newKeySet();
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
 
@@ -67,7 +72,7 @@ public class AdminService {
     }
 
     /* ================= 로그인 ================= */
-    public String login(AdminLoginRequest request) {
+    public AdminMessageResponse login(AdminLoginRequest request) {
 
         Admin admin = adminRepository.findByLoginId(request.loginId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_LOGIN_FAILED));
@@ -84,8 +89,9 @@ public class AdminService {
         String otp = otpService.generate(admin.getLoginId(), OtpPurpose.LOGIN);
         mailService.sendOtpMail(admin.getEmail(), otp);
 
-        return "OTP가 발송되었습니다. 이메일을 확인하세요.";
+        return new AdminMessageResponse("OTP가 발송되었습니다. 이메일을 확인하세요.");
     }
+
 
     /* ================= 로그인 OTP 검증 ================= */
     public AdminTokenResponse loginVerifyOtp(AdminLoginConfirmRequest request) {
@@ -101,7 +107,7 @@ public class AdminService {
     }
 
     /* ================= 비밀번호 재설정 ================= */
-    public void requestPasswordReset(AdminPasswordResetRequest request) {
+    public AdminMessageResponse requestPasswordReset(AdminPasswordResetRequest request) {
 
         Admin admin = adminRepository
                 .findByLoginIdAndEmail(request.loginId(), request.email())
@@ -111,45 +117,60 @@ public class AdminService {
 
         String otp = otpService.generate(admin.getLoginId(), OtpPurpose.PASSWORD_RESET);
         mailService.sendOtpMail(admin.getEmail(), otp);
+
+        return new AdminMessageResponse("비밀번호 재설정 OTP가 발송되었습니다.");
     }
 
-    public void resetPassword(AdminPasswordResetConfirmRequest request) {
+    public AdminMessageResponse resetPassword(AdminPasswordResetConfirmRequest request) {
 
         Admin admin = getAdminByLoginId(request.loginId());
 
         if (!otpService.verify(admin.getLoginId(), OtpPurpose.PASSWORD_RESET, request.otpCode())) {
             throw new BusinessException(ErrorCode.OTP_INVALID);
         }
+
+        if (!request.newPassword().equals(request.passwordConfirm())) {
+            throw new BusinessException(ErrorCode.PASSWORD_CONFIRM_NOT_MATCH);
+        }
+
 
         admin.setPassword(passwordEncoder.encode(request.newPassword()));
+
+        return new AdminMessageResponse("비밀번호가 성공적으로 변경되었습니다.");
     }
 
-    /* ================= 비밀번호 변경 OTP 검증 ================= */
-    public void passwordVerifyOtp(AdminPasswordChangeRequest request) {
 
-        Admin admin = getAdminByLoginId(request.loginId());
-
-        if (!otpService.verify(admin.getLoginId(), OtpPurpose.PASSWORD_RESET, request.otpCode())) {
-            throw new BusinessException(ErrorCode.OTP_INVALID);
-        }
-    }
 
     /* ================= 비밀번호 변경 ================= */
-    public void changePassword(
+    public AdminMessageResponse changePassword(
             AdminPasswordChangeConfirmRequest request,
             AdminDetails adminDetails
     ) {
+
         Admin admin = adminRepository.findById(adminDetails.getAdminId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
+        if (!passwordEncoder.matches(request.currentPassword(), admin.getPassword())) {
+            throw new BusinessException(ErrorCode.PASSWORD_NOT_MATCH);
+        }
+
+        if (!request.newPassword().equals(request.passwordConfirm())) {
+            throw new BusinessException(ErrorCode.PASSWORD_CONFIRM_NOT_MATCH);
+        }
+
         validateAdminStatus(admin);
         admin.setPassword(passwordEncoder.encode(request.newPassword()));
+
+        return new AdminMessageResponse("비밀번호가 성공적으로 변경되었습니다.");
     }
 
     /* ================= 토큰 재발급 ================= */
     public AdminTokenResponse refresh(RefreshTokenRequest request) {
 
-        if (!jwtProvider.validateToken(request.refreshToken())) {
+        String refreshToken = request.refreshToken();
+
+        //refresh 시 블랙리스트 체크
+        if (!jwtProvider.validateToken(refreshToken) || refreshTokenBlacklist.contains(refreshToken)) {
             throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }
 
@@ -226,8 +247,14 @@ public class AdminService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
     }
 
-    public void logout(AdminDetails adminDetails) {
-        // TODO refresh token blacklist
+    public void logout(AdminDetails adminDetails, String refreshToken) {
+        // 토큰 유효성 검사
+        if (!jwtProvider.validateToken(refreshToken)) {
+            throw new BusinessException(ErrorCode.INVALID_TOKEN);
+        }
+
+        // 블랙리스트에 등록
+        refreshTokenBlacklist.add(refreshToken);
     }
 
     public AdminInfoResponse getAdminInfo(AdminDetails adminDetails) {
@@ -237,4 +264,53 @@ public class AdminService {
     public AdminApartmentResponse getAdminApartmentInfo(AdminDetails adminDetails) {
         return null;
     }
+
+    public AdminMessageResponse requestChangePassword(
+            AdminPasswordChangeRequest request,
+            AdminDetails adminDetails
+    ) {
+
+        Admin admin = adminRepository.findById(adminDetails.getAdminId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
+
+        validateAdminStatus(admin);
+
+        // 현재 비밀번호 검증
+        if (!passwordEncoder.matches(request.currentPassword(), admin.getPassword())) {
+            throw new BusinessException(ErrorCode.PASSWORD_NOT_MATCH);
+        }
+
+        // OTP 발송
+        String otp = otpService.generate(admin.getLoginId(), OtpPurpose.PASSWORD_CHANGE);
+        mailService.sendOtpMail(admin.getEmail(), otp);
+
+        return new AdminMessageResponse("OTP가 발송되었습니다.");
+    }
+
+
+    public AdminMessageResponse confirmChangePassword(
+            AdminPasswordChangeConfirmRequest request,
+            AdminDetails adminDetails
+    ) {
+
+        Admin admin = adminRepository.findById(adminDetails.getAdminId())
+                .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
+
+        validateAdminStatus(admin);
+
+        // OTP 검증
+        if (!otpService.verify(admin.getLoginId(), OtpPurpose.PASSWORD_CHANGE, request.otpCode())) {
+            throw new BusinessException(ErrorCode.OTP_INVALID);
+        }
+
+        // 새 비밀번호 검증
+        if (!request.newPassword().equals(request.passwordConfirm())) {
+            throw new BusinessException(ErrorCode.PASSWORD_CONFIRM_NOT_MATCH);
+        }
+
+        admin.setPassword(passwordEncoder.encode(request.newPassword()));
+
+        return new AdminMessageResponse("비밀번호가 성공적으로 변경되었습니다.");
+    }
+
 }
