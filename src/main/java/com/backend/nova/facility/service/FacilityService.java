@@ -16,8 +16,8 @@ public class FacilityService {
     private final FacilityRepository facilityRepository;
 
     public FacilityResponse getFacility(Long facilityId) {
-        Facility facility = facilityRepository.findById(facilityId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.FACILITY_NOT_FOUND));
+        Facility facility = facilityRepository.findByIdWithImages(facilityId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.FACILITY_NOT_FOUND)); // 404
         return FacilityResponse.from(facility);
     }
 }

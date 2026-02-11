@@ -43,8 +43,6 @@ public class SecurityConfig {
     private final OAuthFailureHandler oAuthFailureHandler;
     private final OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-    private final AdminDetailsService adminDetailsService;
-    private final MemberDetailsService memberDetailsService;
 
     /**
      * AuthenticationManager Bean
@@ -94,9 +92,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 // 세션 사용 안 함
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 // 요청별 권한 설정
                 .authorizeHttpRequests(auth -> auth
@@ -110,10 +106,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
                         //Swagger 페이지 API -> 접근 허용
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
+                        // 이미지 경로에 권한 x 처리
+                        .requestMatchers("/images/**").permitAll()
 
                         // 관리자 생성 (슈퍼 관리자만)
-                        .requestMatchers(HttpMethod.POST, "/api/admin")
-                        .hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/admin").hasRole("SUPER_ADMIN")
+
+                        // 관리비 관련 API (인증 필요)
+                        .requestMatchers("/api/admin/management-fee/**").authenticated()
 
                         // 그 외 관리자 API
                         .anyRequest().hasRole("ADMIN")
@@ -123,6 +123,11 @@ public class SecurityConfig {
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtProvider),
                         UsernamePasswordAuthenticationFilter.class
+                )
+
+                // JWT 인증 실패 시 401 처리
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                 );
 
         return http.build();
@@ -191,6 +196,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
                         .requestMatchers("/api/room/**").permitAll()
+                        // 이미지 경로에 권한 x 처리
+                        .requestMatchers("/images/**").permitAll()
                         .anyRequest().authenticated()
                 )
 
