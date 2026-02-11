@@ -116,10 +116,14 @@ public class ReservationService {
             throw new IllegalStateException("해당 시간에 이미 예약이 존재합니다.");
         }
 
-        // 5. 가격 계산 (시간 단위)
-        // Duration을 사용하여 분 단위까지 정확히 계산하거나, 시간 단위로 올림 처리
-        long hours = Duration.between(request.startTime(), request.endTime()).toHours();
-        if (hours < 1) hours = 1; // 최소 1시간 과금
+        // 5. 가격 계산 (30분 단위 계산) -> 프런트에서도 30분 단위로 선택할 수 있도록
+        long minutes = Duration.between(request.startTime(), request.endTime()).toMinutes();
+        // 최소 예약 시간 제한 (예: 최소 30분)
+        if (minutes < 30) {
+            throw new IllegalArgumentException("최소 예약 시간은 30분입니다.");
+        }
+        // 가격 계산: (분 / 60.0) * 시간당 가격
+        double hours = minutes / 60.0;
         int totalPrice = (int) (hours * space.getPrice());
 
         Member member = memberRepository.getReferenceById(memberId);
@@ -143,5 +147,58 @@ public class ReservationService {
         Reservation savedReservation = reservationRepository.save(reservation);
 
         return savedReservation.getId();
+    }
+
+    /**
+     * [스케줄러용] 시작 10분 전 예약 활성화 (CONFIRMED -> INUSE)
+     */
+    @Transactional
+    public void activateUpcomingReservations() {
+        LocalDateTime startTime = LocalDateTime.now().plusMinutes(10);
+
+        // 1. 조건에 맞는 예약 조회 (상태: CONFIRMED, 시간: 예약시작시간 <= 현재시간+10분)
+        List<Reservation> targets = reservationRepository.findAllByStatusAndStartTimeBefore(Status.CONFIRMED, startTime);
+
+        for (Reservation reservation : targets) {
+            // 상태 변경 CONFIRMED -> INUSE
+            reservation.changeStatus(Status.INUSE);
+
+            // TODO: 알림 발송 로직 호출 (NotificationService 등)
+            // notificationService.sendPush(reservation.getMember().getPushToken(), "입장이 가능합니다!");
+        }
+    }
+
+    /**
+     * [스케줄러용] 종료 10분 전 알림 (INUSE 상태인 예약 중 종료 시간이 10분 전인 사람 해당)
+     */
+    @Transactional
+    public void notifyEndingSoonReservations() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime endTime = now.plusMinutes(10);
+
+        // 1. 조건에 맞는 예약 조회 (상태: INUSE, 시간: endTime이 '현재' ~ '10분 뒤' 사이인 예약)
+        // 종료 시간이 정확히 10분 남은 예약 조회 (범위 검색 추천)
+        List<Reservation> targets = reservationRepository.findAllByStatusAndEndTimeBetween(Status.INUSE, now, endTime);
+
+        for (Reservation reservation : targets) {
+            // TODO: 알림 발송
+            // notificationService.sendPush(r.getMember().getPushToken(), "10분 뒤 종료됩니다. 정리를 부탁드립니다.");
+        }
+    }
+
+    /**
+     * [스케줄러용] 이용 종료 처리 (INUSE -> COMPLETED)
+     */
+    @Transactional
+    public void expireFinishedReservations() {
+        LocalDateTime endTime = LocalDateTime.now().minusMinutes(10);
+
+        // 1. 조건에 맞는 예약 조회 (상태: INUSE, 시간: 예약종료시간+10분 <= 현재시간)
+        List<Reservation> targets = reservationRepository.findAllByStatusAndEndTimeBefore(Status.INUSE, endTime);
+
+        // 상태 변경 INUSE -> COMPLETED
+        for (Reservation reservation : targets) {
+            reservation.changeStatus(Status.COMPLETED); // QR 만료됨
+        }
     }
 }
