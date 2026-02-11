@@ -22,5 +22,5 @@ public interface BillRepository extends JpaRepository<Bill, Long> {
     // 사용자: 세대 내 특정 고지서 상세 조회
     Optional<Bill> findByIdAndHo_Id(Long id, Long hoId);
 
-    boolean existsByHo_Dong_Apartment_IdAndMonth(Long apartmentId, String month);
+    boolean existsByHo_Dong_Apartment_IdAndBillMonth(Long apartmentId, String month);
 }

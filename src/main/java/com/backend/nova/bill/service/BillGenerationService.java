@@ -49,7 +49,7 @@ public class BillGenerationService {
         String billingMonth = yearMonth.toString(); // YearMonth → "YYYY-MM"
 
         // 1. 중복 생성 방지
-        if (billRepository.existsByHo_Dong_Apartment_IdAndMonth(apartmentId, billingMonth)) {
+        if (billRepository.existsByHo_Dong_Apartment_IdAndBillMonth(apartmentId, billingMonth)) {
             throw new IllegalStateException("이미 고지서가 생성된 월입니다.");
         }
 
@@ -69,7 +69,7 @@ public class BillGenerationService {
             // 4. Bill 생성
             Bill bill = Bill.builder()
                     .ho(ho)
-                    .yearMonth(yearMonth.toString()) // YYYY-MM
+                    .billMonth(yearMonth.toString()) // YYYY-MM
                     .billUid("BILL-" + UUID.randomUUID())
                     .status(BillStatus.OPEN)
                     .build();

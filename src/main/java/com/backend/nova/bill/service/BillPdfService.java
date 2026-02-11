@@ -44,7 +44,7 @@ public class BillPdfService {
             // 기본 정보
             // =============================
             document.add(new Paragraph(
-                    "고지 월: " + bill.getYearMonth(),
+                    "고지 월: " + bill.getBillMonth(),
                     normalFont
             ));
             document.add(new Paragraph(
