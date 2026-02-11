@@ -3,18 +3,19 @@ package com.backend.nova.auth.member;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
 import com.backend.nova.resident.entity.Resident;
-import com.backend.nova.resident.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class MemberDetailsService implements UserDetailsService {
 
     private final MemberRepository memberRepository;
