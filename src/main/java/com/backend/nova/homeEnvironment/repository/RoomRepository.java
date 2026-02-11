@@ -10,4 +10,5 @@ public interface RoomRepository extends JpaRepository<Room, Long>{
 
     List<Room> findAllByHo_Id(Long hoId); //현재 방 리스트
     Optional<Object> findByHo_IdAndName(Long id, String roomName);
+    boolean existsByHo_Id(Long hoId);
 }
