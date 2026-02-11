@@ -16,7 +16,9 @@ public class MemberDetails extends User {
     private final Long apartmentId;
     private final Long hoId;
 
-    public MemberDetails(Member member, Long apartmentId, Long hoId,
+    public MemberDetails(Member member,
+                         Long apartmentId,
+                         Long hoId,
                          Collection<? extends GrantedAuthority> authorities) {
         // 부모(User) 생성자 호출: (아이디, 비밀번호, 권한리스트)
         super(member.getLoginId(), member.getPassword(), authorities);

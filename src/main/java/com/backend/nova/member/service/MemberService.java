@@ -115,7 +115,7 @@ public class MemberService {
         memberRepository.save(member);
 
         MemberDetails memberDetails = new MemberDetails(member,resident.getHo().getDong().getApartment().getId()
-                ,resident.getHo().getId(), List.of(new SimpleGrantedAuthority("MEMBER")));
+                ,resident.getHo().getId(), List.of(new SimpleGrantedAuthority("ROLE_MEMBER")));
 
         // 회원가입 후 자동 로그인을 위한 토큰 생성
         Authentication authentication = new UsernamePasswordAuthenticationToken(
