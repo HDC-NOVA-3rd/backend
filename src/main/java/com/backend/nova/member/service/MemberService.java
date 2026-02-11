@@ -17,10 +17,12 @@ import com.backend.nova.resident.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -112,7 +114,8 @@ public class MemberService {
 
         memberRepository.save(member);
 
-        MemberDetails memberDetails = new MemberDetails(member,resident.getHo().getDong().getApartment().getId());
+        MemberDetails memberDetails = new MemberDetails(member,resident.getHo().getDong().getApartment().getId()
+                ,resident.getHo().getId(), List.of(new SimpleGrantedAuthority("MEMBER")));
 
         // 회원가입 후 자동 로그인을 위한 토큰 생성
         Authentication authentication = new UsernamePasswordAuthenticationToken(

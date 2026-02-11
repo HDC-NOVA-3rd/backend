@@ -1,10 +1,11 @@
 package com.backend.nova.auth.member;
 import com.backend.nova.member.entity.Member;
 import lombok.Getter;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 
-import java.util.List;
+import java.util.Collection;
+
 
 @Getter
 public class MemberDetails extends User {
@@ -15,14 +16,15 @@ public class MemberDetails extends User {
     private final Long apartmentId;
     private final Long hoId;
 
-    public MemberDetails(Member member, Long apartmentId) {
+    public MemberDetails(Member member, Long apartmentId, Long hoId,
+                         Collection<? extends GrantedAuthority> authorities) {
         // 부모(User) 생성자 호출: (아이디, 비밀번호, 권한리스트)
-        super(member.getLoginId(), member.getPassword(), List.of(new SimpleGrantedAuthority("MEMBER")));
+        super(member.getLoginId(), member.getPassword(), authorities);
 
         // 추가 정보 초기화
         this.memberId = member.getId();
         this.name = member.getName();
         this.apartmentId = apartmentId;
-        this.hoId = member.getResident().getHo().getId();
+        this.hoId = hoId;
     }
 }

@@ -16,14 +16,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 import com.backend.nova.auth.member.MemberDetails;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -73,9 +74,17 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
             // OAuth 인증 객체 대신, DB의 Member 정보로 새로운 Authentication 생성
             // 이유: 이렇게 해야 토큰의 Subject에 'loginId'가 들어갑니다.
-            Long apartmentId = memberRepository.findApartmentIdByMemberId(existMember.getId())
-                    .orElse(null);
-            MemberDetails memberDetails = new MemberDetails(existMember,apartmentId);
+            var resident = existMember.getResident();
+
+            Long apartmentId = resident.getHo().getDong().getApartment().getId();
+            Long hoId = resident.getHo().getId();
+
+            MemberDetails memberDetails = new MemberDetails(
+                    existMember,
+                    apartmentId,
+                    hoId,
+                    List.of(new SimpleGrantedAuthority("ROLE_MEMBER"))
+            );
             Authentication newAuth = new UsernamePasswordAuthenticationToken(memberDetails,null, memberDetails.getAuthorities());
 
             TokenResponse tokenResponse = jwtProvider.createTokenDto(newAuth, existMember.getId(), existMember.getName());
