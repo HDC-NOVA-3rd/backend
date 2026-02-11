@@ -13,6 +13,10 @@ spring:
     properties:
       mail.smtp.auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH}
       mail.smtp.starttls.enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE}
+
+
+
+
   datasource:
     url: jdbc:mariadb://${DB_IP}:${DB_PORT}/${DB_TABLE}?serverTimezone=Asia/Seoul # DB 접속 URL (Timezone: Asia/Seoul)
     username: ${DB_USER} # DB 사용자 계정
@@ -92,6 +96,9 @@ otp:
   secret: ${OTP_SECRET}
 # Monitoring System
 management:
+  health:
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:
