@@ -110,9 +110,19 @@ public class SecurityConfig {
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
                         // 이미지 경로에 권한 x 처리
                         .requestMatchers("/images/**").permitAll()
+                        .requestMatchers("/api/resident/verify","/api/member/signup").permitAll()
+
+                        //로그인 페이지 API -> 접근 허용
+                        .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
+
+                        //Swagger 페이지 API -> 접근 허용
+                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
+
+                        // 이미지 경로에 권한 x 처리
+                        .requestMatchers("/images/**").permitAll()
 
                         // 관리자 생성 (슈퍼 관리자만)
-                        .requestMatchers(HttpMethod.POST, "/api/admin").hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/admin/signup").hasRole("SUPER_ADMIN")
 
                         //.requestMatchers("/api/admin/password/**").authenticated()
                         //.requestMatchers("/api/admin/complaint/**").authenticated()
@@ -201,8 +211,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
                         .requestMatchers("/api/room/**").permitAll()
-                        // 이미지 경로에 권한 x 처리
-                        .requestMatchers("/images/**").permitAll()
                         .anyRequest().authenticated()
                 )
 

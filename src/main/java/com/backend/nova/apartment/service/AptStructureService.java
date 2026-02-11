@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.backend.nova.apartment.dto.ApartmentStructure.*;
-import java.util.stream.Collectors;
 import java.util.List;
 
 @Service
@@ -26,21 +25,21 @@ public class AptStructureService {
     public List<ApartmentResponse> getApartmentList() {
         return apartmentRepository.findAll().stream()
                 .map(ApartmentResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 특정 아파트의 동 목록 조회
     public List<DongResponse> getDongListByApartmentId(Long apartmentId) {
         return dongRepository.findAllByApartmentId(apartmentId).stream()
                 .map(DongResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 특정 동의 호 목록 조회
     public List<HoResponse> getHoListByDongId(Long dongId) {
         return hoRepository.findAllByDongId(dongId).stream()
                 .map(HoResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 특정 아파트의 시설 목록 조회
@@ -50,6 +49,6 @@ public class AptStructureService {
 
         return facilityRepository.findAllByApartmentId(apartmentId).stream()
                 .map(FacilityResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 }

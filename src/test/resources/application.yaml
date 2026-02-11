@@ -8,7 +8,7 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update # 테스트 시작 때 테이블 만들고, 끝나면 삭제
+      ddl-auto: update
     show-sql: true
     properties:
       hibernate:
@@ -32,6 +32,11 @@ spring:
         chat:
           options:
             model: gemini-2.5-flash
+  #img 관련 파일 보내는 설정
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
   security:
     oauth2:
       client:
@@ -63,3 +68,9 @@ openweather:
 
 otp:
   secret: ${OTP_SECRET}
+# 파일 업로드 설정
+file:
+  # 윈도우 로컬 개발 경로
+  dir: C:/Users/Admin/Desktop/nova-images/
+  # 접근할 URL prefix
+  prefix: /images/
