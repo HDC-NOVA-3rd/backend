@@ -1,4 +1,6 @@
 spring:
+  main:
+    lazy-initialization: true # Bean 지연 로딩
   config:
     import: optional:classpath:config/secrets.yaml #secrets.yaml 파일로 값 읽어오기
   datasource:
