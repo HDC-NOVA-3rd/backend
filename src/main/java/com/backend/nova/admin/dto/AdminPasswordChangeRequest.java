@@ -1,9 +1,11 @@
 package com.backend.nova.admin.dto;
 
+import jakarta.validation.constraints.NotBlank;
+
 /**
- * 관리자 비밀번호 OTP 검증 요청 DTO
+ * 관리자 비밀번호 변경요청
  */
 public record AdminPasswordChangeRequest(
-        String loginId,
-        String otpCode
+        @NotBlank String loginId,
+        @NotBlank String currentPassword
 ) {}
