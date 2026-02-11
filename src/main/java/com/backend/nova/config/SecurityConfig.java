@@ -1,12 +1,10 @@
 package com.backend.nova.config;
 
 import com.backend.nova.auth.admin.AdminAuthenticationProvider;
-import com.backend.nova.auth.admin.AdminDetailsService;
 import com.backend.nova.auth.jwt.JwtAuthenticationEntryPoint;
 import com.backend.nova.auth.jwt.JwtAuthenticationFilter;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
-import com.backend.nova.auth.member.MemberDetailsService;
 import com.backend.nova.oauth2.handler.OAuthFailureHandler;
 import com.backend.nova.oauth2.handler.OAuthSuccessHandler;
 import com.backend.nova.oauth2.repository.OAuthRedirectCookieRepository;
@@ -101,6 +99,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/login/**").permitAll()
                         .requestMatchers("/api/admin/password/**").permitAll()
                         .requestMatchers("/api/admin/complaint/**").permitAll()
+                        .requestMatchers("/api/admin/management-fee/**").permitAll()
+                        .requestMatchers("/api/admin/bill/**").permitAll()
+
+
                         .requestMatchers("/api/resident/verify","/api/member/signup").permitAll()
                         //로그인 페이지 API -> 접근 허용
                         .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
@@ -108,12 +110,25 @@ public class SecurityConfig {
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
                         // 이미지 경로에 권한 x 처리
                         .requestMatchers("/images/**").permitAll()
+                        .requestMatchers("/api/resident/verify","/api/member/signup").permitAll()
+
+                        //로그인 페이지 API -> 접근 허용
+                        .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
+
+                        //Swagger 페이지 API -> 접근 허용
+                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
+
+                        // 이미지 경로에 권한 x 처리
+                        .requestMatchers("/images/**").permitAll()
 
                         // 관리자 생성 (슈퍼 관리자만)
-                        .requestMatchers(HttpMethod.POST, "/api/admin").hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/admin/signup").hasRole("SUPER_ADMIN")
 
+                        //.requestMatchers("/api/admin/password/**").authenticated()
+                        //.requestMatchers("/api/admin/complaint/**").authenticated()
                         // 관리비 관련 API (인증 필요)
-                        .requestMatchers("/api/admin/management-fee/**").authenticated()
+                        //.requestMatchers("/api/admin/management-fee/**").authenticated()
+                        //.requestMatchers("/api/admin/bill/**").authenticated()
 
                         // 그 외 관리자 API
                         .anyRequest().hasRole("ADMIN")
