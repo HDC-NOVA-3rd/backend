@@ -58,23 +58,27 @@ VALUES
 -- deviceId=123 으로 MQTT 수신 테스트 시 매칭되는 센서
 INSERT INTO sensor (id, apartment_id, ho_id, space_id, name, type, sensor_type, created_at)
 VALUES
-    (123, 1, NULL, 1, 'FACILITY_SMOKE_123', 'MQTT', 'SMOKE', NOW(6)),
-    (124, 1, 1, NULL, 'DONG_HEAT_124', 'MQTT', 'HEAT', NOW(6));
+    (1, 1, 1, NULL, 'HO_101_GAS', 'MQTT', 'GAS', NOW(6)),
+    (2, 1, 1, NULL, 'HO_101_HEAT', 'MQTT', 'HEAT', NOW(6)),
+    (9, 1, NULL, 1, 'SPACE_1_GAS', 'MQTT', 'GAS', NOW(6)),
+    (10, 1, NULL, 1, 'SPACE_1_HEAT', 'MQTT', 'HEAT', NOW(6));
 
 INSERT INTO sensor_log (sensor_id, value, unit, recorded_at)
 VALUES
-    (123, 120.0, 'ppm', NOW(6)),
-    (124, 45.0, 'C', NOW(6));
+    (1, 320.0, 'raw', NOW(6)),
+    (2, 25.0, 'C', NOW(6)),
+    (9, 410.0, 'raw', NOW(6)),
+    (10, 26.0, 'C', NOW(6));
 
 INSERT INTO safety_status (apartment_id, dong_id, facility_id, updated_at, reason, safety_status)
 VALUES
     (1, 1, NULL, NOW(6), 'HEAT', 'SAFE'),
-    (1, NULL, 2, NOW(6), 'FIRE_SMOKE', 'SAFE');
+    (1, NULL, 2, NOW(6), 'GAS', 'SAFE');
 
 INSERT INTO safety_event_log (apartment_id, dong_id, facility_id, manual, request_from, sensor_id, sensor_type, value, unit, status_to, event_at)
 VALUES
-    (1, 1, NULL, 0, 'seed', 124, 'HEAT', 75.0, 'C', 'DANGER', NOW(6)),
-    (1, NULL, 2, 0, 'seed', 123, 'SMOKE', 650.0, 'ppm', 'DANGER', NOW(6));
+    (1, 1, NULL, 0, 'seed', 2, 'HEAT', 75.0, 'C', 'DANGER', NOW(6)),
+    (1, NULL, 2, 0, 'seed', 9, 'GAS', 650.0, 'raw', 'DANGER', NOW(6));
 
 -- admin 테이블 더미 데이터
 -- Admin 엔티티 기반 삽입, 비밀번호는 BCrypt 해시, apartment_id 참조
@@ -135,31 +139,12 @@ VALUES
     'ADMIN',
     'ACTIVE',
     1
-),
-(
-    3,
-    '1990-05-20',
-    NOW(6),
-    NOW(6),
-    'seed-admin@nova.local',
-    0,
-    NULL,
-    NULL,
-    'seed-admin',
-    '시드 관리자',
-    'seed-password-hash',
-    '01012341234',
-    NULL,
-    'ADMIN',
-    'ACTIVE',
-    1
 );
-   (2, '1988-01-10', '2026-02-04 15:42:36.664893', 'ahncsk00@naver.com', 0, '2026-02-06 14:23:48.310425', NULL, 'admin01', '자이아파트 관리자', '$2a$10$U3Bfce5whxhtwNUYc5ure.cwY6LAX261h3s6CV2e2mkM6p497yT32', '01099998888', NULL, 'ADMIN', 'ACTIVE', '2026-02-06 14:23:50.584493', 1);
 
 -- 전체 공지
 INSERT INTO notice (admin_id, title, content, target_scope, created_at, updated_at)
 VALUES (
-    (SELECT id FROM admin WHERE login_id = 'seed-admin'),
+    (SELECT id FROM admin WHERE login_id = 'admin01'),
     '단지 전체 안내',
     '이번 주 금요일 오전 10시부터 정전 점검이 진행됩니다.',
     'ALL',
@@ -170,7 +155,7 @@ VALUES (
 -- 101동 대상 공지
 INSERT INTO notice (admin_id, title, content, target_scope, created_at, updated_at)
 VALUES (
-    (SELECT id FROM admin WHERE login_id = 'seed-admin'),
+    (SELECT id FROM admin WHERE login_id = 'admin01'),
     '101동 소독 일정 안내',
     '101동은 화요일 오후 2시에 공동 구역 방역을 진행합니다.',
     'DONG',

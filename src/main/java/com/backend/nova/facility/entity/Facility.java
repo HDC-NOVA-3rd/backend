@@ -6,6 +6,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalTime;
+import java.util.LinkedHashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "facility")
@@ -35,6 +37,13 @@ public class Facility {
 
     @Column(name = "reservation_available", nullable = false)
     private boolean reservationAvailable;
+
+    // mappedBy = "facility"는 Space.java의 필드명
+    @OneToMany(mappedBy = "facility", fetch = FetchType.LAZY)
+    private Set<Space> spaces = new LinkedHashSet<>();
+    // mappedBy = "facility"는 FacilityImage.java의 필드명
+    @OneToMany(mappedBy = "facility", fetch = FetchType.LAZY)
+    private Set<FacilityImage> images = new LinkedHashSet<>();
 
     public void changeReservationAvailability(boolean available) {
         this.reservationAvailable = available;

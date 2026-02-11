@@ -4,6 +4,9 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Entity
 @Table(name = "space")
 @Getter
@@ -29,4 +32,7 @@ public class Space {
 
     @Column(name = "max_capacity")
     private Integer maxCapacity;
+
+    @OneToMany(mappedBy = "space", fetch = FetchType.LAZY)
+    private List<SpaceImage> images = new ArrayList<>();
 }

@@ -42,16 +42,18 @@ public class GlobalExceptionHandler {
      * 인증 실패 (로그인 실패, 비밀번호 불일치 등)
      */
     @ExceptionHandler(AuthenticationException.class)
-    public ResponseEntity<ErrorResponse> handleAuthenticationException(
-            AuthenticationException e
-    ) {
+    public ResponseEntity<ErrorResponse> handleAuthenticationException(AuthenticationException e) {
+        // 1. 우리가 만든 예외(ErrorCode 포함)인 경우
+        if(e instanceof CustomAuthenticationException){
+            ErrorCode errorCode = ((CustomAuthenticationException) e).getErrorCode();
+            return ResponseEntity
+                    .status(errorCode.getStatus())
+                    .body(ErrorResponse.of(errorCode));
+        }
+        // 2. 그 외 Spring Security 기본 예외 (자격 증명 없음 등)
         return ResponseEntity
                 .status(HttpStatus.UNAUTHORIZED)
-                .body(
-                        ErrorResponse.of(
-                                ErrorCode.UNAUTHORIZED      // 401
-                        )
-                );
+                .body(ErrorResponse.of(ErrorCode.UNAUTHORIZED));      // 401
     }
 
     /**

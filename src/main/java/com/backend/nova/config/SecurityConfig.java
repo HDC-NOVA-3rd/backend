@@ -7,6 +7,7 @@ import com.backend.nova.auth.jwt.JwtAuthenticationFilter;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.member.MemberAuthenticationProvider;
 import com.backend.nova.auth.member.MemberDetailsService;
+import com.backend.nova.oauth2.handler.OAuthFailureHandler;
 import com.backend.nova.oauth2.handler.OAuthSuccessHandler;
 import com.backend.nova.oauth2.repository.OAuthRedirectCookieRepository;
 import com.backend.nova.oauth2.service.CustomOAuth2UserService;
@@ -39,10 +40,9 @@ public class SecurityConfig {
     private final AdminAuthenticationProvider adminAuthenticationProvider;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuthSuccessHandler oAuthSuccessHandler;
+    private final OAuthFailureHandler oAuthFailureHandler;
     private final OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-    private final AdminDetailsService adminDetailsService;
-    private final MemberDetailsService memberDetailsService;
 
     /**
      * AuthenticationManager Bean
@@ -92,9 +92,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
                 // 세션 사용 안 함
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 // 요청별 권한 설정
                 .authorizeHttpRequests(auth -> auth
@@ -108,10 +106,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
                         //Swagger 페이지 API -> 접근 허용
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
+                        // 이미지 경로에 권한 x 처리
+                        .requestMatchers("/images/**").permitAll()
 
                         // 관리자 생성 (슈퍼 관리자만)
-                        .requestMatchers(HttpMethod.POST, "/api/admin")
-                        .hasRole("SUPER_ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/admin").hasRole("SUPER_ADMIN")
+
+                        // 관리비 관련 API (인증 필요)
+                        .requestMatchers("/api/admin/management-fee/**").authenticated()
 
                         // 그 외 관리자 API
                         .anyRequest().hasRole("ADMIN")
@@ -119,8 +121,13 @@ public class SecurityConfig {
 
                 // JWT 인증 필터 등록
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtProvider,adminDetailsService),
+                        new JwtAuthenticationFilter(jwtProvider),
                         UsernamePasswordAuthenticationFilter.class
+                )
+
+                // JWT 인증 실패 시 401 처리
+                .exceptionHandling(exception -> exception
+                        .authenticationEntryPoint(jwtAuthenticationEntryPoint)
                 );
 
         return http.build();
@@ -162,7 +169,9 @@ public class SecurityConfig {
                         .authorizationEndpoint(authorization -> authorization
                                 .authorizationRequestRepository(oAuthRedirectCookieRepository))
                         // 로그인 성공 시 실행될 핸들러 (JWT를 발급 및 리다이렉트 처리)
-                        .successHandler(oAuthSuccessHandler))
+                        .successHandler(oAuthSuccessHandler)
+                        // 로그인 실패 시 실행 핸들러
+                        .failureHandler(oAuthFailureHandler))
 
                 // 세션 필터 설정 (STATELESS)
                 .sessionManagement(session ->
@@ -183,15 +192,18 @@ public class SecurityConfig {
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
                         //모니터링 툴 API -> 접근 허용
                         .requestMatchers("/actuator/prometheus").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
                         .requestMatchers("/api/room/**").permitAll()
+                        // 이미지 경로에 권한 x 처리
+                        .requestMatchers("/images/**").permitAll()
                         .anyRequest().authenticated()
                 )
 
                 // 커스텀 필터 설정 JwtFilter 선행 처리
                 .addFilterBefore(
-                        new JwtAuthenticationFilter(jwtProvider,memberDetailsService),
+                        new JwtAuthenticationFilter(jwtProvider),
                         UsernamePasswordAuthenticationFilter.class
                 );
 
