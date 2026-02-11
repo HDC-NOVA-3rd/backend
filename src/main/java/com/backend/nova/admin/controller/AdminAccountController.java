@@ -29,9 +29,10 @@ public class AdminAccountController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @Operation(summary = "관리자 생성", description = "SUPER_ADMIN만 가능", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<Void> createAdmin(
-            @RequestBody @Valid AdminCreateRequest request
+            @RequestBody @Valid AdminCreateRequest request,
+            @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        adminService.createAdmin(request);
+        adminService.createAdmin(request, adminDetails.getAdminId());
         return ResponseEntity.ok().build();
     }
 
@@ -44,7 +45,7 @@ public class AdminAccountController {
             @AuthenticationPrincipal AdminDetails adminDetails,
             @RequestBody RefreshTokenRequest request
     ) {
-        adminService.logout(adminDetails, request.refreshToken());
+        adminService.logout(request.refreshToken());
         return ResponseEntity.ok().build();
     }
 
@@ -69,7 +70,7 @@ public class AdminAccountController {
             @RequestBody @Valid AdminPasswordChangeRequest request,
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        return ResponseEntity.ok(adminService.requestChangePassword(request, adminDetails));
+        return ResponseEntity.ok(adminService.requestChangePassword(request, adminDetails.getAdminId()));
     }
 
     /**
@@ -82,7 +83,7 @@ public class AdminAccountController {
             @RequestBody @Valid AdminPasswordChangeConfirmRequest request,
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        return ResponseEntity.ok(adminService.confirmChangePassword(request, adminDetails));
+        return ResponseEntity.ok(adminService.confirmChangePassword(request, adminDetails.getAdminId()));
     }
 
     /**
@@ -94,7 +95,7 @@ public class AdminAccountController {
     public ResponseEntity<AdminInfoResponse> getMyInfo(
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        return ResponseEntity.ok(adminService.getAdminInfo(adminDetails));
+        return ResponseEntity.ok(adminService.getAdminInfo(adminDetails.getAdminId()));
     }
 
     /**
@@ -106,6 +107,6 @@ public class AdminAccountController {
     public ResponseEntity<AdminApartmentResponse> getMyApartmentInfo(
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        return ResponseEntity.ok(adminService.getAdminApartmentInfo(adminDetails));
+        return ResponseEntity.ok(adminService.getAdminApartmentInfo(adminDetails.getAdminId()));
     }
 }

@@ -45,7 +45,7 @@ public class AdminAuthController {
     public ResponseEntity<AdminMessageResponse> requestPasswordReset(
             @RequestBody @Valid AdminPasswordResetRequest request
     ) {
-        return ResponseEntity.ok(adminService.requestPasswordReset(request));
+        return ResponseEntity.ok(adminService.requestResetPassword(request));
     }
 
     /**
@@ -55,7 +55,7 @@ public class AdminAuthController {
     public ResponseEntity<AdminMessageResponse> resetPassword(
             @RequestBody @Valid AdminPasswordResetConfirmRequest request
     ) {
-        return ResponseEntity.ok(adminService.resetPassword(request));
+        return ResponseEntity.ok(adminService.confirmResetPassword(request));
     }
 
 }
