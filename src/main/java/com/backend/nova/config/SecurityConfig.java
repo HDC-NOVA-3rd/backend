@@ -56,7 +56,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:8081", "http://localhost:8080", "http://192.168.14.168:8080"));
+        config.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:8081"));
         config.addAllowedMethod("*");
         config.addAllowedHeader("*");
         config.setAllowCredentials(true);
@@ -211,6 +211,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
                         .requestMatchers("/api/room/**").permitAll()
+                        // 이미지 경로에 권한 x 처리
+                        .requestMatchers("/images/**").permitAll()
                         .anyRequest().authenticated()
                 )
 
