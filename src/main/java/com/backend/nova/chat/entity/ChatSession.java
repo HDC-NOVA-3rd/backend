@@ -37,6 +37,12 @@ public class ChatSession {
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
+    @Column(name = "pending_intent", length = 64)
+    private String pendingIntent;
+
+    @Column(name = "pending_slots_json", columnDefinition = "TEXT")
+    private String pendingSlotsJson;
+
 
     public void softDelete() {
         this.deletedAt = LocalDateTime.now();
