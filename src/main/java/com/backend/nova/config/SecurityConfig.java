@@ -96,7 +96,8 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // 인증 없이 접근 가능
-                        .requestMatchers("/api/admin/login/**").permitAll()
+                        .requestMatchers("/api/admin/auth/**").permitAll()
+                        .requestMatchers("/api/admin/account/**").permitAll()
                         .requestMatchers("/api/admin/password/**").permitAll()
                         .requestMatchers("/api/admin/complaint/**").permitAll()
                         .requestMatchers("/api/admin/management-fee/**").permitAll()
