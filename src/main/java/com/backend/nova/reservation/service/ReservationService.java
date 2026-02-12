@@ -2,6 +2,8 @@ package com.backend.nova.reservation.service;
 
 import com.backend.nova.facility.entity.Space;
 import com.backend.nova.facility.repository.SpaceRepository;
+import com.backend.nova.global.notification.NotificationService;
+import com.backend.nova.global.notification.PushMessageRequest;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
 import com.backend.nova.reservation.dto.OccupiedReservationResponse;
@@ -19,7 +21,9 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -31,6 +35,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final SpaceRepository spaceRepository;
     private final MemberRepository memberRepository; // 회원 조회용
+    private final NotificationService notificationService;
 
     /**
      * 내 예약 목록 조회
@@ -159,12 +164,34 @@ public class ReservationService {
         // 1. 조건에 맞는 예약 조회 (상태: CONFIRMED, 시간: 예약시작시간 <= 현재시간+10분)
         List<Reservation> targets = reservationRepository.findAllByStatusAndStartTimeBefore(Status.CONFIRMED, startTime);
 
+        // 1. 전송할 DTO 리스트 생성
+        List<PushMessageRequest> messages = new ArrayList<>();
+
         for (Reservation reservation : targets) {
             // 상태 변경 CONFIRMED -> INUSE
             reservation.changeStatus(Status.INUSE);
 
-            // TODO: 알림 발송 로직 호출 (NotificationService 등)
-            // notificationService.sendPush(reservation.getMember().getPushToken(), "입장이 가능합니다!");
+            Member member = reservation.getMember();
+            String pushToken = member.getPushToken();
+
+            // 토큰이 유효한 경우만 메시지 생성
+            if (pushToken != null && !pushToken.isBlank()) {
+
+                // 깔끔하게 DTO 생성 (Builder 패턴 활용)
+                PushMessageRequest message = PushMessageRequest.builder()
+                        .to(pushToken)
+                        .title("입장 안내")
+                        .body("예약하신 [" + reservation.getSpace().getName() + "] 이 현재 입장 가능합니다.")
+                        .data(Map.of("url", "/member/reservations"))  // expo에서 push될 route
+                        .build();
+
+                messages.add(message);
+            }
+        }
+
+        // 2. 알림 서비스에 전송 위임 (배치 전송)
+        if (!messages.isEmpty()) {
+            notificationService.sendPushMessages(messages);
         }
     }
 
@@ -180,9 +207,30 @@ public class ReservationService {
         // 종료 시간이 정확히 10분 남은 예약 조회 (범위 검색 추천)
         List<Reservation> targets = reservationRepository.findAllByStatusAndEndTimeBetween(Status.INUSE, now, endTime);
 
+        // 1. 전송할 DTO 리스트 생성
+        List<PushMessageRequest> messages = new ArrayList<>();
+
         for (Reservation reservation : targets) {
-            // TODO: 알림 발송
-            // notificationService.sendPush(r.getMember().getPushToken(), "10분 뒤 종료됩니다. 정리를 부탁드립니다.");
+            Member member = reservation.getMember();
+            String pushToken = member.getPushToken();
+
+            // 토큰이 유효한 경우만 메시지 생성
+            if (pushToken != null && !pushToken.isBlank()) {
+
+                // 깔끔하게 DTO 생성 (Builder 패턴 활용)
+                PushMessageRequest message = PushMessageRequest.builder()
+                        .to(pushToken)
+                        .title("종료 안내")
+                        .body("예약하신 [" + reservation.getSpace().getName() + "] 이용 시간이 10분 남았습니다.")
+                        .build();
+
+                messages.add(message);
+            }
+        }
+
+        // 2. 알림 서비스에 전송 위임 (배치 전송)
+        if (!messages.isEmpty()) {
+            notificationService.sendPushMessages(messages);
         }
     }
 

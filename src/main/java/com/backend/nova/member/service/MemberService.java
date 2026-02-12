@@ -15,6 +15,7 @@ import com.backend.nova.oauth2.repository.AuthCodeInMemoryRepository;
 import com.backend.nova.resident.entity.Resident;
 import com.backend.nova.resident.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -207,5 +209,29 @@ public class MemberService {
         // 앞 5글자만 보여주고 나머지는 * 처리 (예: "userid123" -> "useri****")
         // 여기서는 실제 길이만큼 가리는 방식을 사용했습니다.
         return loginId.substring(0, 5) + "*".repeat(loginId.length() - 5);
+    }
+
+    /**
+     * Expo 푸시 토큰 저장 (로그인 시)
+     */
+    @Transactional
+    public void savePushToken(Long memberId, String pushToken) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+
+        member.updatePushToken(pushToken);
+        log.info("push token 등록 완료");
+    }
+
+    /**
+     * Expo 푸시 토큰 삭제 (로그아웃 시)
+     */
+    @Transactional
+    public void deletePushToken(Long memberId) {
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+
+        member.updatePushToken(null);
+        log.info("push token 해제 완료");
     }
 }
