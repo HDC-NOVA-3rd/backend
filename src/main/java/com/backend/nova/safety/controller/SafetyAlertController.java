@@ -34,8 +34,13 @@ public class SafetyAlertController {
         String type = (String) data.get("type");
 
         // 아파트의 모든 멤버 조회 (푸시 토큰이 있는 경우만)
+        // Member → Resident → Ho → Dong → Apartment
         memberRepository.findAll().stream()
-                .filter(m -> m.getApartment() != null && m.getApartment().getId().equals(apartmentId))
+                .filter(m -> m.getResident() != null
+                        && m.getResident().getHo() != null
+                        && m.getResident().getHo().getDong() != null
+                        && m.getResident().getHo().getDong().getApartment() != null
+                        && m.getResident().getHo().getDong().getApartment().getId().equals(apartmentId))
                 .filter(m -> m.getPushToken() != null && !m.getPushToken().isBlank())
                 .forEach(m -> {
                     List<PushMessageRequest> messages = new ArrayList<>();
