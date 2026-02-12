@@ -57,7 +57,7 @@ public class SafetyService {
     private final SafetyStatusRepository safetyStatusRepository;
     private final SensorLogRepository sensorLogRepository;
     private final SensorRepository sensorRepository;
-    private final MessageChannel mqttSafetyOutboundChannel;
+    private final MessageChannel mqttOutboundChannel;
     private final ObjectMapper objectMapper;
 
     public List<SafetyStatusResponse> listSafetyStatus(Long apartmentId) {
@@ -410,8 +410,8 @@ public class SafetyService {
             Message<String> message = MessageBuilder.withPayload(jsonPayload)
                     .setHeader("mqtt_topic", "hdc/frontend/safety/update")
                     .build();
-            
-            mqttSafetyOutboundChannel.send(message);
+
+            mqttOutboundChannel.send(message);
             log.info("Published safety update to MQTT: apartmentId={}, status={}", scopeContext.apartmentId(), statusTo);
         } catch (Exception e) {
             log.error("Failed to publish safety update to MQTT", e);

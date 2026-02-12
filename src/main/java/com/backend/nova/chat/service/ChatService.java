@@ -82,7 +82,7 @@ public class ChatService {
     private final HoRepository hoRepository;
     private final MemberRepository memberRepository;
     private final DeviceCommandLogRepository deviceCommandLogRepository;
-    private final MessageChannel mqttAssistantOutboundChannel;
+    private final MessageChannel mqttOutboundChannel;
     private final SpaceRepository spaceRepository;
     private final NoticeRepository noticeRepository;
     private final NoticeTargetDongRepository noticeTargetDongRepository;
@@ -147,7 +147,7 @@ public class ChatService {
             ApartmentWeatherService apartmentWeatherService, ApartmentRepository apartmentRepository,
             DongRepository dongRepository, HoRepository hoRepository,
             MemberRepository memberRepository, DeviceCommandLogRepository deviceCommandLogRepository,
-            MessageChannel mqttAssistantOutboundChannel, SpaceRepository spaceRepository, NoticeRepository noticeRepository,
+            MessageChannel mqttOutboundChannel, SpaceRepository spaceRepository, NoticeRepository noticeRepository,
             NoticeTargetDongRepository noticeTargetDongRepository, ComplaintAnswerRepository complaintAnswerRepository,
             ComplaintRepository complaintRepository, ReservationRepository reservationRepository, ReservationService reservationService//필요한 의존성을 만들어서 필드에 저장
     ) {
@@ -172,7 +172,7 @@ public class ChatService {
         this.reservationService = reservationService;
         // mqtt 제어용
         this.deviceCommandLogRepository = deviceCommandLogRepository;
-        this.mqttAssistantOutboundChannel = mqttAssistantOutboundChannel;
+        this.mqttOutboundChannel = mqttOutboundChannel;
 
 
 
@@ -215,7 +215,7 @@ public class ChatService {
                 .setHeader(MqttHeaders.TOPIC, topic)
                 .build();
 
-        mqttAssistantOutboundChannel.send(message);
+        mqttOutboundChannel.send(message);
 
         String reply = buildControlReply(roomName, deviceType, action, value);
 

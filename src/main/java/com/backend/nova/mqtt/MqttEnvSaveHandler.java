@@ -23,7 +23,6 @@ public class MqttEnvSaveHandler{
     private final RoomRepository roomRepository;
     private final RoomEnvLogRepository roomEnvLogRepository;
 
-    @ServiceActivator(inputChannel = "mqttEnvInputChannel")
     @Transactional
     public void save(Message<String> message) {
         String payload = message.getPayload();

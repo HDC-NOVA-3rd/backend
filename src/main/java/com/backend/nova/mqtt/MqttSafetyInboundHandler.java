@@ -19,7 +19,6 @@ public class MqttSafetyInboundHandler {
     private final ObjectMapper objectMapper;
     private final SafetyService safetyService;
 
-    @ServiceActivator(inputChannel = "mqttSafetyInputChannel")
     public void handleSafetyMessage(Message<String> message) {
         String payload = message.getPayload();
         String topic = (String) message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC);

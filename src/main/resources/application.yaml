@@ -38,6 +38,7 @@ spring:
       env: hdc/device/+/env/data
       assistant: hdc/+/assistant/execute/res
       voice: hdc/+/assistant/voice/req
+      entrance: hdc/entrance/verify
   ai:
     google:
       genai:
