@@ -65,6 +65,10 @@ public class Complaint {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
+    // 완료시기
+    @Column(nullable = false)
+    private LocalDateTime resolvedAt;
+
     /* ================== 생성/수정 ================== */
 
     @PrePersist

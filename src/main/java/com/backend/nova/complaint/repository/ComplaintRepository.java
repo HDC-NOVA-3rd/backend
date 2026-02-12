@@ -18,6 +18,10 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
         return findByDeletedFalse();
     }
 
+    List<Complaint> findByApartmentIdAndDeleted(Long apartmentId, boolean deleted);
+    List<Complaint> findByApartmentId(Long apartmentId);
+
+
     // ID 기준 조회 → Optional로 반환
     Optional<Complaint> findByIdAndDeletedFalse(Long id);
 
@@ -32,6 +36,9 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
 
     Optional<Complaint> findByIdAndMember_IdAndDeletedFalse(Long id, Long memberId);
 
+    List<Complaint> findByMemberIdAndDeletedFalse(Long memberId);
+
+    List<Complaint> findByMemberIdAndDeletedTrue(Long memberId);
 }
 
 

@@ -8,7 +8,7 @@ import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.complaint.dto.*;
 import com.backend.nova.complaint.entity.Complaint;
 import com.backend.nova.complaint.entity.ComplaintAnswer;
-import com.backend.nova.complaint.entity.ComplaintFeedback;
+import com.backend.nova.complaint.entity.ComplaintReview;
 import com.backend.nova.complaint.entity.ComplaintStatus;
 import com.backend.nova.complaint.repository.ComplaintAnswerRepository;
 import com.backend.nova.complaint.repository.ComplaintFeedbackRepository;
@@ -112,13 +112,13 @@ public class ComplaintService {
             throw new IllegalStateException("자기 아파트의 민원만 배정할 수 있습니다.");
         }
 
-        // (선택) targetAdmin도 같은 아파트인지까지 체크하고 싶다면
+        // targetAdmin도 같은 아파트인지 체크
         if (!complaint.getApartment().getId().equals(targetAdmin.getApartment().getId())) {
             throw new IllegalStateException("같은 아파트 관리자에게만 배정할 수 있습니다.");
         }
 
         // ─────────────────────────
-        // 일반 관리자 제약
+        // 일반 관리자 재배정 제약
         // ─────────────────────────
         if (admin.getRole() == AdminRole.ADMIN) {
 
@@ -229,7 +229,7 @@ public class ComplaintService {
 
 
     /* ================= 멤버가 피드백 등록 ================= */
-    public void createFeedback(Long complaintId, Long memberId, ComplaintFeedbackCreateRequest request) {
+    public void createFeedback(Long complaintId, Long memberId, ComplaintReviewCreateRequest request) {
         Complaint complaint = findComplaint(complaintId);
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원 없음"));
@@ -243,7 +243,7 @@ public class ComplaintService {
         }
 
 
-        ComplaintFeedback feedback = ComplaintFeedback.builder()
+        ComplaintReview feedback = ComplaintReview.builder()
                 .complaint(complaint)
                 .member(member)
                 .content(request.content())
@@ -273,8 +273,22 @@ public class ComplaintService {
 
 
     // 멤버 본인 민원 목록
-    public List<ComplaintResponse> getComplaintsByMember(Long memberId) {
-        return complaintRepository.findByMember_IdAndDeletedFalse(memberId).stream()
+    @Transactional(readOnly = true)
+    public List<ComplaintResponse> getComplaintsByMember(Long memberId, Boolean active) {
+        List<Complaint> complaints;
+
+        if (active == null) {
+            // 특별히 '삭제 내역'을 요청하지 않는 한, 기본적으로 deleted=false만 조회
+            complaints = complaintRepository.findByMemberIdAndDeletedFalse(memberId);
+        } else if (active) {
+            // 활성 민원 + 취소한 민원 (둘 다 deleted=false이므로)
+            complaints = complaintRepository.findByMemberIdAndDeletedFalse(memberId);
+        } else {
+            // 입주민이 굳이 '내가 삭제했던 내역'을 보고 싶어할 때 (거의 없지만 필요하다면)
+            complaints = complaintRepository.findByMemberIdAndDeletedTrue(memberId);
+        }
+
+        return complaints.stream()
                 .map(ComplaintResponse::from)
                 .toList();
     }
@@ -288,11 +302,25 @@ public class ComplaintService {
     }
 
     @Transactional(readOnly = true)
-    public List<ComplaintResponse> getDeletedComplaints(AdminDetails adminDetails) {
+    public List<ComplaintResponse> getComplaints(Long apartmentId, Boolean active) {
+        List<Complaint> complaints;
 
-        if (adminDetails.getRoleEnum() != AdminRole.SUPER_ADMIN) {
-            throw new AccessDeniedException("슈퍼 관리자만 조회할 수 있습니다.");
+        if (active == null) {
+            // 전체 조회 (삭제된 것 포함)
+            complaints = complaintRepository.findByApartmentId(apartmentId);
+        } else {
+            // active가 true면 deleted=false인 것, active가 false면 deleted=true인 것 조회
+            boolean isDeleted = !active;
+            complaints = complaintRepository.findByApartmentIdAndDeleted(apartmentId, isDeleted);
         }
+
+        return complaints.stream()
+                .map(ComplaintResponse::from)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<ComplaintResponse> getDeletedComplaints(AdminDetails adminDetails) {
 
         Long apartmentId = adminDetails.getApartmentId();
 
@@ -301,4 +329,41 @@ public class ComplaintService {
                 .toList();
     }
 
+    /* ===== 아파트 민원 조회 ===== */
+//    @Transactional(readOnly = true)
+//    public List<ManagementFeeResponse> getItems(
+//            Long apartmentId,
+//            Boolean active
+//    ) {
+//        List<ManagementFee> fees;
+//
+//        if (active == null) {
+//            fees = managementFeeRepository.findByApartmentId(apartmentId); // 전체
+//        } else if (active) {
+//            fees = managementFeeRepository.findByApartmentIdAndActiveTrue(apartmentId);
+//        } else {
+//            fees = managementFeeRepository.findByApartmentIdAndActiveFalse(apartmentId);
+//        }
+//
+//        return fees.stream()
+//                .map(ManagementFeeResponse::from)
+//                .toList();
+//    }
+
+    /* ================= 멤버가 민원 취소  ================= */
+    public void cancelComplaint(Long complaintId, Long memberId) {
+        Complaint complaint = findComplaint(complaintId);
+
+        // 본인 확인
+        if (!complaint.getMember().getId().equals(memberId)) {
+            throw new AccessDeniedException("본인의 민원만 취소할 수 있습니다.");
+        }
+
+        // 상태 체크 및 변경
+        if (!complaint.getStatus().canChangeTo(ComplaintStatus.CANCELLED)) {
+            throw new IllegalStateException("이미 완료된 민원은 취소할 수 없습니다.");
+        }
+
+        complaint.changeStatus(ComplaintStatus.CANCELLED);
+    }
 }

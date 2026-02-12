@@ -12,8 +12,8 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-@Table(name = "complaint_feedback")
-public class ComplaintFeedback {
+@Table(name = "complaint_review")
+public class ComplaintReview {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
