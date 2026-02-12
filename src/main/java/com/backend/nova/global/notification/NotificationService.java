@@ -22,6 +22,7 @@ public class NotificationService {
      */
     @Async
     public CompletableFuture<Void> sendPushMessages(List<PushMessageRequest> messageDtos) {
+        log.info("현재 실행 중인 스레드: {}", Thread.currentThread().getName());
         if (messageDtos == null || messageDtos.isEmpty()) {
             return CompletableFuture.completedFuture(null);
         }
