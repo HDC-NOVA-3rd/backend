@@ -630,7 +630,7 @@ public class ChatService {
         ChatMessage m = new ChatMessage();
         m.setChatSession(session);
         m.setRole(role);
-        m.setContent(content);
+        m.setContent(content == null ? "" : content);
         m.setCreatedAt(LocalDateTime.now());
         chatMessageRepository.save(m);
 

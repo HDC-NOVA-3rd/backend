@@ -2,15 +2,11 @@ package com.backend.nova.member.controller;
 
 import com.backend.nova.member.dto.*;
 import com.backend.nova.member.service.MemberService;
-import com.backend.nova.oauth2.repository.AuthCodeInMemoryRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Auth", description = "인증 및 토큰 관리 API (로그인, 가입, 재발급)")
 @RestController

@@ -12,7 +12,14 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED) // JPA 필수
 @AllArgsConstructor
 @Builder
+// ▼ 인덱스 설정 추가 ▼
+@Table(name = "reservation", indexes = {
+        // 1. 입장 활성화용 (CONFIRMED 상태이면서 start_time 비교)
+        @Index(name = "idx_reservation_status_start", columnList = "status, start_time"),
 
+        // 2. 종료 알림 및 만료 처리용 (INUSE 상태이면서 end_time 비교)
+        @Index(name = "idx_reservation_status_end", columnList = "status, end_time")
+})
 public class Reservation {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -65,5 +72,8 @@ public class Reservation {
         this.status = Status.CANCELLED;
     }
 
+    public void changeStatus(Status status){
+        this.status = status;
+    }
 
 }

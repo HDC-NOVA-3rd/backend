@@ -1,6 +1,7 @@
     package com.backend.nova.weather.service;
 
     import com.backend.nova.weather.dto.OpenWeatherResponse;
+    import lombok.extern.slf4j.Slf4j;
     import org.springframework.beans.factory.annotation.Value;
     import org.springframework.stereotype.Service;
     import org.springframework.web.reactive.function.client.WebClient;
@@ -18,6 +19,7 @@
 
     // 위도/경도를 기준으로 외부 날씨 및 공기질 정보 조회
     @Service
+    @Slf4j
     public class OpenWeatherService {
         private final WebClient webClient = WebClient.create();
 
@@ -121,7 +123,7 @@
                 String ko = localNames.get("ko").toString();
                 if (!ko.isBlank()) place = ko;
             }
-            System.out.println("GEO FIRST = " + first);
+            log.info("GEO FIRST = " + first);
             if (place.isBlank()) return "위치 정보 없음";
 
 // 3) state가 있으면 "서울특별시 역삼동" 형태로

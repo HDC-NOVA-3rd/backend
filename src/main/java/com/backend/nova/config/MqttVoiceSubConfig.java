@@ -13,32 +13,34 @@ import org.springframework.messaging.MessageChannel;
 import java.util.UUID;
 
 @Configuration
-public class MqttAssistantResultSubConfig {
+public class MqttVoiceSubConfig {
 
     @Value("${spring.mqtt.client-id}")
     private String clientId;
-    @Value("${spring.mqtt.topic.assistant}")
-    private String assistantTopic;
+
+    @Value("${spring.mqtt.topic.voice}")
+    private String voiceTopic;
 
     @Bean
-    public MessageChannel mqttAssistantInputChannel() {
+    public MessageChannel mqttVoiceInputChannel() {
         return new DirectChannel();
     }
 
     @Bean
-    public MessageProducer mqttAssistantInboundAdapter(MqttPahoClientFactory mqttPahoClientFactory) {
-        if (assistantTopic == null || assistantTopic.isBlank()) {
-            throw new IllegalStateException("MQTT assistant subscription topic is empty");
+    public MessageProducer mqttVoiceInboundAdapter(MqttPahoClientFactory mqttPahoClientFactory) {
+        if (voiceTopic == null || voiceTopic.isBlank()) {
+            throw new IllegalStateException("MQTT voice subscription topic is empty");
         }
         MqttPahoMessageDrivenChannelAdapter adapter =
-                new MqttPahoMessageDrivenChannelAdapter(clientId + "_assistant_sub_" + UUID.randomUUID(),
+                new MqttPahoMessageDrivenChannelAdapter(
+                        clientId + "_voice_sub_" + UUID.randomUUID(),
                         mqttPahoClientFactory,
-                        assistantTopic);
+                        voiceTopic);
 
         adapter.setCompletionTimeout(30000);
         adapter.setConverter(new DefaultPahoMessageConverter());
         adapter.setQos(1);
-        adapter.setOutputChannel(mqttAssistantInputChannel());
+        adapter.setOutputChannel(mqttVoiceInputChannel());
         return adapter;
     }
 }

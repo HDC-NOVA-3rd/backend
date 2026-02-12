@@ -2,6 +2,8 @@ package com.backend.nova.reservation.service;
 
 import com.backend.nova.facility.entity.Space;
 import com.backend.nova.facility.repository.SpaceRepository;
+import com.backend.nova.global.notification.NotificationService;
+import com.backend.nova.global.notification.PushMessageRequest;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
 import com.backend.nova.reservation.dto.OccupiedReservationResponse;
@@ -19,7 +21,9 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -31,6 +35,7 @@ public class ReservationService {
     private final ReservationRepository reservationRepository;
     private final SpaceRepository spaceRepository;
     private final MemberRepository memberRepository; // 회원 조회용
+    private final NotificationService notificationService;
 
     /**
      * 내 예약 목록 조회
@@ -116,10 +121,14 @@ public class ReservationService {
             throw new IllegalStateException("해당 시간에 이미 예약이 존재합니다.");
         }
 
-        // 5. 가격 계산 (시간 단위)
-        // Duration을 사용하여 분 단위까지 정확히 계산하거나, 시간 단위로 올림 처리
-        long hours = Duration.between(request.startTime(), request.endTime()).toHours();
-        if (hours < 1) hours = 1; // 최소 1시간 과금
+        // 5. 가격 계산 (30분 단위 계산) -> 프런트에서도 30분 단위로 선택할 수 있도록
+        long minutes = Duration.between(request.startTime(), request.endTime()).toMinutes();
+        // 최소 예약 시간 제한 (예: 최소 30분)
+        if (minutes < 30) {
+            throw new IllegalArgumentException("최소 예약 시간은 30분입니다.");
+        }
+        // 가격 계산: (분 / 60.0) * 시간당 가격
+        double hours = minutes / 60.0;
         int totalPrice = (int) (hours * space.getPrice());
 
         Member member = memberRepository.getReferenceById(memberId);
@@ -143,5 +152,101 @@ public class ReservationService {
         Reservation savedReservation = reservationRepository.save(reservation);
 
         return savedReservation.getId();
+    }
+
+    /**
+     * [스케줄러용] 시작 10분 전 예약 활성화 (CONFIRMED -> INUSE)
+     */
+    @Transactional
+    public void activateUpcomingReservations() {
+        LocalDateTime startTime = LocalDateTime.now().plusMinutes(10);
+
+        // 1. 조건에 맞는 예약 조회 (상태: CONFIRMED, 시간: 예약시작시간 <= 현재시간+10분)
+        List<Reservation> targets = reservationRepository.findAllByStatusAndStartTimeBefore(Status.CONFIRMED, startTime);
+
+        // 1. 전송할 DTO 리스트 생성
+        List<PushMessageRequest> messages = new ArrayList<>();
+
+        for (Reservation reservation : targets) {
+            // 상태 변경 CONFIRMED -> INUSE
+            reservation.changeStatus(Status.INUSE);
+
+            Member member = reservation.getMember();
+            String pushToken = member.getPushToken();
+
+            // 토큰이 유효한 경우만 메시지 생성
+            if (pushToken != null && !pushToken.isBlank()) {
+
+                // 깔끔하게 DTO 생성 (Builder 패턴 활용)
+                PushMessageRequest message = PushMessageRequest.builder()
+                        .to(pushToken)
+                        .title("입장 안내")
+                        .body("예약하신 [" + reservation.getSpace().getName() + "] 이 현재 입장 가능합니다.")
+                        .data(Map.of("url", "/member/reservations"))  // expo에서 push될 route
+                        .build();
+
+                messages.add(message);
+            }
+        }
+
+        // 2. 알림 서비스에 전송 위임 (배치 전송)
+        if (!messages.isEmpty()) {
+            notificationService.sendPushMessages(messages);
+        }
+    }
+
+    /**
+     * [스케줄러용] 종료 10분 전 알림 (INUSE 상태인 예약 중 종료 시간이 10분 전인 사람 해당)
+     */
+    @Transactional
+    public void notifyEndingSoonReservations() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime endTime = now.plusMinutes(10);
+
+        // 1. 조건에 맞는 예약 조회 (상태: INUSE, 시간: endTime이 '현재' ~ '10분 뒤' 사이인 예약)
+        // 종료 시간이 정확히 10분 남은 예약 조회 (범위 검색 추천)
+        List<Reservation> targets = reservationRepository.findAllByStatusAndEndTimeBetween(Status.INUSE, now, endTime);
+
+        // 1. 전송할 DTO 리스트 생성
+        List<PushMessageRequest> messages = new ArrayList<>();
+
+        for (Reservation reservation : targets) {
+            Member member = reservation.getMember();
+            String pushToken = member.getPushToken();
+
+            // 토큰이 유효한 경우만 메시지 생성
+            if (pushToken != null && !pushToken.isBlank()) {
+
+                // 깔끔하게 DTO 생성 (Builder 패턴 활용)
+                PushMessageRequest message = PushMessageRequest.builder()
+                        .to(pushToken)
+                        .title("종료 안내")
+                        .body("예약하신 [" + reservation.getSpace().getName() + "] 이용 시간이 10분 남았습니다.")
+                        .build();
+
+                messages.add(message);
+            }
+        }
+
+        // 2. 알림 서비스에 전송 위임 (배치 전송)
+        if (!messages.isEmpty()) {
+            notificationService.sendPushMessages(messages);
+        }
+    }
+
+    /**
+     * [스케줄러용] 이용 종료 처리 (INUSE -> COMPLETED)
+     */
+    @Transactional
+    public void expireFinishedReservations() {
+        LocalDateTime endTime = LocalDateTime.now().minusMinutes(10);
+
+        // 1. 조건에 맞는 예약 조회 (상태: INUSE, 시간: 예약종료시간+10분 <= 현재시간)
+        List<Reservation> targets = reservationRepository.findAllByStatusAndEndTimeBefore(Status.INUSE, endTime);
+
+        // 상태 변경 INUSE -> COMPLETED
+        for (Reservation reservation : targets) {
+            reservation.changeStatus(Status.COMPLETED); // QR 만료됨
+        }
     }
 }

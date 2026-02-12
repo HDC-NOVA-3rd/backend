@@ -96,11 +96,17 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
 
                         // 인증 없이 접근 가능
-                        .requestMatchers("/api/admin/login/**").permitAll()
-                        .requestMatchers("/api/admin/password/**").permitAll()
+                        .requestMatchers("/api/admin/auth/**").permitAll()
+                        .requestMatchers("/api/admin/account/**").permitAll()
                         .requestMatchers("/api/admin/complaint/**").permitAll()
                         .requestMatchers("/api/admin/management-fee/**").permitAll()
                         .requestMatchers("/api/admin/bill/**").permitAll()
+                        .requestMatchers("/api/admin/notice**").permitAll()
+
+                        .requestMatchers("/api/safety/**").permitAll()
+                        .requestMatchers("/api/apartment/**").permitAll()
+                        .requestMatchers("/api/room/**").permitAll()
+
 
 
                         .requestMatchers("/api/resident/verify","/api/member/signup").permitAll()
@@ -108,6 +114,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
                         //Swagger 페이지 API -> 접근 허용
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
+                        .requestMatchers("/api/voice/**").permitAll()
                         // 이미지 경로에 권한 x 처리
                         .requestMatchers("/images/**").permitAll()
                         .requestMatchers("/api/resident/verify","/api/member/signup").permitAll()
@@ -205,6 +212,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
                         //Swagger 페이지 API -> 접근 허용
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
+                        .requestMatchers("/api/voice/**").permitAll()
                         //모니터링 툴 API -> 접근 허용
                         .requestMatchers("/actuator/prometheus").permitAll()
                         .requestMatchers("/ws/**").permitAll()

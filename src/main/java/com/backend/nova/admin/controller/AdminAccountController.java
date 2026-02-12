@@ -3,7 +3,6 @@ package com.backend.nova.admin.controller;
 import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.service.AdminService;
 import com.backend.nova.auth.admin.AdminDetails;
-import com.backend.nova.member.dto.RefreshTokenRequest;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,7 +15,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 @Tag(name = "Admin-Account", description = "관리자 계정 및 정보 관리 API")
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/admin/account")
 @RequiredArgsConstructor
 public class AdminAccountController {
 
@@ -25,13 +24,14 @@ public class AdminAccountController {
     /**
      * 관리자 생성 (SUPER_ADMIN 전용)
      */
-    @PostMapping("/signup")
+    @PostMapping("/register")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @Operation(summary = "관리자 생성", description = "SUPER_ADMIN만 가능", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<Void> createAdmin(
-            @RequestBody @Valid AdminCreateRequest request
+            @RequestBody @Valid AdminCreateRequest request,
+            @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        adminService.createAdmin(request);
+        adminService.createAdmin(request, adminDetails.getAdminId());
         return ResponseEntity.ok().build();
     }
 
@@ -42,22 +42,13 @@ public class AdminAccountController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @AuthenticationPrincipal AdminDetails adminDetails,
-            @RequestBody RefreshTokenRequest request
+            @RequestBody AdminRefreshTokenRequest request
     ) {
-        adminService.logout(adminDetails, request.refreshToken());
+        adminService.logout(request.refreshToken());
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * Access 토큰 재발급
-     */
-    @Operation(summary = "Access 토큰 재발급", security = @SecurityRequirement(name = "bearerAuth"))
-    @PostMapping("/refresh")
-    public ResponseEntity<AdminTokenResponse> refresh(
-            @RequestBody RefreshTokenRequest request
-    ) {
-        return ResponseEntity.ok(adminService.refresh(request));
-    }
+
 
     /**
      * 로그인 상태 비밀번호 변경 요청 (현재 비밀번호 검증 + OTP 발송)
@@ -69,7 +60,7 @@ public class AdminAccountController {
             @RequestBody @Valid AdminPasswordChangeRequest request,
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        return ResponseEntity.ok(adminService.requestChangePassword(request, adminDetails));
+        return ResponseEntity.ok(adminService.requestChangePassword(request, adminDetails.getAdminId()));
     }
 
     /**
@@ -82,7 +73,7 @@ public class AdminAccountController {
             @RequestBody @Valid AdminPasswordChangeConfirmRequest request,
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        return ResponseEntity.ok(adminService.confirmChangePassword(request, adminDetails));
+        return ResponseEntity.ok(adminService.confirmChangePassword(request, adminDetails.getAdminId()));
     }
 
     /**
@@ -94,7 +85,7 @@ public class AdminAccountController {
     public ResponseEntity<AdminInfoResponse> getMyInfo(
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        return ResponseEntity.ok(adminService.getAdminInfo(adminDetails));
+        return ResponseEntity.ok(adminService.getAdminInfo(adminDetails.getAdminId()));
     }
 
     /**
@@ -106,6 +97,6 @@ public class AdminAccountController {
     public ResponseEntity<AdminApartmentResponse> getMyApartmentInfo(
             @AuthenticationPrincipal AdminDetails adminDetails
     ) {
-        return ResponseEntity.ok(adminService.getAdminApartmentInfo(adminDetails));
+        return ResponseEntity.ok(adminService.getAdminApartmentInfo(adminDetails.getAdminId()));
     }
 }

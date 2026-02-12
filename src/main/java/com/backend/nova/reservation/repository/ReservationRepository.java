@@ -1,6 +1,7 @@
 package com.backend.nova.reservation.repository;
 
 import com.backend.nova.reservation.entity.Reservation;
+import com.backend.nova.reservation.entity.Status;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -33,4 +34,14 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     boolean existsOverlappingReservation(@Param("spaceId") Long spaceId,
                                          @Param("startTime") LocalDateTime startTime,
                                          @Param("endTime") LocalDateTime endTime);
+
+    // 1. 입장 가능 상태로 변경할 예약 조회 (시작 시간 15분 전 && 상태가 CONFIRMED)
+    List<Reservation> findAllByStatusAndStartTimeBefore(Status status, LocalDateTime time);
+
+    // 2. 종료 임박 알림 보낼 예약 조회 (종료 시간 10분 전 && 상태가 IN_USE)
+    List<Reservation> findAllByStatusAndEndTimeBetween(Status status, LocalDateTime start, LocalDateTime end);
+
+    // 3. 완료 처리할 예약 조회 (종료 시간 10분 후 && 상태가 IN_USE)
+    List<Reservation> findAllByStatusAndEndTimeBefore(Status status, LocalDateTime end);
+
 }

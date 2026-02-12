@@ -25,9 +25,9 @@ spring:
       mode: never # 애플리케이션 시작 시 SQL 스크립트 실행 모드 (always: 항상 실행, never: 실행 x)
   jpa:
     defer-datasource-initialization: true
-    show-sql: true # 실행되는 SQL 쿼리를 콘솔에 출력
+    show-sql: false # 실행되는 SQL 쿼리를 콘솔에 출력
     hibernate:
-      ddl-auto: update # DDL 자동 생성 전략 (none / create / validate / update)
+      ddl-auto: none # DDL 자동 생성 전략 (none / create / validate / update)
     properties:
       hibernate:
         format_sql: true # 로그에 출력되는 SQL을 보기 좋게 포맷팅
@@ -40,6 +40,7 @@ spring:
       safety: hdc/device/+/safety/data
       env: hdc/device/+/env/data
       assistant: hdc/+/assistant/execute/res
+      voice: hdc/+/assistant/voice/req
   ai:
     google:
       genai:
@@ -58,6 +59,8 @@ spring:
         options:
           model: google/gemini-3-flash-preview
           temperature: 0.7
+            model: gemini-2.5-flash
+
   #OAuth 설정
   security:
     oauth2:
@@ -103,6 +106,16 @@ openweather:
   api-key: ${OPENWEATHER_API_KEY}
 otp:
   secret: ${OTP_SECRET}
+
+#ai 스피커
+voice:
+  stt:
+    provider: huggingface
+    huggingface:
+      api-url: https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3-turbo
+      api-token: ${HUGGINGFACE_API_TOKEN}
+      timeout-seconds: 90
+
 # Monitoring System
 management:
   endpoints:
