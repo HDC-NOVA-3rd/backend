@@ -10,7 +10,6 @@ import com.backend.nova.auth.jwt.JwtToken;
 import com.backend.nova.auth.otp.StatelessOtpService;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
-import com.backend.nova.member.dto.RefreshTokenRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -116,7 +115,7 @@ public class AdminService {
 
 
     /* ================= 토큰 재발급 ================= */
-    public AdminTokenResponse refresh(RefreshTokenRequest request) {
+    public AdminTokenResponse refresh(AdminRefreshTokenRequest request) {
 
         String refreshToken = request.refreshToken();
 
