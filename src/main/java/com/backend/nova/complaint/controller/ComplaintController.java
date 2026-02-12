@@ -15,6 +15,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 import java.util.List;
 
@@ -66,7 +68,7 @@ public class ComplaintController {
     //    }
 
     /* ================= 관리자 배정 (관리자) ================= */
-    @Operation(summary = "관리자 배정", description = "민원에 담당 관리자를 배정합니다.")
+    @Operation(summary = "관리자 배정", description = "민원에 담당 관리자를 배정합니다.", security = @SecurityRequirement(name = "bearerAuth"))
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{complaintId}/assign")
     public ResponseEntity<Void> assignAdmin(

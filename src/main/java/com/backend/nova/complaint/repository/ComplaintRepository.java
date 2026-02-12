@@ -29,6 +29,9 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
     // 삭제된 민원 조회 (슈퍼 관리자)
     List<Complaint> findByDeletedTrue();
     List<Complaint> findByDeletedTrueAndApartment_Id(Long apartmentId);
+
+    Optional<Complaint> findByIdAndMember_IdAndDeletedFalse(Long id, Long memberId);
+
 }
 
 

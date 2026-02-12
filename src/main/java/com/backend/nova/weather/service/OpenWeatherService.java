@@ -56,7 +56,7 @@
                 case "Clouds" -> "구름";
                 case "Rain", "Drizzle" -> "비";
                 case "Snow" -> "눈";
-                case "Thunderstorm" -> "천둥번개";
+                case "Thunderstorm" -> "번개";
                 case "Mist", "Fog", "Haze", "Smoke", "Dust", "Sand", "Ash", "Squall", "Tornado" -> "안개";
                 default -> "정보 없음";
             };
@@ -109,14 +109,23 @@
             if (geo == null || geo.isEmpty()) return "위치 정보 없음";
 
             Map first = (Map) geo.get(0);
+
+// 1) state(시/도) + name(동/구/시) 조합 만들기
+            String state = first.get("state") == null ? "" : first.get("state").toString();
+            String name  = first.get("name")  == null ? "" : first.get("name").toString();
+
+// 2) 한국어 이름 있으면 우선 사용 (없으면 name 사용)
+            String place = name;
             Map localNames = (Map) first.get("local_names");
-
             if (localNames != null && localNames.get("ko") != null) {
-                return (String) localNames.get("ko");
+                String ko = localNames.get("ko").toString();
+                if (!ko.isBlank()) place = ko;
             }
+            System.out.println("GEO FIRST = " + first);
+            if (place.isBlank()) return "위치 정보 없음";
 
-            Object name = first.get("name");
-            return name == null ? "위치 정보 없음" : name.toString();
+// 3) state가 있으면 "서울특별시 역삼동" 형태로
+            return state.isBlank() ? place : (state + " " + place);
         }
 
 
