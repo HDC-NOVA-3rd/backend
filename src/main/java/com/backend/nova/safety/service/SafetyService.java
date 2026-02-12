@@ -86,7 +86,9 @@ public class SafetyService {
                     String dongNo = entity.getDongId() == null ? null : dongNoById.get(entity.getDongId());
                     String facilityName = entity.getFacilityId() == null ? null : facilityNameById.get(entity.getFacilityId());
                     return new SafetyStatusResponse(
+                            entity.getDongId(),
                             dongNo,
+                            entity.getFacilityId(),
                             facilityName,
                             entity.getSafetyStatus(),
                             entity.getReason(),
@@ -391,7 +393,9 @@ public class SafetyService {
         try {
             SafetyStatusResponse response = createSafetyStatusResponse(scopeContext, statusTo, reason, eventAt);
             SafetyMqttUpdatePayload mqttPayload = new SafetyMqttUpdatePayload(
+                response.dongId(),
                 response.dongNo(),
+                response.facilityId(),
                 response.facilityName(),
                 response.status(),
                 response.reason(),
@@ -434,7 +438,15 @@ public class SafetyService {
                     .orElse(null);
         }
 
-        return new SafetyStatusResponse(dongNo, facilityName, statusTo, reason, eventAt);
+        return new SafetyStatusResponse(
+                scopeContext.dongId(),
+                dongNo,
+                scopeContext.facilityId(),
+                facilityName,
+                statusTo,
+                reason,
+                eventAt
+        );
     }
 
     private static String currentAdminRequestFrom() {
