@@ -59,7 +59,7 @@ spring:
         options:
           model: google/gemini-3-flash-preview
           temperature: 0.7
-            model: gemini-2.5-flash
+
 
   #OAuth 설정
   security:
