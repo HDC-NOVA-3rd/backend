@@ -16,7 +16,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 @Tag(name = "Admin-Account", description = "관리자 계정 및 정보 관리 API")
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/admin/account")
 @RequiredArgsConstructor
 public class AdminAccountController {
 
@@ -25,7 +25,7 @@ public class AdminAccountController {
     /**
      * 관리자 생성 (SUPER_ADMIN 전용)
      */
-    @PostMapping("/signup")
+    @PostMapping("/register")
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     @Operation(summary = "관리자 생성", description = "SUPER_ADMIN만 가능", security = @SecurityRequirement(name = "bearerAuth"))
     public ResponseEntity<Void> createAdmin(
@@ -49,16 +49,7 @@ public class AdminAccountController {
         return ResponseEntity.ok().build();
     }
 
-    /**
-     * Access 토큰 재발급
-     */
-    @Operation(summary = "Access 토큰 재발급", security = @SecurityRequirement(name = "bearerAuth"))
-    @PostMapping("/refresh")
-    public ResponseEntity<AdminTokenResponse> refresh(
-            @RequestBody RefreshTokenRequest request
-    ) {
-        return ResponseEntity.ok(adminService.refresh(request));
-    }
+
 
     /**
      * 로그인 상태 비밀번호 변경 요청 (현재 비밀번호 검증 + OTP 발송)
