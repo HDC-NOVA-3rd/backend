@@ -242,3 +242,21 @@ VALUES
 
 -- [Facility ID: 6] 주민 카페
 -- 공간(Space) 데이터가 없는 경우(Empty List 반환)를 테스트하기 위해 insert 생략
+
+
+INSERT INTO complaint
+(content, created_at, deleted, resolved_at, status, title, type, updated_at, admin_id, apartment_id, member_id)
+VALUES
+('엘리베이터가 3일째 작동하지 않습니다.', NOW(6), b'0', NOW(6), 'RECEIVED', '엘리베이터 고장 신고', 'MAINTENANCE', NOW(6), 1, 1, 1),
+
+('윗층에서 밤마다 소음이 심합니다.', NOW(6), b'0', NOW(6), 'IN_PROGRESS', '층간소음 민원', 'NOISE', NOW(6), 2, 2, 1),
+
+('지하주차장에 불법주차 차량이 있습니다.', NOW(6), b'0', NOW(6), 'ASSIGNED', '불법주차 신고', 'PARKING', NOW(6), 1, 1, 2),
+
+('관리비 청구 금액이 잘못된 것 같습니다.', NOW(6), b'0', NOW(6), 'COMPLETED', '관리비 오류 문의', 'ADMIN', NOW(6), 3, 2, 2),
+
+('공용 복도 조명이 깜빡거립니다.', NOW(6), b'0', NOW(6), 'RECEIVED', '복도 조명 수리 요청', 'LIVING', NOW(6), 2, 1, 2);
+-- 'ASSIGNED','CANCELLED','COMPLETED','IN_PROGRESS','RECEIVED'
+-- 'ADMIN','LIVING','MAINTENANCE','NOISE','OTHER','PARKING'
+
+
