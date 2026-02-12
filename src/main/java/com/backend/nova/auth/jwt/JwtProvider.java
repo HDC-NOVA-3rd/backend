@@ -1,5 +1,6 @@
 package com.backend.nova.auth.jwt;
 
+import com.backend.nova.admin.entity.Admin;
 import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.admin.AdminDetailsService;
 import com.backend.nova.auth.member.MemberDetails;
@@ -84,6 +85,19 @@ public class JwtProvider {
                 .accessToken(createAccessToken(authentication))
                 .refreshToken(createRefreshToken(authentication.getName()))
                 .build();
+    }
+
+    public JwtToken generateAdminToken(Admin admin) {
+        AdminDetails adminDetails = new AdminDetails(admin);
+
+        Authentication authentication =
+                new UsernamePasswordAuthenticationToken(
+                        adminDetails,
+                        null,
+                        adminDetails.getAuthorities()
+                );
+
+        return generateToken(authentication);
     }
 
     // [신규] Access Token만 생성 (Refresh 요청 시 사용)

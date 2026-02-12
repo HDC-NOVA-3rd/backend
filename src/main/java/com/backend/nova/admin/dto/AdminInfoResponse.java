@@ -1,9 +1,9 @@
 package com.backend.nova.admin.dto;
 
-import com.backend.nova.admin.entity.Admin;
 
 import java.time.LocalDate;
 
+/* ================= 관리자 정보 응답 ================= */
 public record AdminInfoResponse(
         Long id,
         String loginId,
@@ -14,8 +14,4 @@ public record AdminInfoResponse(
         String profileImg,
         String role,
         Long apartmentId
-) {
-    public static AdminInfoResponse from(Admin admin) {
-        return null;
-    }
-}
+) {}

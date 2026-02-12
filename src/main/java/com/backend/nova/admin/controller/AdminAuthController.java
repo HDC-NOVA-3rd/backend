@@ -2,6 +2,9 @@ package com.backend.nova.admin.controller;
 
 import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.service.AdminService;
+import com.backend.nova.member.dto.RefreshTokenRequest;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -10,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Admin-Auth", description = "관리자 로그인 API")
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/admin/auth")
 @RequiredArgsConstructor
 public class AdminAuthController {
 
@@ -29,7 +32,7 @@ public class AdminAuthController {
     /**
      * 로그인 OTP 검증
      */
-    @PostMapping("/login/verify-otp-code")
+    @PostMapping("/login/otp")
     public ResponseEntity<AdminTokenResponse> loginVerifyOtp(
             @RequestBody @Valid AdminLoginConfirmRequest request
     ) {
@@ -45,7 +48,7 @@ public class AdminAuthController {
     public ResponseEntity<AdminMessageResponse> requestPasswordReset(
             @RequestBody @Valid AdminPasswordResetRequest request
     ) {
-        return ResponseEntity.ok(adminService.requestPasswordReset(request));
+        return ResponseEntity.ok(adminService.requestResetPassword(request));
     }
 
     /**
@@ -55,7 +58,18 @@ public class AdminAuthController {
     public ResponseEntity<AdminMessageResponse> resetPassword(
             @RequestBody @Valid AdminPasswordResetConfirmRequest request
     ) {
-        return ResponseEntity.ok(adminService.resetPassword(request));
+        return ResponseEntity.ok(adminService.confirmResetPassword(request));
+    }
+
+    /**
+     * Access 토큰 재발급 토큰 만료 시 접근성 확보
+     */
+    @Operation(summary = "Access 토큰 재발급", security = @SecurityRequirement(name = "bearerAuth"))
+    @PostMapping("/refresh")
+    public ResponseEntity<AdminTokenResponse> refresh(
+            @RequestBody RefreshTokenRequest request
+    ) {
+        return ResponseEntity.ok(adminService.refresh(request));
     }
 
 }
