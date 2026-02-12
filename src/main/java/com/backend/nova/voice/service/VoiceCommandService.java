@@ -31,7 +31,7 @@ public class VoiceCommandService {
 
         String recognizedText = speechToTextService.transcribe(audioBytes);
         if (recognizedText == null || recognizedText.isBlank()) {
-            String fallback = "I could not recognize speech.";
+            String fallback = "음성인식 실패했습니다.";
             return new VoiceAudioCommandResponse(
                     sessionId,
                     traceId,
