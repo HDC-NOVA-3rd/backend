@@ -1,6 +1,7 @@
 package com.backend.nova.oauth2.handler;
 
 import com.backend.nova.auth.jwt.JwtProvider;
+import com.backend.nova.member.dto.MemberLocationResponse;
 import com.backend.nova.member.dto.TokenResponse;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
@@ -72,9 +73,12 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
             // OAuth 인증 객체 대신, DB의 Member 정보로 새로운 Authentication 생성
             // 이유: 이렇게 해야 토큰의 Subject에 'loginId'가 들어갑니다.
-            Long apartmentId = memberRepository.findApartmentIdByMemberId(existMember.getId())
+            MemberLocationResponse locationDto = memberRepository.findApartmentIdByMemberId(existMember.getId())
                     .orElse(null);
-            MemberDetails memberDetails = new MemberDetails(existMember,apartmentId);
+            Long apartmentId = (locationDto != null) ? locationDto.apartmentId() : null;
+            Long hoId = (locationDto != null) ? locationDto.hoId() : null;
+
+            MemberDetails memberDetails = new MemberDetails(existMember,apartmentId, hoId);
             Authentication newAuth = new UsernamePasswordAuthenticationToken(memberDetails,null, memberDetails.getAuthorities());
 
             TokenResponse tokenResponse = jwtProvider.createTokenDto(newAuth, existMember.getId(), existMember.getName());
