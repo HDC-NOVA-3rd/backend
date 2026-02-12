@@ -38,7 +38,7 @@ public class WithMockMemberSecurityContextFactory implements WithSecurityContext
         ReflectionTestUtils.setField(member, "id", annotation.memberId());
 
         // 3. MemberDetails 생성 (Member 객체와 아파트 ID 주입)
-        MemberDetails principal = new MemberDetails(member, annotation.apartmentId());
+        MemberDetails principal = new MemberDetails(member, annotation.apartmentId(), annotation.hoId());
 
         // 4. 인증 토큰 생성
         UsernamePasswordAuthenticationToken token = new UsernamePasswordAuthenticationToken(

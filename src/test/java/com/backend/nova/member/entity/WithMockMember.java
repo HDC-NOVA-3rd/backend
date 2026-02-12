@@ -12,4 +12,5 @@ public @interface WithMockMember {
     String password() default "password";
     String name() default "테스트유저";
     long apartmentId() default 100L;
+    long hoId() default 100L;
 }
