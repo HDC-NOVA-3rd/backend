@@ -53,8 +53,20 @@ public class VoiceCommandService {
                     new ChatRequest(recognizedText, sessionId, memberId)
             );
         } catch (IllegalArgumentException e) {
-            log.warn("Voice request validation failed: {}", e.getMessage());
-            throw new BusinessException(ErrorCode.INVALID_REQUEST);
+            if (sessionId != null && !sessionId.isBlank()) {
+                log.warn("Voice session invalid. retrying with new session. sessionId={}, reason={}", sessionId, e.getMessage());
+                try {
+                    chatResponse = chatService.chat(
+                            new ChatRequest(recognizedText, null, memberId)
+                    );
+                } catch (IllegalArgumentException retryException) {
+                    log.warn("Voice request validation failed after retry: {}", retryException.getMessage());
+                    throw new BusinessException(ErrorCode.INVALID_REQUEST);
+                }
+            } else {
+                log.warn("Voice request validation failed: {}", e.getMessage());
+                throw new BusinessException(ErrorCode.INVALID_REQUEST);
+            }
         }
 
         String responseTraceId = extractTraceId(chatResponse.data());
@@ -62,12 +74,14 @@ public class VoiceCommandService {
             traceId = responseTraceId;
         }
 
+        String replyText = normalizeReplyText(chatResponse.answer());
+
         return new VoiceAudioCommandResponse(
                 chatResponse.sessionId(),
                 traceId,
                 recognizedText,
-                chatResponse.answer(),
-                chatResponse.answer(),
+                replyText,
+                replyText,
                 chatResponse.intent(),
                 chatResponse.data(),
                 buildActions(chatResponse),
@@ -84,6 +98,13 @@ public class VoiceCommandService {
             return null;
         }
         return String.valueOf(traceId);
+    }
+
+    private String normalizeReplyText(String answer) {
+        if (answer != null && !answer.isBlank()) {
+            return answer;
+        }
+        return "답변을 준비하지 못했어요. 다시 말씀해 주세요.";
     }
 
     private List<VoiceActionResponse> buildActions(ChatResponse chatResponse) {

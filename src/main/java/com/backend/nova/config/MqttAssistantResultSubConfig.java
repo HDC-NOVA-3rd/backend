@@ -35,7 +35,7 @@ public class MqttAssistantResultSubConfig {
                         mqttPahoClientFactory,
                         assistantTopic);
 
-        adapter.setCompletionTimeout(5000);
+        adapter.setCompletionTimeout(30000);
         adapter.setConverter(new DefaultPahoMessageConverter());
         adapter.setQos(1);
         adapter.setOutputChannel(mqttAssistantInputChannel());

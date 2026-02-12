@@ -37,7 +37,7 @@ public class MqttSafetySensorSubConfig {
                         mqttPahoClientFactory,
                         safetyTopic);
 
-        adapter.setCompletionTimeout(5000);
+        adapter.setCompletionTimeout(30000);
         adapter.setConverter(new DefaultPahoMessageConverter());
         adapter.setQos(2);
         adapter.setOutputChannel(mqttSafetyInputChannel);

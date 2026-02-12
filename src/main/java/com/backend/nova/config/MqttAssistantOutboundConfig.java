@@ -9,6 +9,7 @@
     import org.springframework.integration.mqtt.outbound.MqttPahoMessageHandler;
     import org.springframework.messaging.MessageChannel;
     import org.springframework.messaging.MessageHandler;
+    import java.util.UUID;
 
     @Configuration
     public class MqttAssistantOutboundConfig {
@@ -25,7 +26,7 @@
                 @Value("${spring.mqtt.client-id}") String clientId
         ) {
             MqttPahoMessageHandler handler =
-                    new MqttPahoMessageHandler(clientId + "_assistant_pub", mqttPahoClientFactory);
+                    new MqttPahoMessageHandler(clientId + "_assistant_pub_" + UUID.randomUUID(), mqttPahoClientFactory);
 
             handler.setAsync(true);// 비동기 전송
             handler.setDefaultQos(0);
