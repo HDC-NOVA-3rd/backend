@@ -112,9 +112,14 @@ public class MemberService {
         String encodedPassword = passwordEncoder.encode(request.password());
         Member member = request.toEntity(resident, encodedPassword);
 
+        MemberLocationResponse locationDto = memberRepository.findApartmentIdByMemberId(member.getId())
+                .orElse(null);
+        Long apartmentId = (locationDto != null) ? locationDto.apartmentId() : null;
+        Long hoId = (locationDto != null) ? locationDto.hoId() : null;
+
         memberRepository.save(member);
 
-        MemberDetails memberDetails = new MemberDetails(member,resident.getHo().getDong().getApartment().getId());
+        MemberDetails memberDetails = new MemberDetails(member,apartmentId,hoId);
 
         // 회원가입 후 자동 로그인을 위한 토큰 생성
         Authentication authentication = new UsernamePasswordAuthenticationToken(

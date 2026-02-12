@@ -13,9 +13,9 @@ public class MemberDetails extends User {
     private final Long memberId;
     private final String name;
     private final Long apartmentId;
-    private final Long hoId; // <-- 여기 추가
+    private final Long hoId;
 
-    public MemberDetails(Member member, Long apartmentId) {
+    public MemberDetails(Member member, Long apartmentId, Long hoId) {
         // 부모(User) 생성자 호출: (아이디, 비밀번호, 권한리스트)
         super(member.getLoginId(), member.getPassword(), List.of(new SimpleGrantedAuthority("MEMBER")));
 
@@ -23,6 +23,6 @@ public class MemberDetails extends User {
         this.memberId = member.getId();
         this.name = member.getName();
         this.apartmentId = apartmentId;
-        this.hoId = member.getResident().getHo().getId(); // <-- Resident → Ho → Id
+        this.hoId = hoId;
     }
 }
