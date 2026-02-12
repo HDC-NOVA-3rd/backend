@@ -40,7 +40,7 @@ public class MqttAssistantInboundHandler {
 
         log.info("MQTT assistant inbound topic={}, payload={}", topic, payload);
 
-        Long hoId = parseHoId(topic);
+        String hoId = parseHoId(topic);
         if (hoId == null) {
             log.warn("MQTT assistant inbound ignored: invalid topic={}", topic);
             return;
@@ -86,7 +86,7 @@ public class MqttAssistantInboundHandler {
         );
     }
 
-    private Long parseHoId(String topic) {
+    private String parseHoId(String topic) {
         if (topic == null || topic.isBlank()) return null;
 
         String[] parts = topic.split("/");
@@ -103,11 +103,7 @@ public class MqttAssistantInboundHandler {
         if (hoId == null || hoId.isBlank()) {
             return null;
         }
-        try {
-            return Long.parseLong(hoId);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return hoId;
     }
 
     @Data
