@@ -60,6 +60,8 @@ dependencies {
     // Spring Actuator (모니터링 툴)
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+    // Expo Server SDK
+    implementation 'io.github.hlspablo:expo-server-sdk-java:3.1.6'
     // OpenPDF (PDF변환)
     implementation 'com.github.librepdf:openpdf:1.3.30'
 }
