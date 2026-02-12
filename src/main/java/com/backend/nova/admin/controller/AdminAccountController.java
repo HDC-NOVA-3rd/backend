@@ -3,7 +3,6 @@ package com.backend.nova.admin.controller;
 import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.service.AdminService;
 import com.backend.nova.auth.admin.AdminDetails;
-import com.backend.nova.member.dto.RefreshTokenRequest;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +42,7 @@ public class AdminAccountController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @AuthenticationPrincipal AdminDetails adminDetails,
-            @RequestBody RefreshTokenRequest request
+            @RequestBody AdminRefreshTokenRequest request
     ) {
         adminService.logout(request.refreshToken());
         return ResponseEntity.ok().build();

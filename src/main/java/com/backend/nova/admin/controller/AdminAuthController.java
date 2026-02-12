@@ -2,7 +2,6 @@ package com.backend.nova.admin.controller;
 
 import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.service.AdminService;
-import com.backend.nova.member.dto.RefreshTokenRequest;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -67,7 +66,7 @@ public class AdminAuthController {
     @Operation(summary = "Access 토큰 재발급", security = @SecurityRequirement(name = "bearerAuth"))
     @PostMapping("/refresh")
     public ResponseEntity<AdminTokenResponse> refresh(
-            @RequestBody RefreshTokenRequest request
+            @RequestBody AdminRefreshTokenRequest request
     ) {
         return ResponseEntity.ok(adminService.refresh(request));
     }
