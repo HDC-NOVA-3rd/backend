@@ -98,10 +98,15 @@ public class SecurityConfig {
                         // 인증 없이 접근 가능
                         .requestMatchers("/api/admin/auth/**").permitAll()
                         .requestMatchers("/api/admin/account/**").permitAll()
-                        .requestMatchers("/api/admin/password/**").permitAll()
                         .requestMatchers("/api/admin/complaint/**").permitAll()
                         .requestMatchers("/api/admin/management-fee/**").permitAll()
                         .requestMatchers("/api/admin/bill/**").permitAll()
+                        .requestMatchers("/api/admin/notice**").permitAll()
+
+                        .requestMatchers("/api/safety/**").permitAll()
+                        .requestMatchers("/api/apartment/**").permitAll()
+                        .requestMatchers("/api/room/**").permitAll()
+
 
 
                         .requestMatchers("/api/resident/verify","/api/member/signup").permitAll()
