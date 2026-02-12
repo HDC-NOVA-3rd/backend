@@ -100,10 +100,7 @@ public class MqttAssistantInboundHandler {
         }
 
         String hoId = parts[1];
-        if (hoId == null || hoId.isBlank()) {
-            return null;
-        }
-        return hoId;
+        return (hoId == null || hoId.isBlank()) ? null : hoId;
     }
 
     @Data
