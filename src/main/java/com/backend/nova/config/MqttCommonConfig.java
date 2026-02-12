@@ -24,8 +24,11 @@ public class MqttCommonConfig {
         DefaultMqttPahoClientFactory factory = new DefaultMqttPahoClientFactory();
         MqttConnectOptions options = new MqttConnectOptions();
         options.setServerURIs(new String[]{brokerUrl});
-        options.setAutomaticReconnect(true);
+        // Spring Integration adapters already handle recovery; avoid reconnect race.
+        options.setAutomaticReconnect(false);
         options.setCleanSession(true);
+        options.setConnectionTimeout(15);
+        options.setKeepAliveInterval(30);
 
         // 인증 적용 (allow_anonymous false일 때를 위함)
         if (username != null && !username.isBlank()) {
