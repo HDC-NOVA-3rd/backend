@@ -6,18 +6,14 @@ import com.backend.nova.chat.service.ChatService;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
 import com.backend.nova.voice.dto.VoiceActionResponse;
-import com.backend.nova.voice.dto.VoiceAudioCommandRequest;
 import com.backend.nova.voice.dto.VoiceAudioCommandResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -25,46 +21,50 @@ import java.util.UUID;
 public class VoiceCommandService {
 
     private static final Logger log = LoggerFactory.getLogger(VoiceCommandService.class);
-    private static final Set<String> SUPPORTED_AUDIO_EXTENSIONS = Set.of(
-            "wav", "mp3", "m4a", "ogg", "webm", "aac"
-    );
 
-    private final SpeechToTextService speechToTextService;
+    private final HuggingFaceSpeechToTextService speechToTextService;
+    private final VoiceDeviceMemberResolver voiceDeviceMemberResolver;
     private final ChatService chatService;
 
-    public VoiceAudioCommandResponse handleAudioCommand(MultipartFile audioFile, VoiceAudioCommandRequest request) {
-        validateAudioFile(audioFile);
-        String requestId = normalizeRequestId(request.requestId());
+    public VoiceAudioCommandResponse handleAudioCommand(byte[] audioBytes, Long hoId, String sessionId) {
+        String traceId = UUID.randomUUID().toString();
 
-        String recognizedText = speechToTextService.transcribe(audioFile, request);
+        String recognizedText = speechToTextService.transcribe(audioBytes);
         if (recognizedText == null || recognizedText.isBlank()) {
             String fallback = "I could not recognize speech.";
             return new VoiceAudioCommandResponse(
-                    normalizeSessionId(request.sessionId()),
-                    requestId,
+                    sessionId,
+                    traceId,
                     "",
                     fallback,
                     fallback,
                     "STT_EMPTY",
-                    Map.of("deviceId", request.deviceId()),
+                    Map.of("hoId", hoId),
                     List.of(),
                     false
             );
         }
 
+        Long memberId = voiceDeviceMemberResolver.resolveMemberId(hoId);
+
         ChatResponse chatResponse;
         try {
             chatResponse = chatService.chat(
-                    new ChatRequest(recognizedText, request.sessionId(), request.memberId())
+                    new ChatRequest(recognizedText, sessionId, memberId)
             );
         } catch (IllegalArgumentException e) {
             log.warn("Voice request validation failed: {}", e.getMessage());
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
 
+        String responseTraceId = extractTraceId(chatResponse.data());
+        if (responseTraceId != null && !responseTraceId.isBlank()) {
+            traceId = responseTraceId;
+        }
+
         return new VoiceAudioCommandResponse(
                 chatResponse.sessionId(),
-                requestId,
+                traceId,
                 recognizedText,
                 chatResponse.answer(),
                 chatResponse.answer(),
@@ -73,6 +73,17 @@ public class VoiceCommandService {
                 buildActions(chatResponse),
                 false
         );
+    }
+
+    private String extractTraceId(Object data) {
+        if (!(data instanceof Map<?, ?> map)) {
+            return null;
+        }
+        Object traceId = map.get("traceId");
+        if (traceId == null) {
+            return null;
+        }
+        return String.valueOf(traceId);
     }
 
     private List<VoiceActionResponse> buildActions(ChatResponse chatResponse) {
@@ -96,42 +107,5 @@ public class VoiceCommandService {
                         metadata
                 )
         );
-    }
-
-    private void validateAudioFile(MultipartFile audioFile) {
-        if (audioFile == null || audioFile.isEmpty()) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        }
-
-        String filename = audioFile.getOriginalFilename();
-        String contentType = audioFile.getContentType();
-        boolean contentTypeAudio = contentType != null && contentType.startsWith("audio/");
-
-        if (filename == null || filename.isBlank() || !filename.contains(".")) {
-            if (!contentTypeAudio) {
-                throw new BusinessException(ErrorCode.INVALID_REQUEST);
-            }
-            return;
-        }
-
-        String extension = filename.substring(filename.lastIndexOf('.') + 1)
-                .toLowerCase(Locale.ROOT);
-        if (!SUPPORTED_AUDIO_EXTENSIONS.contains(extension) && !contentTypeAudio) {
-            throw new BusinessException(ErrorCode.INVALID_REQUEST);
-        }
-    }
-
-    private String normalizeRequestId(String requestId) {
-        if (requestId == null || requestId.isBlank()) {
-            return UUID.randomUUID().toString();
-        }
-        return requestId;
-    }
-
-    private String normalizeSessionId(String sessionId) {
-        if (sessionId == null || sessionId.isBlank()) {
-            return "";
-        }
-        return sessionId;
     }
 }

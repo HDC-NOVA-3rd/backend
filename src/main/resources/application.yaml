@@ -37,6 +37,7 @@ spring:
       safety: hdc/device/+/safety/data
       env: hdc/device/+/env/data
       assistant: hdc/+/assistant/execute/res
+      voice: hdc/+/assistant/voice/req
   ai:
     google:
       genai:
@@ -91,13 +92,16 @@ openweather:
   api-key: ${OPENWEATHER_API_KEY}
 otp:
   secret: ${OTP_SECRET}
+
+#ai 스피커
 voice:
   stt:
-    provider: ${VOICE_STT_PROVIDER:fallback}
+    provider: huggingface
     huggingface:
-      api-url: ${VOICE_STT_HF_API_URL:https://api-inference.huggingface.co/models/openai/whisper-large-v3}
-      api-token: ${HUGGINGFACE_API_TOKEN:}
-      timeout-seconds: ${VOICE_STT_TIMEOUT_SECONDS:90}
+      api-url: https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3-turbo
+      api-token: ${HUGGINGFACE_API_TOKEN}
+      timeout-seconds: 90
+
 # Monitoring System
 management:
   endpoints:

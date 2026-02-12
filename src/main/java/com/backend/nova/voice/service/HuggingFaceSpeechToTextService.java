@@ -1,93 +1,75 @@
 package com.backend.nova.voice.service;
 
-import com.backend.nova.voice.dto.VoiceAudioCommandRequest;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
+import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
+import java.util.Collections;
 
 @Service
 @RequiredArgsConstructor
-@ConditionalOnProperty(prefix = "voice.stt", name = "provider", havingValue = "huggingface")
-public class HuggingFaceSpeechToTextService implements SpeechToTextService {
+@ConditionalOnProperty(prefix = "voice.stt", name = "provider", havingValue = "huggingface", matchIfMissing = true)
+@Slf4j
+public class HuggingFaceSpeechToTextService {
 
-    private static final Logger log = LoggerFactory.getLogger(HuggingFaceSpeechToTextService.class);
-
-    private final WebClient.Builder webClientBuilder;
+    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
 
-    @Value("${voice.stt.huggingface.api-url:https://api-inference.huggingface.co/models/openai/whisper-large-v3}")
+    @Value("${voice.stt.huggingface.api-url:https://router.huggingface.co/hf-inference/models/openai/whisper-large-v3-turbo}")
     private String apiUrl;
 
     @Value("${voice.stt.huggingface.api-token:}")
     private String apiToken;
 
-    @Value("${voice.stt.huggingface.timeout-seconds:90}")
-    private long timeoutSeconds;
-
-    @Override
-    public String transcribe(MultipartFile audioFile, VoiceAudioCommandRequest request) {
-        if (request.mockText() != null && !request.mockText().isBlank()) {
-            return request.mockText().trim();
-        }
-
+    public String transcribe(byte[] audioBytes) {
         if (apiToken == null || apiToken.isBlank()) {
-            log.error("Hugging Face STT is selected but token is missing. deviceId={}", request.deviceId());
+            log.error("Hugging Face STT is selected but token is missing.");
             return "";
         }
 
         try {
-            String contentType = normalizeAudioContentType(audioFile.getContentType());
-            byte[] payload = audioFile.getBytes();
+            HttpHeaders headers = new HttpHeaders();
+            headers.set(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken);
+            headers.setContentType(MediaType.parseMediaType("audio/wav"));
+            headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+            HttpEntity<byte[]> requestEntity = new HttpEntity<>(audioBytes, headers);
 
-            String rawResponse = webClientBuilder.build()
-                    .post()
-                    .uri(apiUrl)
-                    .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiToken)
-                    .contentType(MediaType.parseMediaType(contentType))
-                    .bodyValue(payload)
-                    .retrieve()
-                    .onStatus(
-                            status -> status.isError(),
-                            response -> response.bodyToMono(String.class)
-                                    .defaultIfEmpty("")
-                                    .flatMap(body -> Mono.error(new IllegalStateException(
-                                            "HuggingFace STT request failed: " + response.statusCode() + ", body=" + body
-                                    )))
-                    )
-                    .bodyToMono(String.class)
-                    .timeout(Duration.ofSeconds(timeoutSeconds))
-                    .block();
+            ResponseEntity<String> response = restTemplate.exchange(
+                    apiUrl,
+                    HttpMethod.POST,
+                    requestEntity,
+                    String.class
+            );
+            String rawResponse = response.getBody();
 
             String transcript = extractTranscript(rawResponse);
             if (transcript.isBlank()) {
-                log.warn("HuggingFace STT returned empty transcript. deviceId={}, file={}",
-                        request.deviceId(), audioFile.getOriginalFilename());
+                log.warn("HuggingFace STT returned empty transcript.");
             }
             return transcript;
+        } catch (HttpStatusCodeException e) {
+            log.error("HuggingFace STT request failed. status={}, body={}",
+                    e.getStatusCode(), e.getResponseBodyAsString());
+            return "";
+        } catch (ResourceAccessException e) {
+            log.error("HuggingFace STT request timed out or is unreachable.", e);
+            return "";
         } catch (Exception e) {
-            log.error("HuggingFace STT failed. deviceId={}, file={}",
-                    request.deviceId(), audioFile.getOriginalFilename(), e);
+            log.error("HuggingFace STT failed.", e);
             return "";
         }
-    }
-
-    private String normalizeAudioContentType(String contentType) {
-        if (contentType == null || contentType.isBlank()) {
-            return "audio/wav";
-        }
-        return contentType;
     }
 
     private String extractTranscript(String rawResponse) {
@@ -97,36 +79,23 @@ public class HuggingFaceSpeechToTextService implements SpeechToTextService {
 
         try {
             JsonNode root = objectMapper.readTree(rawResponse);
-
-            if (root.isObject()) {
-                JsonNode textNode = root.get("text");
-                if (textNode != null && !textNode.isNull()) {
-                    return textNode.asText("").trim();
-                }
-                JsonNode generatedTextNode = root.get("generated_text");
-                if (generatedTextNode != null && !generatedTextNode.isNull()) {
-                    return generatedTextNode.asText("").trim();
-                }
-                JsonNode errorNode = root.get("error");
-                if (errorNode != null && !errorNode.isNull()) {
-                    log.warn("HuggingFace STT API returned error payload: {}", errorNode.asText(""));
-                }
+            if (!root.isObject()) {
+                log.warn("Unexpected HuggingFace STT response format: {}", rawResponse);
                 return "";
             }
 
-            if (root.isArray() && !root.isEmpty()) {
-                JsonNode first = root.get(0);
-                if (first.isObject()) {
-                    JsonNode textNode = first.get("text");
-                    if (textNode != null && !textNode.isNull()) {
-                        return textNode.asText("").trim();
-                    }
-                    JsonNode generatedTextNode = first.get("generated_text");
-                    if (generatedTextNode != null && !generatedTextNode.isNull()) {
-                        return generatedTextNode.asText("").trim();
-                    }
-                }
+            JsonNode textNode = root.get("text");
+            if (textNode != null && !textNode.isNull()) {
+                return textNode.asText("").trim();
             }
+
+            JsonNode errorNode = root.get("error");
+            if (errorNode != null && !errorNode.isNull()) {
+                log.warn("HuggingFace STT API returned error payload: {}", errorNode.asText(""));
+                return "";
+            }
+
+            log.warn("HuggingFace STT response does not contain text: {}", rawResponse);
         } catch (Exception e) {
             log.warn("Failed to parse HuggingFace STT response: {}", rawResponse, e);
         }

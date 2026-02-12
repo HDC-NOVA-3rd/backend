@@ -12,6 +12,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     Optional<Member> findByLoginId(String loginId);
     Optional<Member> findByEmail(String email);
     Optional<Member> findByResident_Id(Long residentId);
+    Optional<Member> findFirstByResident_Ho_IdOrderByIdAsc(Long hoId);
     Optional<Member> findByNameAndPhoneNumber(String name, String phoneNumber);
     Optional<Member> findByLoginIdAndNameAndPhoneNumber(String loginId, String name, String phoneNumber);
     @Query("SELECT a.id FROM Member m " +
