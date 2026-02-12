@@ -1,9 +1,9 @@
 package com.backend.nova.mqtt;
 
 import com.backend.nova.voice.dto.VoiceAudioCommandResponse;
+import com.backend.nova.voice.dto.VoiceMqttRequest;
 import com.backend.nova.voice.service.VoiceCommandService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.integration.annotation.ServiceActivator;
@@ -48,16 +48,16 @@ public class MqttVoiceInboundHandler {
             return;
         }
 
-        VoiceRequest req;
+        VoiceMqttRequest req;
         try {
-            req = objectMapper.readValue(payload, VoiceRequest.class);
+            req = objectMapper.readValue(payload, VoiceMqttRequest.class);
         } catch (Exception e) {
             log.error("MQTT voice payload parse failed. topic={}", topic, e);
             publishResponse(hoId, errorResponse("음성 요청 형식이 올바르지 않습니다.", "VOICE_BAD_REQUEST"));
             return;
         }
 
-        if (req.audio == null || req.audio.isBlank()) {
+        if (req.audio() == null || req.audio().isBlank()) {
             log.warn("MQTT voice inbound ignored: audio field missing. topic={}", topic);
             publishResponse(hoId, errorResponse("오디오 데이터가 없습니다.", "VOICE_BAD_REQUEST"));
             return;
@@ -65,7 +65,7 @@ public class MqttVoiceInboundHandler {
 
         byte[] audioBytes;
         try {
-            audioBytes = Base64.getDecoder().decode(req.audio);
+            audioBytes = Base64.getDecoder().decode(req.audio());
         } catch (IllegalArgumentException e) {
             log.error("MQTT voice base64 decode failed. topic={}", topic, e);
             publishResponse(hoId, errorResponse("오디오 디코딩에 실패했습니다.", "VOICE_BAD_REQUEST"));
@@ -74,7 +74,7 @@ public class MqttVoiceInboundHandler {
 
         VoiceAudioCommandResponse response;
         try {
-            response = voiceCommandService.handleAudioCommand(audioBytes, hoId, req.sessionId);
+            response = voiceCommandService.handleAudioCommand(audioBytes, hoId, req.sessionId());
         } catch (Exception e) {
             log.error("MQTT voice command processing failed. hoId={}", hoId, e);
             publishResponse(hoId, errorResponse("음성 명령 처리 중 오류가 발생했습니다.", "VOICE_PROCESSING_ERROR"));
@@ -132,11 +132,5 @@ public class MqttVoiceInboundHandler {
         } catch (NumberFormatException e) {
             return null;
         }
-    }
-
-    @Data
-    private static class VoiceRequest {
-        private String audio;
-        private String sessionId;
     }
 }
