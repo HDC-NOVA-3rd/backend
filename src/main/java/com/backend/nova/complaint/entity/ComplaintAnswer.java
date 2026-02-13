@@ -32,6 +32,10 @@ public class ComplaintAnswer {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String resultContent;
 
+    //소프트 딜리트용
+    @Column(nullable = false)
+    private boolean deleted;
+
     // 처리일
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

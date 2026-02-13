@@ -57,11 +57,19 @@ public class Complaint {
     @Column(nullable = false)
     private boolean deleted;
 
+    // 해결일
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime resolvedAt;
+
+    // 배정일
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime assignedAt;
+
     // 등록일
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // 수정일
+    // 변경일
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 

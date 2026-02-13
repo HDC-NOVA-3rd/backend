@@ -43,6 +43,10 @@ public class ComplaintReview {
     @Column(nullable = false, precision = 2, scale = 1)
     private BigDecimal rating;
 
+    //소프트 딜리트용
+    @Column(nullable = false)
+    private boolean deleted;
+
     // 등록일
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
