@@ -258,3 +258,27 @@ VALUES
 ('공용 복도 조명이 깜빡거립니다.', NOW(6), b'0', NOW(6), 'RECEIVED', '복도 조명 수리 요청', 'LIVING', NOW(6), 2, 1, 2);
 -- 'ASSIGNED','CANCELLED','COMPLETED','IN_PROGRESS','RECEIVED'
 -- 'ADMIN','LIVING','MAINTENANCE','NOISE','OTHER','PARKING'
+
+-- [reservation] 데이터
+-- 1. 과거 데이터: 이미 이용 완료된 예약 (COMPLETED)
+INSERT INTO reservation (member_id, space_id, start_time, end_time, capacity, total_price, owner_name, owner_phone, payment_method, qr_token, status)
+VALUES (1, 1, DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY) + INTERVAL 2 HOUR, 4, 20000, '홍길동', '010-1234-5678', 'ONLINE_PAYMENT', 'qr_past_001', 'COMPLETED');
+
+-- 2. 현재 데이터: 지금 이용 중인 예약 (INUSE)
+-- 현재 시간 기준 앞뒤로 걸쳐 있어 QR 이용 가능한 상태
+INSERT INTO reservation (member_id, space_id, start_time, end_time, capacity, total_price, owner_name, owner_phone, payment_method, qr_token, status)
+VALUES (1, 1, DATE_SUB(NOW(), INTERVAL 30 MINUTE), DATE_ADD(NOW(), INTERVAL 1 HOUR), 2, 10000, '홍길동', '010-1234-5678', 'MANAGEMENT_FEE', 'qr_now_002', 'INUSE');
+
+-- 3. 미래 데이터: 예약 확정 상태 (CONFIRMED)
+-- 내일 예약 건
+INSERT INTO reservation (member_id, space_id, start_time, end_time, capacity, total_price, owner_name, owner_phone, payment_method, qr_token, status)
+VALUES (1, 1, DATE_ADD(NOW(), INTERVAL 1 DAY), DATE_ADD(NOW(), INTERVAL 1 DAY) + INTERVAL 3 HOUR, 6, 30000, '홍길동', '010-1234-5678', 'ONLINE_PAYMENT', 'qr_future_003', 'CONFIRMED');
+
+-- 4. 취소 데이터: 사용자가 취소한 건 (CANCELLED)
+INSERT INTO reservation (member_id, space_id, start_time, end_time, capacity, total_price, owner_name, owner_phone, payment_method, qr_token, status)
+VALUES (1, 1, DATE_ADD(NOW(), INTERVAL 2 DAY), DATE_ADD(NOW(), INTERVAL 2 DAY) + INTERVAL 1 HOUR, 1, 5000, '홍길동', '010-1234-5678', 'MANAGEMENT_FEE', 'qr_cancel_004', 'CANCELLED');
+
+-- 5. 입장 임박 데이터: 곧 INUSE로 변경되어야 할 예약 (CONFIRMED)
+-- 시작 5분 전 데이터 (배치 작업 테스트용)
+INSERT INTO reservation (member_id, space_id, start_time, end_time, capacity, total_price, owner_name, owner_phone, payment_method, qr_token, status)
+VALUES (1, 1, DATE_ADD(NOW(), INTERVAL 5 MINUTE), DATE_ADD(NOW(), INTERVAL 65 MINUTE), 3, 15000, '김철수', '010-9999-8888', 'ONLINE_PAYMENT', 'qr_near_005', 'CONFIRMED');
