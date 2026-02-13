@@ -37,6 +37,7 @@ spring:
       safety: hdc/device/+/safety/data
       env: hdc/device/+/env/data
       assistant: hdc/+/assistant/execute/res
+      assistant-req: hdc/{hoId}/assistant/execute/req
   ai:
     google:
       genai:
