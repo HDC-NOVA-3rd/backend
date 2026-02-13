@@ -2212,34 +2212,60 @@ public class ChatService {
      * - 선택한 예약의 상세 정보를 조회한다.
      * - 이용 시간, 인원, 금액, 상태 정보를 반환한다.
      */
-    private ChatResponse handleReservationDetail(
-            String sessionId, ChatRequest req, LlmCommand cmd) {
+    private ChatResponse handleReservationDetail(String sessionId, ChatRequest req, LlmCommand cmd) {
 
         ChatSession session = chatSessionRepository.findById(sessionId).orElseThrow();
 
         Integer index = (cmd.slots().get("index") instanceof Number n) ? n.intValue() : null;
         if (index == null) {
-            return new ChatResponse(sessionId, "몇 번 예약을 볼까요?", "RESERVATION_DETAIL", Map.of());
+            return new ChatResponse(sessionId, "몇 번 예약을 볼까요? (예: 1번)", "RESERVATION_DETAIL", Map.of());
         }
 
         Map<String, Object> pending = readPendingSlots(session);
-        List<Map<String, Object>> list =
-                (List<Map<String, Object>>) pending.get("reservations");
+        Object listObj = pending.get("reservations");
 
-        Long reservationId = (Long) list.get(index - 1).get("reservationId");
+        if (!(listObj instanceof List<?> rawList) || rawList.isEmpty()) {
+            // pending이 없거나 만료/다른 intent로 덮였을 때
+            return new ChatResponse(
+                    sessionId,
+                    "예약 목록이 없거나 만료됐어. 먼저 '내 예약 목록 보여줘'를 다시 입력해줘.",
+                    "RESERVATION_LIST",
+                    Map.of()
+            );
+        }
 
-        ReservationResponse r =
-                reservationService.getReservationDetails(req.memberId(), reservationId);
+        int i = index - 1;
+        if (i < 0 || i >= rawList.size()) {
+            return new ChatResponse(
+                    sessionId,
+                    "번호가 범위를 벗어났어. 1부터 " + rawList.size() + " 중에서 골라줘.",
+                    "RESERVATION_DETAIL",
+                    Map.of()
+            );
+        }
+
+        Object rowObj = rawList.get(i);
+        if (!(rowObj instanceof Map<?, ?> row)) {
+            return new ChatResponse(sessionId, "예약 정보를 읽을 수 없어요. 다시 '내 예약 목록 보여줘'를 입력해줘.", "RESERVATION_LIST", Map.of());
+        }
+
+        Object ridObj = row.get("reservationId");
+        Long reservationId = (ridObj instanceof Number nn) ? nn.longValue() : null;
+        if (reservationId == null) {
+            return new ChatResponse(sessionId, "예약 ID를 찾을 수 없어요. 다시 '내 예약 목록 보여줘'를 입력해줘.", "RESERVATION_LIST", Map.of());
+        }
+
+        ReservationResponse r = reservationService.getReservationDetails(req.memberId(), reservationId);
 
         clearPending(session);
 
         String answer = """
-            📌 %s
-            시간: %s ~ %s
-            인원: %d명
-            금액: %d원
-            상태: %s
-            """.formatted(
+        📌 %s
+        시간: %s ~ %s
+        인원: %d명
+        금액: %d원
+        상태: %s
+        """.formatted(
                 r.spaceName(),
                 r.startTime(),
                 r.endTime(),
@@ -2248,13 +2274,9 @@ public class ChatService {
                 r.status()
         );
 
-        return new ChatResponse(
-                sessionId,
-                answer,
-                "RESERVATION_DETAIL",
-                Map.of("reservation", r)
-        );
+        return new ChatResponse(sessionId, answer, "RESERVATION_DETAIL", Map.of("reservation", r));
     }
+
     private String normalizeDeviceCode(String deviceType) {
         String t = safeString(deviceType).toUpperCase();
         if (t.isBlank()) return "";
