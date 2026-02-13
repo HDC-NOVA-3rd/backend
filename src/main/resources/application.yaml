@@ -1,4 +1,7 @@
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration #구글 api 끄기
   application:
     name: nova # 애플리케이션 이름 설정
   config:
@@ -45,7 +48,18 @@ spring:
         project-id: ${GOOGLE_PROJECT_ID}
         chat:
           options:
-            model: gemini-2.5-flash
+            model: openai/gpt-oss-safeguard-20b:nitro
+    openai-sdk:
+      api-key: ${OPENROUTER_API_KEY}
+      base-url: https://openrouter.ai/api/v1
+      custom-headers:
+        HTTP-Referer: ${OPENROUTER_HTTP_REFERER:http://localhost}
+        X-Title: ${OPENROUTER_X_TITLE:nova}
+      chat:
+        options:
+          model: google/gemini-3-flash-preview
+          temperature: 0.7
+
 
   #OAuth 설정
   security:
