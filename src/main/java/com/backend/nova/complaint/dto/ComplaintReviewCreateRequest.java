@@ -5,7 +5,7 @@ import lombok.Builder;
 import java.math.BigDecimal;
 
 @Builder
-public record ComplaintFeedbackCreateRequest(
+public record ComplaintReviewCreateRequest(
         String content,
         BigDecimal rating
 ) {}

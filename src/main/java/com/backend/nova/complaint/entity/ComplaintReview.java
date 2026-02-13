@@ -2,7 +2,9 @@ package com.backend.nova.complaint.entity;
 
 import com.backend.nova.member.entity.Member;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.*;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -12,8 +14,9 @@ import java.time.LocalDateTime;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
-@Table(name = "complaint_feedback")
-public class ComplaintFeedback {
+@Table(name = "complaint_review")
+@EntityListeners(AuditingEntityListener.class) // Audit 기능 추가
+public class ComplaintReview {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -33,8 +36,11 @@ public class ComplaintFeedback {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    // 별점 (1~5)
-    @Column(precision = 2, scale = 1)
+    // 별점 (0~5)
+    @DecimalMin(value = "0.0")
+    @DecimalMax(value = "5.0")
+    @Digits(integer = 1, fraction = 1) // 정수 1자리, 소수 1자리 (0.0~5.0)
+    @Column(nullable = false, precision = 2, scale = 1)
     private BigDecimal rating;
 
     // 등록일

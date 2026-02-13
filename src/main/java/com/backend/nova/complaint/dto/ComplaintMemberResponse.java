@@ -8,7 +8,7 @@ import lombok.Builder;
 import java.time.LocalDateTime;
 
 @Builder
-public record ComplaintResponse(
+public record ComplaintMemberResponse(
         Long id,
         ComplaintType type,
         ComplaintStatus status,
@@ -20,8 +20,8 @@ public record ComplaintResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {
-    public static ComplaintResponse from(Complaint complaint) {
-        return ComplaintResponse.builder()
+    public static ComplaintMemberResponse from(Complaint complaint) {
+        return ComplaintMemberResponse.builder()
                 .id(complaint.getId())
                 .type(complaint.getType())
                 .status(complaint.getStatus())
