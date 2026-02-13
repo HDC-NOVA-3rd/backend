@@ -11,11 +11,15 @@ import com.backend.nova.management.entity.ManagementFee;
 import com.backend.nova.management.repository.ManagementFeeRepository;
 //import com.backend.nova.meter.entity.MeterFee;
 //import com.backend.nova.meter.repository.MeterFeeRepository;
+import com.backend.nova.reservation.entity.PaymentMethod;
+import com.backend.nova.reservation.entity.Reservation;
+import com.backend.nova.reservation.entity.Status;
 import com.backend.nova.reservation.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
@@ -94,8 +98,36 @@ public class BillGenerationService {
             // =============================
             // 5. 커뮤니티 사용료(예약) → BillItem
             // =============================
+            // 고지서에 포함할 예약 상태들 (취소 제외 전부)
+            List<Status> billableStatuses = List.of(Status.CONFIRMED, Status.INUSE, Status.COMPLETED);
+
+            List<Reservation> reservations =
+                    reservationRepository.findMonthlyManagementFeeReservations(
+                            ho.getId(),
+                            PaymentMethod.MANAGEMENT_FEE,
+                            billableStatuses, // 상태 조건 확장
+                            startOfMonth,
+                            endOfMonth
+                    );
+
+            for (Reservation reservation : reservations) {
+                // 시설 이름을 가져오려면 Space 엔티티가 필요하므로 name을 동적으로 구성
+                String spaceName = (reservation.getSpace() != null) ? reservation.getSpace().getName() : "커뮤니티 시설";
+                String itemName = String.format("%s 이용료", spaceName);
+
+                BillItem item = BillItem.builder()
+                        .itemType(BillItemType.COMMUNITY)
+                        .referenceId(reservation.getId())
+                        .name(itemName)
+                        .price(BigDecimal.valueOf(reservation.getTotalPrice()))
+                        .build();
+
+                bill.addItem(item);
+                hasAnyItem = true;
+            }
+
 //            List<Reservation> reservations =
-//                    reservationRepository.findByMember_Ho_IdAndPaymentMethodAndStatusAndStartTimeBetween(
+//                    reservationRepository.findByMember_Resident_HoIdAndPaymentMethodAndStatusAndStartTimeBetween(
 //                            ho.getId(),
 //                            PaymentMethod.MANAGEMENT_FEE,
 //                            Status.CONFIRMED,
@@ -108,6 +140,36 @@ public class BillGenerationService {
 //                        .itemType(BillItemType.COMMUNITY)
 //                        .referenceId(reservation.getId())
 //                        .name("커뮤니티 시설 이용료")
+//                        .price(BigDecimal.valueOf(reservation.getTotalPrice()))
+//                        .build();
+//
+//                bill.addItem(item);
+//                hasAnyItem = true;
+//            }
+
+
+            // 해당 세대(Ho)의 멤버들이 예약한 내역 중
+            // 결제 수단이 '관리비'이고, 상태가 '취소'가 아닌 '시작 시간' 기준 해당 월 내역 조회
+//            List<Status> targetStatuses = List.of(Status.CONFIRMED, Status.INUSE, Status.COMPLETED);
+//
+//            List<Reservation> reservations =
+//                    reservationRepository.findMonthlyManagementFeeReservations(
+//                            ho.getId(),
+//                            PaymentMethod.MANAGEMENT_FEE,
+//                            targetStatuses,
+//                            startOfMonth,
+//                            endOfMonth
+//                    );
+//
+//            for (Reservation reservation : reservations) {
+//                // 예약한 시설명(Space Name)을 포함하면 입주민이 더 알아보기 쉽습니다.
+//                String itemName = String.format("커뮤니티(%s) 이용료", reservation.getSpace().getName());
+//
+//                BillItem item = BillItem.builder()
+//                        .itemType(BillItemType.COMMUNITY)
+//                        .referenceId(reservation.getId())
+//                        .name(itemName)
+//                        // int totalPrice를 BigDecimal로 변환
 //                        .price(BigDecimal.valueOf(reservation.getTotalPrice()))
 //                        .build();
 //
