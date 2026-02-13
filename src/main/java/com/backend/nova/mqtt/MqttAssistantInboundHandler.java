@@ -33,7 +33,6 @@ public class MqttAssistantInboundHandler {
      * payload: {"traceId":"...","status":"SUCCESS","message":"LED ON"}
      */
     @Transactional
-    @ServiceActivator(inputChannel = "mqttAssistantInputChannel")
     public void handleMessage(Message<String> message) {
         String payload = message.getPayload();
         String topic = (String) message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC);

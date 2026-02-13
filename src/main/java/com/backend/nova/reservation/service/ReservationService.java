@@ -6,6 +6,7 @@ import com.backend.nova.global.notification.NotificationService;
 import com.backend.nova.global.notification.PushMessageRequest;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
+import com.backend.nova.mqtt.MqttEntranceOutbound;
 import com.backend.nova.reservation.dto.OccupiedReservationResponse;
 import com.backend.nova.reservation.dto.ReservationRequest;
 import com.backend.nova.reservation.dto.ReservationResponse;
@@ -14,6 +15,7 @@ import com.backend.nova.reservation.entity.Status;
 import com.backend.nova.reservation.repository.ReservationRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,14 +23,12 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class ReservationService {
 
@@ -36,6 +36,7 @@ public class ReservationService {
     private final SpaceRepository spaceRepository;
     private final MemberRepository memberRepository; // 회원 조회용
     private final NotificationService notificationService;
+    private final MqttEntranceOutbound mqttEntranceOutbound;
 
     /**
      * 내 예약 목록 조회
@@ -133,6 +134,21 @@ public class ReservationService {
 
         Member member = memberRepository.getReferenceById(memberId);
 
+        // 예약 시작 시간이 (현재 시간 + 10분)보다 이전이거나 같다면, 바로 입장 가능(INUSE) 상태로 설정
+        Status initialStatus = Status.CONFIRMED;
+        LocalDateTime entryAvailableThreshold = LocalDateTime.now().plusMinutes(10);
+
+        String pushToken = member.getPushToken();
+
+
+        if (!request.startTime().isAfter(entryAvailableThreshold)) {
+            initialStatus = Status.INUSE;
+            // 토큰이 유효한 경우만 메시지 생성
+            PushMessageRequest messageRequest = notificationService.sendNotification(pushToken, "입장 안내", "예약하신 시설에 바로 입장 가능합니다.");
+
+            notificationService.sendPushMessages(List.of(messageRequest));
+        }
+
         // 6. 예약 엔티티 생성
         Reservation reservation = Reservation.builder()
                 .space(space)
@@ -145,7 +161,7 @@ public class ReservationService {
                 .ownerPhone(request.ownerPhone())
                 .paymentMethod(request.paymentMethod())
                 .qrToken(UUID.randomUUID().toString()) // 입장용 QR 토큰 생성
-                .status(Status.CONFIRMED)   // 혹은 결제 전이면 PENDING
+                .status(initialStatus)   // 혹은 결제 전이면 PENDING
                 .build();
 
         // 7. 저장
@@ -175,18 +191,8 @@ public class ReservationService {
             String pushToken = member.getPushToken();
 
             // 토큰이 유효한 경우만 메시지 생성
-            if (pushToken != null && !pushToken.isBlank()) {
-
-                // 깔끔하게 DTO 생성 (Builder 패턴 활용)
-                PushMessageRequest message = PushMessageRequest.builder()
-                        .to(pushToken)
-                        .title("입장 안내")
-                        .body("예약하신 [" + reservation.getSpace().getName() + "] 이 현재 입장 가능합니다.")
-                        .data(Map.of("url", "/member/reservations"))  // expo에서 push될 route
-                        .build();
-
-                messages.add(message);
-            }
+            PushMessageRequest messageRequest = notificationService.sendNotification(pushToken, "입장 안내", "예약하신 [" + reservation.getSpace().getName() + "] 이 현재 입장 가능합니다.");
+            messages.add(messageRequest);
         }
 
         // 2. 알림 서비스에 전송 위임 (배치 전송)
@@ -213,19 +219,9 @@ public class ReservationService {
         for (Reservation reservation : targets) {
             Member member = reservation.getMember();
             String pushToken = member.getPushToken();
-
             // 토큰이 유효한 경우만 메시지 생성
-            if (pushToken != null && !pushToken.isBlank()) {
-
-                // 깔끔하게 DTO 생성 (Builder 패턴 활용)
-                PushMessageRequest message = PushMessageRequest.builder()
-                        .to(pushToken)
-                        .title("종료 안내")
-                        .body("예약하신 [" + reservation.getSpace().getName() + "] 이용 시간이 10분 남았습니다.")
-                        .build();
-
-                messages.add(message);
-            }
+            PushMessageRequest messageRequest = notificationService.sendNotification(pushToken, "종료 안내", "예약하신 [" + reservation.getSpace().getName() + "] 이용 시간이 10분 남았습니다.");
+            messages.add(messageRequest);
         }
 
         // 2. 알림 서비스에 전송 위임 (배치 전송)
@@ -248,5 +244,63 @@ public class ReservationService {
         for (Reservation reservation : targets) {
             reservation.changeStatus(Status.COMPLETED); // QR 만료됨
         }
+    }
+
+    /**
+     * 출입 인증 및 알림 발송
+     * - 성공/실패 시 Push 알림 전송
+     */
+    @Transactional
+    public boolean verifyAndNotify(String spaceId, String qrToken) {
+        // 1. QR 토큰으로 예약 조회
+        Optional<Reservation> optional = reservationRepository.findByQrToken(qrToken);
+
+        // 토큰이 DB에 아예 없는 경우: 누군지 특정할 수 없으므로 알림 없이 실패 처리
+        if (optional.isEmpty()) {
+            return false;
+        }
+
+        Reservation reservation = optional.get();
+        Member member = reservation.getMember();
+        String pushToken = member.getPushToken();
+
+        // 2. 시설(Space ID) 일치 여부 검증
+        // 라즈베리파이에서 보내준 spaceId(String)와 예약된 spaceId(Long) 비교
+        String reservedSpaceId = String.valueOf(reservation.getSpace().getId());
+
+        if (!reservedSpaceId.equals(spaceId)) {
+            PushMessageRequest messageRequest = notificationService.sendNotification(pushToken, "입장 실패", "해당 시설에 대한 예약이 아닙니다.");
+            log.info("입장 실패 시설 에러");
+            notificationService.sendPushMessages(List.of(messageRequest));
+            return false;
+        }
+
+        // 3. 상태 검증 (INUSE 상태: 예약 시작 10분 전 ~ 종료 10분 후)
+        else if (reservation.getStatus() != Status.INUSE) {
+            PushMessageRequest messageRequest = notificationService.sendNotification(pushToken, "입장 실패", "현재 입장 가능한 시간이 아닙니다.");
+            log.info("입장 실패 시간 에러");
+            notificationService.sendPushMessages(List.of(messageRequest));
+            return false;
+        }
+
+        // 4. 인증 성공
+        PushMessageRequest messageRequest = notificationService.sendNotification(pushToken, "입장 성공", "인증되었습니다. 문이 열립니다.");
+        log.info("입장 성공 알림");
+        notificationService.sendPushMessages(List.of(messageRequest));
+        return true;
+    }
+
+    // 모바일 요청 -> 검증 -> 스캔 명령
+    public void requestScan(Long memberId, Long spaceId) {
+        // 1. 예약 검증 로직 (선택사항: 현재 시간에 예약이 있는지 등) ??
+        /*
+        boolean hasRight = reservationRepository.existsByMemberIdAndSpaceIdAndStatus(
+                memberId, spaceId, Status.INUSE
+        );
+        if (!hasRight) throw new IllegalArgumentException("유효한 예약이 없습니다.");
+        */
+
+        // 2. 명령 전송
+        mqttEntranceOutbound.sendScanCommand(String.valueOf(spaceId));
     }
 }

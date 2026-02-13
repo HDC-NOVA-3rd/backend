@@ -27,9 +27,8 @@ public class MqttVoiceInboundHandler {
 
     private final ObjectMapper objectMapper;
     private final VoiceCommandService voiceCommandService;
-    private final MessageChannel mqttAssistantOutboundChannel;
+    private final MessageChannel mqttOutboundChannel;
 
-    @ServiceActivator(inputChannel = "mqttVoiceInputChannel")
     public void handleMessage(Message<String> message) {
         String payload = message.getPayload();
         String topic = (String) message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC);
@@ -91,7 +90,7 @@ public class MqttVoiceInboundHandler {
             Message<String> outMsg = MessageBuilder.withPayload(resPayload)
                     .setHeader(MqttHeaders.TOPIC, resTopic)
                     .build();
-            mqttAssistantOutboundChannel.send(outMsg);
+            mqttOutboundChannel.send(outMsg);
             log.info("MQTT voice response published. topic={}, intent={}", resTopic, response.intent());
         } catch (Exception e) {
             log.error("MQTT voice response publish failed. topic={}", resTopic, e);

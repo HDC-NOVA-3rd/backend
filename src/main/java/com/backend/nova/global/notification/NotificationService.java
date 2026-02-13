@@ -10,11 +10,40 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 @Slf4j
 @Service
 public class NotificationService {
+
+    // 1. [기본] 데이터(Data)가 포함된 알림 전송 메서드 ( 모바일 redirect 용도)
+    public PushMessageRequest sendNotification(String pushToken, String title, String body, Map<String, Object> data) {
+        if (pushToken != null && !pushToken.isBlank()) {
+
+            // 빌더 시작
+            PushMessageRequest.PushMessageRequestBuilder builder = PushMessageRequest.builder()
+                    .to(pushToken)
+                    .title(title)
+                    .body(body);
+
+            // 데이터가 존재할 경우에만 세팅
+            if (data != null && !data.isEmpty()) {
+                builder.data(data);
+            }
+
+            // 전송
+            return builder.build();
+        }
+        return null;
+    }
+
+    // 2. 데이터가 필요 없는 경우를 위한 메서드
+    public PushMessageRequest sendNotification(String pushToken, String title, String body) {
+        // data에 null을 넘겨서 위 메서드를 호출
+        return sendNotification(pushToken, title, body, null);
+    }
+
     /**
      * [배치 전송] 여러 건의 알림을 한 번에 전송
      * - 자동으로 100개씩 쪼개서(Chunking) 전송함
@@ -63,7 +92,5 @@ public class NotificationService {
         }
 
         return CompletableFuture.completedFuture(null);
-
-
     }
 }
