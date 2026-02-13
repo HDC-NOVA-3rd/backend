@@ -1,4 +1,6 @@
 spring:
+  main:
+    lazy-initialization: true # Bean 지연 로딩
   config:
     import: optional:classpath:config/secrets.yaml #secrets.yaml 파일로 값 읽어오기
   datasource:
@@ -18,8 +20,10 @@ spring:
     init:
       mode: never
   mqtt:
-    url: tcp://localhost:1883
-    client-id: test-client
+    url: tcp://${MQTT_BROKER_IP}:${MQTT_PORT}
+    client-id: ${CLIENT_ID}
+    username: ${MQTT_USERNAME}
+    password: ${MQTT_PASSWORD}
     topic:
       safety: hdc/device/+/safety/data
       env: hdc/device/+/env/data

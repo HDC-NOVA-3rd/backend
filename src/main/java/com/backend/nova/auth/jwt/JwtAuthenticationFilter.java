@@ -23,10 +23,20 @@ public class JwtAuthenticationFilter extends GenericFilterBean {
 
     @Override
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) throws IOException, ServletException {
-        // 1. Header 에서 Access 토큰 추출
-        String accessToken = resolveToken((HttpServletRequest) request);
-        try{
-            // 2. 토큰 유효성 검사 후 인증객체 저장 (토큰이 맞는 값일 때 저장)
+        HttpServletRequest httpRequest = (HttpServletRequest) request;
+        String path = httpRequest.getRequestURI();
+
+        // 1. 로그인 및 OTP 인증 경로는 토큰 검증 로직을 타지 않고 바로 다음 필터로 이동
+        if (path.startsWith("/api/admin/auth/login") || path.startsWith("/api/admin/auth/password")) {
+            chain.doFilter(request, response);
+            return;
+        }
+
+        // 2. Header 에서 Access 토큰 추출
+        String accessToken = resolveToken(httpRequest);
+
+        try {
+            // 3. 토큰 유효성 검사 후 인증객체 저장
             if (accessToken != null && jwtProvider.validateToken(accessToken)) {
                 Authentication authentication = jwtProvider.getAuthentication(accessToken);
                 SecurityContextHolder.getContext().setAuthentication(authentication);

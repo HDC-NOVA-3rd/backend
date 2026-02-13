@@ -14,4 +14,7 @@ public interface ManagementFeeRepository extends JpaRepository<ManagementFee, Lo
     List<ManagementFee> findByApartmentIdAndActiveFalse(Long apartmentId); // 삭제만 조회
 
     boolean existsByApartmentIdAndNameAndActiveTrue(Long apartmentId, String name);
+
+    //단지 관리비 항목 조회 (활성만)
+    List<ManagementFee> findByApartment_IdAndActiveTrue(Long apartmentId);
 }

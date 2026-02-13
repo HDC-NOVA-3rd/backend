@@ -1,17 +1,14 @@
 package com.backend.nova.chat.controller;
 
+import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.chat.dto.ChatMessageResponse;
 import com.backend.nova.chat.dto.ChatSessionSummaryResponse;
-import com.backend.nova.chat.entity.ChatSession;
 import com.backend.nova.chat.service.ChatHistoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.RestController;
-
-
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -22,10 +19,11 @@ import java.util.List;
 public class ChatHistoryController {
 
     private final ChatHistoryService chatHistoryService;
+
     @Operation(
             summary = "이전 대화 세션 목록 조회",
             description = """
-    memberId 기준으로 사용자의 대화 세션 목록을 최신순으로 조회합니다.
+    로그인 사용자(memberId)를 기준으로 사용자의 대화 세션 목록을 최신순으로 조회합니다.
 
     [사용 목적]
     - 앱/웹의 '이전 대화 목록' 화면에 사용
@@ -39,6 +37,7 @@ public class ChatHistoryController {
 
     [주의]
     - 삭제된(soft delete) 세션은 조회되지 않습니다.
+    - memberId는 요청 파라미터로 받지 않으며, Access Token에서 추출합니다.
     """
     )
     @ApiResponses({
@@ -46,8 +45,10 @@ public class ChatHistoryController {
             @ApiResponse(responseCode = "404", description = "해당 memberId의 세션이 존재하지 않음")
     })
     @GetMapping("/sessions")
-    public List<ChatSessionSummaryResponse> sessions(@RequestParam Long memberId) {
-        return chatHistoryService.getSessions(memberId);
+    public List<ChatSessionSummaryResponse> sessions(
+            @AuthenticationPrincipal MemberDetails user
+    ) {
+        return chatHistoryService.getSessions(user.getMemberId());
     }
 
     @Operation(
@@ -71,12 +72,11 @@ public class ChatHistoryController {
     })
     @GetMapping("/sessions/{sessionId}/messages")
     public List<ChatMessageResponse> messages(
-            @RequestParam Long memberId,
+            @AuthenticationPrincipal MemberDetails user,
             @PathVariable String sessionId
     ) {
-        return chatHistoryService.getMessages(memberId, sessionId);
+        return chatHistoryService.getMessages(user.getMemberId(), sessionId);
     }
-
 
     @Operation(
             summary = "대화 세션 단일 삭제",
@@ -88,7 +88,7 @@ public class ChatHistoryController {
     - 삭제된 세션은 이후 조회되지 않습니다.
 
     [권한 검증]
-    - 요청한 memberId의 세션만 삭제 가능합니다.
+    - 로그인 사용자(memberId)의 세션만 삭제 가능합니다.
     """
     )
     @ApiResponses({
@@ -97,17 +97,16 @@ public class ChatHistoryController {
     })
     @DeleteMapping("/sessions/{sessionId}")
     public void deleteSession(
-            @RequestParam Long memberId,
+            @AuthenticationPrincipal MemberDetails user,
             @PathVariable String sessionId
     ) {
-        chatHistoryService.deleteSession(memberId, sessionId);
+        chatHistoryService.deleteSession(user.getMemberId(), sessionId);
     }
-
 
     @Operation(
             summary = "대화 세션 전체 삭제",
             description = """
-    memberId에 해당하는 모든 대화 세션을 삭제(soft delete) 처리합니다.
+    로그인 사용자(memberId)에 해당하는 모든 대화 세션을 삭제(soft delete) 처리합니다.
 
     [사용 예]
     - '전체 대화 삭제' 버튼
@@ -116,15 +115,16 @@ public class ChatHistoryController {
     [특징]
     - 메시지는 직접 삭제하지 않으며
     - 세션 기준으로 숨김 처리됩니다.
+    - memberId는 요청 파라미터로 받지 않으며, Access Token에서 추출합니다.
     """
     )
     @ApiResponses({
             @ApiResponse(responseCode = "204", description = "전체 세션 삭제 성공")
     })
     @DeleteMapping("/sessions")
-    public void deleteAll(@RequestParam Long memberId) {
-        chatHistoryService.deleteAllSessions(memberId);
+    public void deleteAll(
+            @AuthenticationPrincipal MemberDetails user
+    ) {
+        chatHistoryService.deleteAllSessions(user.getMemberId());
     }
-
-
 }
