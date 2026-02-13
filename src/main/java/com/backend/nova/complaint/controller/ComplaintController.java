@@ -57,13 +57,6 @@ public class ComplaintController {
     }
 
 
-    //    public ResponseEntity<Void> deleteComplaint(
-    //            @PathVariable("complaintId") Long complaintId,
-    //            @AuthenticationPrincipal MemberDetails memberDetails) {
-    //
-    //        complaintService.deleteComplaint(complaintId, memberId);
-    //        return ResponseEntity.ok().build();
-    //    }
 
     /* ================= 관리자 배정 (관리자) ================= */
     @Operation(summary = "관리자 배정", description = "민원에 담당 관리자를 배정합니다.", security = @SecurityRequirement(name = "bearerAuth"))
@@ -209,7 +202,7 @@ public class ComplaintController {
     }
 
 
-    @Operation(summary = "삭제된 민원 조회 (슈퍼 관리자)")
+    @Operation(summary = "삭제된 민원 조회 (일반, 슈퍼 관리자)")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/list/deleted")
     public ResponseEntity<List<ComplaintMemberResponse>> getDeletedComplaints(
