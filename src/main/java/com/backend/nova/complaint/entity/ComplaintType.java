@@ -6,5 +6,5 @@ public enum ComplaintType {
     PARKING,      // 주차
     MAINTENANCE,  // 시설
     ADMIN,        // 행정
-    GENERAL       // 기타
+    OTHER         // 기타
 }

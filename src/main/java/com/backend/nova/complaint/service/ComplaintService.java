@@ -8,10 +8,10 @@ import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.complaint.dto.*;
 import com.backend.nova.complaint.entity.Complaint;
 import com.backend.nova.complaint.entity.ComplaintAnswer;
-import com.backend.nova.complaint.entity.ComplaintFeedback;
+import com.backend.nova.complaint.entity.ComplaintReview;
 import com.backend.nova.complaint.entity.ComplaintStatus;
 import com.backend.nova.complaint.repository.ComplaintAnswerRepository;
-import com.backend.nova.complaint.repository.ComplaintFeedbackRepository;
+import com.backend.nova.complaint.repository.ComplaintReviewRepository;
 import com.backend.nova.complaint.repository.ComplaintRepository;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
@@ -31,7 +31,7 @@ public class ComplaintService {
     private final AdminRepository adminRepository;
     private final ComplaintRepository complaintRepository;
     private final ComplaintAnswerRepository complaintAnswerRepository;
-    private final ComplaintFeedbackRepository complaintFeedbackRepository;
+    private final ComplaintReviewRepository complaintReviewRepository;
 
     /* ================= 멤버가 민원 등록 ================= */
     public void createComplaint(Long memberId, ComplaintCreateRequest request) {
@@ -228,29 +228,29 @@ public class ComplaintService {
     }
 
 
-    /* ================= 멤버가 피드백 등록 ================= */
-    public void createFeedback(Long complaintId, Long memberId, ComplaintFeedbackCreateRequest request) {
+    /* ================= 멤버가 리뷰 등록 ================= */
+    public void createReview(Long complaintId, Long memberId, ComplaintReviewCreateRequest request) {
         Complaint complaint = findComplaint(complaintId);
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원 없음"));
 
         if (!complaint.getStatus().equals(ComplaintStatus.COMPLETED)) {
-            throw new IllegalStateException("해결 완료된 민원만 피드백 가능");
+            throw new IllegalStateException("해결 완료된 민원만 리뷰등록 가능");
         }
 
-        if (complaintFeedbackRepository.findByComplaint_Id(complaintId).isPresent()) {
-            throw new IllegalStateException("이미 피드백이 등록된 민원입니다.");
+        if (complaintReviewRepository.findByComplaint_Id(complaintId).isPresent()) {
+            throw new IllegalStateException("이미 리뷰가 등록된 민원입니다.");
         }
 
 
-        ComplaintFeedback feedback = ComplaintFeedback.builder()
+        ComplaintReview review = ComplaintReview.builder()
                 .complaint(complaint)
                 .member(member)
                 .content(request.content())
                 .rating(request.rating())
                 .build();
 
-        complaintFeedbackRepository.save(feedback);
+        complaintReviewRepository.save(review);
     }
 
     /* ================= 공통 민원 조회 ================= */
@@ -262,33 +262,33 @@ public class ComplaintService {
 
     //민원 상세 조회
     @Transactional(readOnly = true)
-    public ComplaintResponse getComplaintDetail(Long complaintId) {
+    public ComplaintMemberResponse getComplaintDetail(Long complaintId) {
         Complaint complaint = complaintRepository.findById(complaintId)
                 .orElseThrow(() -> new IllegalArgumentException("민원 없음"));
 
-        return ComplaintResponse.from(complaint);
+        return ComplaintMemberResponse.from(complaint);
     }
 
 
 
 
     // 멤버 본인 민원 목록
-    public List<ComplaintResponse> getComplaintsByMember(Long memberId) {
+    public List<ComplaintMemberResponse> getComplaintsByMember(Long memberId) {
         return complaintRepository.findByMember_IdAndDeletedFalse(memberId).stream()
-                .map(ComplaintResponse::from)
+                .map(ComplaintMemberResponse::from)
                 .toList();
     }
 
     // 관리자 전체 조회 (아파트 기준)
-    public List<ComplaintResponse> getComplaintsByApartment(Long apartmentId) {
+    public List<ComplaintMemberResponse> getComplaintsByApartment(Long apartmentId) {
         return complaintRepository.findByMember_Resident_Ho_Dong_Apartment_IdAndDeletedFalse(apartmentId)
                 .stream()
-                .map(ComplaintResponse::from)
+                .map(ComplaintMemberResponse::from)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<ComplaintResponse> getDeletedComplaints(AdminDetails adminDetails) {
+    public List<ComplaintMemberResponse> getDeletedComplaints(AdminDetails adminDetails) {
 
         if (adminDetails.getRoleEnum() != AdminRole.SUPER_ADMIN) {
             throw new AccessDeniedException("슈퍼 관리자만 조회할 수 있습니다.");
@@ -297,7 +297,7 @@ public class ComplaintService {
         Long apartmentId = adminDetails.getApartmentId();
 
         return complaintRepository.findByDeletedTrueAndApartment_Id(apartmentId).stream()
-                .map(ComplaintResponse::from)
+                .map(ComplaintMemberResponse::from)
                 .toList();
     }
 
