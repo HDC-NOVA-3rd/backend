@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-public interface ComplaintFeedbackRepository extends JpaRepository<ComplaintReview, Long> {
+public interface ComplaintReviewRepository extends JpaRepository<ComplaintReview, Long> {
 
     // 민원당 피드백 1개만 허용할 경우
     Optional<ComplaintReview> findByComplaint_Id(Long complaintId);

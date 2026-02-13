@@ -15,6 +15,7 @@ public record ComplaintResponse(
         String title,
         String content,
         Long memberId,
+        String memberName,
         Long adminId,
         Long apartmentId,
         LocalDateTime createdAt,
@@ -28,6 +29,7 @@ public record ComplaintResponse(
                 .title(complaint.getTitle())
                 .content(complaint.getContent())
                 .memberId(complaint.getMember().getId())
+                .memberName(complaint.getMember().getName())
                 .adminId(complaint.getAdmin() != null ? complaint.getAdmin().getId() : null)
                 .apartmentId(complaint.getApartment().getId())
                 .createdAt(complaint.getCreatedAt())

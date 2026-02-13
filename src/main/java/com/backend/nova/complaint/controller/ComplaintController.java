@@ -140,7 +140,7 @@ public class ComplaintController {
 
     /* ================= 관리자 배정 (관리자) ================= */
     @Operation(summary = "관리자 배정", description = "민원에 담당 관리자를 배정합니다.", security = @SecurityRequirement(name = "bearerAuth"))
-    @PreAuthorize("hasRole('ADMIN')")
+    //@PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{complaintId}/assign")
     public ResponseEntity<Void> assignAdmin(
             @PathVariable Long complaintId,
@@ -157,7 +157,7 @@ public class ComplaintController {
 
     /* ================= 민원 상태 변경 (관리자) ================= */
     @Operation(summary = "민원 상태 변경", description = "관리자가 민원 상태를 변경합니다.")
-    @PreAuthorize("hasRole('ADMIN')")
+    //@PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{complaintId}/status")
     public ResponseEntity<Void> changeStatus(
             @PathVariable Long complaintId,
@@ -174,7 +174,7 @@ public class ComplaintController {
 
     /* ================= 민원 답변 등록 (관리자) ================= */
     @Operation(summary = "민원 답변 등록", description = "관리자가 민원에 답변을 등록합니다.")
-    @PreAuthorize("hasRole('ADMIN')")
+    //@PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{complaintId}/answers")
     public ResponseEntity<Void> createAnswer(
             @PathVariable Long complaintId,
@@ -191,7 +191,7 @@ public class ComplaintController {
 
     /* ================= 민원 해결 완료 (관리자) ================= */
     @Operation(summary = "민원 해결 완료", description = "관리자가 민원을 해결 완료 처리합니다.")
-    @PreAuthorize("hasRole('ADMIN')")
+    //@PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{complaintId}/complete")
     public ResponseEntity<Void> completeComplaint(
             @PathVariable Long complaintId,
@@ -206,7 +206,7 @@ public class ComplaintController {
 
     // ================= 관리자 민원 상세 조회 =================
     @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/{complaintId}/apartment")
+    //@GetMapping("/{complaintId}/apartment")
     public ResponseEntity<ComplaintResponse> getComplaintByAdmin(
             @PathVariable Long complaintId,
             @AuthenticationPrincipal AdminDetails admin) {
@@ -222,7 +222,7 @@ public class ComplaintController {
 
     /* ================= 아파트별 민원 목록 통합 조회 (관리자, 슈퍼 관리자) ================= */
     @Operation(summary = "아파트별 민원 목록 조회", description = "관리자가 아파트의 민원 목록을 조회합니다. active 파라미터로 삭제 여부를 필터링합니다.")
-    @PreAuthorize("hasRole('ADMIN')")
+    //@PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/list/apartment")
     public ResponseEntity<List<ComplaintResponse>> getComplaintsByAdmin(
             @AuthenticationPrincipal AdminDetails adminDetails,
@@ -230,7 +230,7 @@ public class ComplaintController {
             @RequestParam(required = false) Boolean active) {
 
         return ResponseEntity.ok(
-                complaintService.getComplaints(adminDetails.getApartmentId(), active)
+                complaintService.getComplaintsByApartment(adminDetails.getApartmentId(), active)
         );
     }
 

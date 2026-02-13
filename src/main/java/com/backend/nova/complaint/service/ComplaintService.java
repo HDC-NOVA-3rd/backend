@@ -11,7 +11,7 @@ import com.backend.nova.complaint.entity.ComplaintAnswer;
 import com.backend.nova.complaint.entity.ComplaintReview;
 import com.backend.nova.complaint.entity.ComplaintStatus;
 import com.backend.nova.complaint.repository.ComplaintAnswerRepository;
-import com.backend.nova.complaint.repository.ComplaintFeedbackRepository;
+import com.backend.nova.complaint.repository.ComplaintReviewRepository;
 import com.backend.nova.complaint.repository.ComplaintRepository;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
@@ -31,7 +31,7 @@ public class ComplaintService {
     private final AdminRepository adminRepository;
     private final ComplaintRepository complaintRepository;
     private final ComplaintAnswerRepository complaintAnswerRepository;
-    private final ComplaintFeedbackRepository complaintFeedbackRepository;
+    private final ComplaintReviewRepository complaintReviewRepository;
 
     /* ================= 멤버가 민원 등록 ================= */
     public void createComplaint(Long memberId, ComplaintCreateRequest request) {
@@ -238,7 +238,7 @@ public class ComplaintService {
             throw new IllegalStateException("해결 완료된 민원만 피드백 가능");
         }
 
-        if (complaintFeedbackRepository.findByComplaint_Id(complaintId).isPresent()) {
+        if (complaintReviewRepository.findByComplaint_Id(complaintId).isPresent()) {
             throw new IllegalStateException("이미 피드백이 등록된 민원입니다.");
         }
 
@@ -250,7 +250,7 @@ public class ComplaintService {
                 .rating(request.rating())
                 .build();
 
-        complaintFeedbackRepository.save(feedback);
+        complaintReviewRepository.save(feedback);
     }
 
     /* ================= 공통 민원 조회 ================= */
@@ -301,23 +301,59 @@ public class ComplaintService {
                 .toList();
     }
 
-    @Transactional(readOnly = true)
-    public List<ComplaintResponse> getComplaints(Long apartmentId, Boolean active) {
-        List<Complaint> complaints;
+    public List<ComplaintResponse> getComplaintsByApartment(Long apartmentId, Boolean active) {
+        System.out.println("==== 조회 시도 ====");
+        System.out.println("관리자 아파트 ID: " + apartmentId);
 
-        if (active == null) {
-            // 전체 조회 (삭제된 것 포함)
-            complaints = complaintRepository.findByApartmentId(apartmentId);
-        } else {
-            // active가 true면 deleted=false인 것, active가 false면 deleted=true인 것 조회
-            boolean isDeleted = !active;
-            complaints = complaintRepository.findByApartmentIdAndDeleted(apartmentId, isDeleted);
-        }
+        List<Complaint> complaints = (active == null)
+                ? complaintRepository.findByApartmentId(apartmentId)
+                : complaintRepository.findByApartmentIdAndDeleted(apartmentId, !active);
 
-        return complaints.stream()
-                .map(ComplaintResponse::from)
-                .toList();
+        System.out.println("DB 조회 결과 개수: " + complaints.size());
+        return complaints.stream().map(ComplaintResponse::from).toList();
     }
+//    @Transactional(readOnly = true)
+//    public List<ComplaintResponse> getComplaintsByApartment(Long apartmentId, Boolean active) {
+//        List<Complaint> complaints;
+//
+//        if (active == null) {
+//            // active가 전송되지 않으면 전체 조회 (삭제 여부 상관없이)
+//            complaints = complaintRepository.findByApartmentId(apartmentId);
+//        } else {
+//            // active가 true면 deleted=false, false면 deleted=true인 것 조회
+//            complaints = complaintRepository.findByApartmentIdAndDeleted(apartmentId, !active);
+//        }
+//
+//        return complaints.stream()
+//                .map(ComplaintResponse::from)
+//                .toList();
+//    }
+
+//    @Transactional(readOnly = true)
+//    public List<ComplaintResponse> getComplaintsByApartment(Long apartmentId, Boolean active) {
+//       List<Complaint> complaints;
+//
+//        if (active == null) {
+//            // 전체 조회 (삭제된 것 포함)
+//            complaints = complaintRepository.findByApartmentId(apartmentId);
+//        } else {
+//            // active가 true면 deleted=false인 것, active가 false면 deleted=true인 것 조회
+//            boolean isDeleted = !active;
+//            complaints = complaintRepository.findByApartmentIdAndDeleted(apartmentId, isDeleted);
+//        }
+//
+//        return complaints.stream()
+//                .map(ComplaintResponse::from)
+//                .toList();
+//        return complaintRepository.findByMember_Resident_Ho_Dong_Apartment_IdAndDeletedFalse(apartmentId)
+//                .stream()
+//                .map(ComplaintResponse::from)
+//                .toList();
+//        return complaintRepository.findByApartmentId(apartmentId)
+//                .stream()
+//                .map(ComplaintResponse::from)
+//                .toList();
+//    }
 
     @Transactional(readOnly = true)
     public List<ComplaintResponse> getDeletedComplaints(AdminDetails adminDetails) {
