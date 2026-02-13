@@ -9,4 +9,6 @@ public interface ComplaintReviewRepository extends JpaRepository<ComplaintReview
 
     // 민원당 사용자 댓글 1개만 허용할 경우
     Optional<ComplaintReview> findByComplaint_Id(Long complaintId);
+
+    boolean existsByComplaintId(Long complaintId);
 }

@@ -15,6 +15,7 @@ import com.backend.nova.complaint.repository.ComplaintReviewRepository;
 import com.backend.nova.complaint.repository.ComplaintRepository;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -73,6 +74,9 @@ public class ComplaintService {
 
         if (!complaint.getMember().getId().equals(memberId)) {
             throw new IllegalStateException("본인 민원만 삭제 가능");
+        }
+        if (complaint.getStatus() == ComplaintStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 민원은 삭제할 수 없습니다.");
         }
 
         complaint.softDelete();
@@ -242,6 +246,10 @@ public class ComplaintService {
             throw new IllegalStateException("이미 리뷰가 등록된 민원입니다.");
         }
 
+        if (complaintReviewRepository.existsByComplaintId(complaintId)) {
+            throw new IllegalStateException("이미 리뷰가 등록된 민원입니다.");
+        }
+
 
         ComplaintReview review = ComplaintReview.builder()
                 .complaint(complaint)
@@ -260,35 +268,43 @@ public class ComplaintService {
     }
 
 
-    //민원 상세 조회
+    //멤버 본인 민원 상세 조회
     @Transactional(readOnly = true)
-    public ComplaintMemberResponse getComplaintDetail(Long complaintId) {
+    public ComplaintDetailResponse getComplaintDetail(Long complaintId) {
         Complaint complaint = complaintRepository.findById(complaintId)
-                .orElseThrow(() -> new IllegalArgumentException("민원 없음"));
+                .orElseThrow(() -> new EntityNotFoundException("민원을 찾을 수 없습니다."));
 
-        return ComplaintMemberResponse.from(complaint);
+        // 1. 해당 민원에 대한 리뷰가 있는지 확인
+        boolean hasReview = complaintReviewRepository.existsByComplaintId(complaintId);
+
+        // 2. 답변 정보 조회 (Repository가 Optional<ComplaintAnswer>를 반환한다고 가정)
+        ComplaintAnswerResponse answerDto = complaintAnswerRepository.findByComplaintId(complaintId)
+                .map(ComplaintAnswerResponse::from)
+                .orElse(null);
+
+        return ComplaintDetailResponse.of(complaint, hasReview, answerDto);
     }
 
 
 
 
     // 멤버 본인 민원 목록
-    public List<ComplaintMemberResponse> getComplaintsByMember(Long memberId) {
+    public List<ComplaintResponse> getComplaintsByMember(Long memberId) {
         return complaintRepository.findByMember_IdAndDeletedFalse(memberId).stream()
-                .map(ComplaintMemberResponse::from)
+                .map(ComplaintResponse::from)
                 .toList();
     }
 
     // 관리자 전체 조회 (아파트 기준)
-    public List<ComplaintMemberResponse> getComplaintsByApartment(Long apartmentId) {
+    public List<ComplaintResponse> getComplaintsByApartment(Long apartmentId) {
         return complaintRepository.findByMember_Resident_Ho_Dong_Apartment_IdAndDeletedFalse(apartmentId)
                 .stream()
-                .map(ComplaintMemberResponse::from)
+                .map(ComplaintResponse::from)
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public List<ComplaintMemberResponse> getDeletedComplaints(AdminDetails adminDetails) {
+    public List<ComplaintResponse> getDeletedComplaints(AdminDetails adminDetails) {
 
         if (adminDetails.getRoleEnum() != AdminRole.SUPER_ADMIN) {
             throw new AccessDeniedException("슈퍼 관리자만 조회할 수 있습니다.");
@@ -297,7 +313,7 @@ public class ComplaintService {
         Long apartmentId = adminDetails.getApartmentId();
 
         return complaintRepository.findByDeletedTrueAndApartment_Id(apartmentId).stream()
-                .map(ComplaintMemberResponse::from)
+                .map(ComplaintResponse::from)
                 .toList();
     }
 
