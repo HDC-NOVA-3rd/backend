@@ -87,7 +87,7 @@
                 case 1 -> "좋음";
                 case 2 -> "보통";
                 case 3 -> "나쁨";
-                case 4 -> "매우 나쁨";
+                case 4, 5 -> "매우 나쁨";
                 default -> "정보 없음";
             };
             return new OpenWeatherResponse(temperature, humidity, airQuality, locationName, condition);

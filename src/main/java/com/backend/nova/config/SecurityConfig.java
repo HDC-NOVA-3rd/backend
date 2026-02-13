@@ -113,7 +113,7 @@ public class SecurityConfig {
                         //로그인 페이지 API -> 접근 허용
                         .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
                         //Swagger 페이지 API -> 접근 허용
-                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
+                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/voice/**").permitAll()
                         // 이미지 경로에 권한 x 처리
                         .requestMatchers("/images/**").permitAll()
@@ -211,7 +211,7 @@ public class SecurityConfig {
                         //로그인 페이지 API -> 접근 허용
                         .requestMatchers("/api/member/refresh", "/api/member/login", "/api/member/findInfo", "/api/member/resetPW", "/api/member/oauth/exchange").permitAll()
                         //Swagger 페이지 API -> 접근 허용
-                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**","/api/chat/**").permitAll()
+                        .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/voice/**").permitAll()
                         //모니터링 툴 API -> 접근 허용
                         .requestMatchers("/actuator/prometheus").permitAll()

@@ -1,6 +1,7 @@
 package com.backend.nova.homeEnvironment.repository;
 
 import com.backend.nova.homeEnvironment.entity.Device;
+import com.backend.nova.homeEnvironment.entity.DeviceType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -14,4 +15,6 @@ public interface DeviceRepository extends JpaRepository<Device, Long> {
     Optional<Device> findByDeviceCode(String deviceCode);
     // "이 roomId 안에서" deviceCode로 찾기
     Optional<Device> findByRoom_IdAndDeviceCode(Long roomId, String deviceCode);
+    // "이 roomId 안에서" deviceType로 찾기
+    Optional<Device> findByRoom_IdAndType(Long roomId, DeviceType type);
 }
