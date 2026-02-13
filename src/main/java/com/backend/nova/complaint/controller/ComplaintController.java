@@ -57,13 +57,70 @@ public class ComplaintController {
     }
 
 
-    //    public ResponseEntity<Void> deleteComplaint(
-    //            @PathVariable("complaintId") Long complaintId,
-    //            @AuthenticationPrincipal MemberDetails memberDetails) {
-    //
-    //        complaintService.deleteComplaint(complaintId, memberId);
-    //        return ResponseEntity.ok().build();
-    //    }
+
+
+
+    /* ================= 민원 피드백 (입주민) ================= */
+    @Operation(summary = "민원 피드백 등록", description = "입주민이 민원 처리에 대한 피드백을 남깁니다.")
+    @PreAuthorize("hasRole('MEMBER')")
+    @PostMapping("/{complaintId}/feedbacks")
+    public ResponseEntity<Void> createFeedback(
+            @PathVariable Long complaintId,
+            @AuthenticationPrincipal @Parameter(hidden = true) MemberDetails memberDetails,
+            @RequestBody ComplaintReviewCreateRequest request) {
+
+        complaintService.createReview(
+                complaintId,
+                memberDetails.getMemberId(),
+                request
+        );
+        return ResponseEntity.ok().build();
+    }
+
+
+
+    /* ================= 내 민원 목록 조회 (입주민) ================= */
+    @Operation(summary = "내 민원 목록 조회", description = "로그인한 입주민의 민원 목록을 조회합니다.")
+    @PreAuthorize("hasRole('MEMBER')")
+    @GetMapping("/list/member")
+    public ResponseEntity<List<ComplaintMemberResponse>> getMyComplaints(
+            @AuthenticationPrincipal MemberDetails memberDetails) {
+
+        List<ComplaintMemberResponse> complaints =
+                complaintService.getComplaintsByMember(memberDetails.getMemberId());
+        return ResponseEntity.ok(complaints);
+    }
+
+    // ================= 민원 상세 조회 =================
+    @PreAuthorize("hasRole('MEMBER')")
+    @GetMapping("/{complaintId}/member")
+    public ResponseEntity<ComplaintMemberResponse> getComplaintByMember(
+            @PathVariable Long complaintId,
+            @AuthenticationPrincipal MemberDetails member) {
+
+        ComplaintMemberResponse response = complaintService.getComplaintDetail(complaintId);
+
+        if (!response.memberId().equals(member.getMemberId())) {
+            throw new AccessDeniedException("본인 민원만 조회 가능");
+        }
+
+        return ResponseEntity.ok(response);
+    }
+
+    /* ================= 민원 삭제 (입주민) ================= */
+    @Operation(summary = "민원 삭제", description = "입주민이 본인의 민원을 삭제합니다.")
+    @PreAuthorize("hasRole('MEMBER')")
+    @DeleteMapping("/{complaintId}")
+    public ResponseEntity<Void> deleteComplaint(
+            @PathVariable Long complaintId,
+            @AuthenticationPrincipal @Parameter(hidden = true) MemberDetails memberDetails
+    ) {
+        complaintService.deleteComplaint(
+                complaintId,
+                memberDetails.getMemberId()
+        );
+        return ResponseEntity.noContent().build();
+    }
 
     /* ================= 관리자 배정 (관리자) ================= */
     @Operation(summary = "관리자 배정", description = "민원에 담당 관리자를 배정합니다.", security = @SecurityRequirement(name = "bearerAuth"))
@@ -131,37 +188,6 @@ public class ComplaintController {
         return ResponseEntity.ok().build();
     }
 
-    /* ================= 민원 피드백 (입주민) ================= */
-    @Operation(summary = "민원 피드백 등록", description = "입주민이 민원 처리에 대한 피드백을 남깁니다.")
-    @PreAuthorize("hasRole('MEMBER')")
-    @PostMapping("/{complaintId}/feedbacks")
-    public ResponseEntity<Void> createFeedback(
-            @PathVariable Long complaintId,
-            @AuthenticationPrincipal @Parameter(hidden = true) MemberDetails memberDetails,
-            @RequestBody ComplaintReviewCreateRequest request) {
-
-        complaintService.createReview(
-                complaintId,
-                memberDetails.getMemberId(),
-                request
-        );
-        return ResponseEntity.ok().build();
-    }
-
-
-
-    /* ================= 내 민원 목록 조회 (입주민) ================= */
-    @Operation(summary = "내 민원 목록 조회", description = "로그인한 입주민의 민원 목록을 조회합니다.")
-    @PreAuthorize("hasRole('MEMBER')")
-    @GetMapping("/list/member")
-    public ResponseEntity<List<ComplaintMemberResponse>> getMyComplaints(
-            @AuthenticationPrincipal MemberDetails memberDetails) {
-
-        List<ComplaintMemberResponse> complaints =
-                complaintService.getComplaintsByMember(memberDetails.getMemberId());
-        return ResponseEntity.ok(complaints);
-    }
-
     /* ================= 아파트별 민원 목록 조회 (관리자) ================= */
     @Operation(summary = "아파트별 민원 목록 조회", description = "관리자가 아파트 단지별 민원 목록을 조회합니다.")
     @PreAuthorize("hasRole('ADMIN')")
@@ -176,21 +202,7 @@ public class ComplaintController {
         );
     }
 
-    // ================= 민원 상세 조회 =================
-    @PreAuthorize("hasRole('MEMBER')")
-    @GetMapping("/{complaintId}/member")
-    public ResponseEntity<ComplaintMemberResponse> getComplaintByMember(
-            @PathVariable Long complaintId,
-            @AuthenticationPrincipal MemberDetails member) {
 
-        ComplaintMemberResponse response = complaintService.getComplaintDetail(complaintId);
-
-        if (!response.memberId().equals(member.getMemberId())) {
-            throw new AccessDeniedException("본인 민원만 조회 가능");
-        }
-
-        return ResponseEntity.ok(response);
-    }
 
     // ================= 관리자 민원 상세 조회 =================
     @PreAuthorize("hasRole('ADMIN')")
@@ -209,7 +221,7 @@ public class ComplaintController {
     }
 
 
-    @Operation(summary = "삭제된 민원 조회 (슈퍼 관리자)")
+    @Operation(summary = "삭제된 민원 조회 (일반, 슈퍼 관리자)")
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/list/deleted")
     public ResponseEntity<List<ComplaintMemberResponse>> getDeletedComplaints(
@@ -221,19 +233,6 @@ public class ComplaintController {
     }
 
 
-    /* ================= 민원 삭제 (입주민) ================= */
-    @Operation(summary = "민원 삭제", description = "입주민이 본인의 민원을 삭제합니다.")
-    @PreAuthorize("hasRole('MEMBER')")
-    @DeleteMapping("/{complaintId}")
-    public ResponseEntity<Void> deleteComplaint(
-            @PathVariable Long complaintId,
-            @AuthenticationPrincipal @Parameter(hidden = true) MemberDetails memberDetails
-    ) {
-        complaintService.deleteComplaint(
-                complaintId,
-                memberDetails.getMemberId()
-        );
-        return ResponseEntity.noContent().build();
-    }
+
 
 }

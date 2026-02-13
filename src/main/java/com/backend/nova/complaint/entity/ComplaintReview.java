@@ -4,7 +4,6 @@ import com.backend.nova.member.entity.Member;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
-import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -15,7 +14,6 @@ import java.time.LocalDateTime;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @Builder
 @Table(name = "complaint_review")
-@EntityListeners(AuditingEntityListener.class) // Audit 기능 추가
 public class ComplaintReview {
 
     @Id
@@ -44,15 +42,25 @@ public class ComplaintReview {
     private BigDecimal rating;
 
     //소프트 딜리트용
+    @Builder.Default
     @Column(nullable = false)
-    private boolean deleted;
+    private boolean deleted = false;
 
     // 등록일
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }

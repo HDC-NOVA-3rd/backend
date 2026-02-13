@@ -54,8 +54,9 @@ public class Complaint {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Builder.Default
     @Column(nullable = false)
-    private boolean deleted;
+    private boolean deleted = false;
 
     // 해결일
     @Column(nullable = false, updatable = false)
