@@ -9,10 +9,13 @@ import org.springframework.integration.mqtt.core.MqttPahoClientFactory;
 import org.springframework.integration.mqtt.inbound.MqttPahoMessageDrivenChannelAdapter;
 import org.springframework.integration.mqtt.support.DefaultPahoMessageConverter;
 import org.springframework.messaging.MessageChannel;
+import lombok.extern.slf4j.Slf4j;
 
+import java.util.Arrays;
 import java.util.UUID;
 
 @Configuration
+@Slf4j
 public class MqttInboundConfig {
 
     @Value("${spring.mqtt.client-id}")
@@ -41,6 +44,8 @@ public class MqttInboundConfig {
                 voiceTopic,
                 entranceTopic // Topic 추가되면 여기에 이어 작성
         };
+
+        log.info("MQTT Inbound Subscribing to topics: {}", Arrays.toString(topics));
 
         MqttPahoMessageDrivenChannelAdapter adapter =
                 new MqttPahoMessageDrivenChannelAdapter(clientId + UUID.randomUUID(), factory, topics);

@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 public interface ReservationRepository extends JpaRepository<Reservation, Long> {
 
@@ -44,4 +45,6 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     // 3. 완료 처리할 예약 조회 (종료 시간 10분 후 && 상태가 IN_USE)
     List<Reservation> findAllByStatusAndEndTimeBefore(Status status, LocalDateTime end);
 
+    // QR 토큰으로 예약 정보 단건 조회
+    Optional<Reservation> findByQrToken(String qrToken);
 }

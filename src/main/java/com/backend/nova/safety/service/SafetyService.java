@@ -412,7 +412,7 @@ public class SafetyService {
                     .build();
 
             mqttOutboundChannel.send(message);
-            log.info("Published safety update to MQTT: apartmentId={}, status={}", scopeContext.apartmentId(), statusTo);
+//            log.info("Published safety update to MQTT: apartmentId={}, status={}", scopeContext.apartmentId(), statusTo);
         } catch (Exception e) {
             log.error("Failed to publish safety update to MQTT", e);
         }

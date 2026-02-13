@@ -6,7 +6,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.integration.annotation.ServiceActivator;
 import org.springframework.integration.mqtt.support.MqttHeaders;
 import org.springframework.messaging.Message;
 import org.springframework.stereotype.Service;
@@ -23,7 +22,7 @@ public class MqttSafetyInboundHandler {
         String payload = message.getPayload();
         String topic = (String) message.getHeaders().get(MqttHeaders.RECEIVED_TOPIC);
 
-        log.info("MQTT safety inbound topic={}, payload={}", topic, payload);
+//        log.info("MQTT safety inbound topic={}, payload={}", topic, payload);
 
         if (payload == null || payload.isBlank()) {
             log.warn("MQTT safety ignored: empty payload topic={}", topic);

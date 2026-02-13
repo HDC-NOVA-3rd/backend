@@ -17,7 +17,7 @@ public class MqttRouterService {
     private final MqttEnvSaveHandler envSaveHandler;
     private final MqttAssistantInboundHandler assistantHandler;
     private final MqttVoiceInboundHandler voiceHandler;
-    private final MqttEntranceHandler entranceHandler;
+    private final MqttEntranceInbound entranceInbound;
 
     // 모든 MQTT SUB 메시지를 라우팅하여 해당 핸들러에 전달
     @ServiceActivator(inputChannel = "mqttInputChannel")
@@ -48,7 +48,7 @@ public class MqttRouterService {
             }
             // 출입 QR 인증
             else if (topic.contains("/entrance/verify")) {
-                entranceHandler.handleVerification(message);
+                entranceInbound.handleVerification(message);
             } else {
                 log.warn("핸들링되지 않은 토픽입니다: {}", topic);
             }

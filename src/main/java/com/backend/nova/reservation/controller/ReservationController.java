@@ -97,4 +97,15 @@ public class ReservationController {
         return ResponseEntity.ok(occupied);
     }
 
+    @Operation(summary = "QR 스캔 시작", description = "Space Id 기반으로 해당 시설의 카메라 작동 시작")
+    @PostMapping("/scan")
+    public ResponseEntity<Void> requestQrScan(
+            @AuthenticationPrincipal MemberDetails user,
+            @RequestParam Long spaceId
+    ) {
+        // 서비스가 "검증"과 "명령"을 모두 책임짐
+        reservationService.requestScan(user.getMemberId(), spaceId);
+        return ResponseEntity.ok().build();
+    }
+
 }
