@@ -14,6 +14,14 @@ jobs:
           submodules: true
           token: ${{ secrets.PROJECT_REPO_TOKEN }}
 
+      # [추가] 2. 디버깅: 현재 Runner에 파일이 진짜 있는지 눈으로 확인
+      - name: Check File Structure (Debug)
+        run: |
+          echo "=== [DEBUG] 현재 폴더 구조 확인 ==="
+          ls -R docker/
+          echo "==================================="
+          echo "=== [DEBUG] docker 폴더 존재 여부: $([ -d docker ] && echo 'YES' || echo 'NO')"
+
       # SCP로 secrets, docker-compose, prometheus 파일을 서버로 전송
       - name: Copy secrets to server via SCP
         uses: appleboy/scp-action@v0.1.7
