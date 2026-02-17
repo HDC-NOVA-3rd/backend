@@ -1,10 +1,10 @@
-name: Dev Server CI
+name: Dev Server CI/CD
 
 on:
   pull_request:
     branches: [ develop ]
   push:
-    branches: [ develop ]
+    branches: [ develop, feat/cicd ]
 
 jobs:
   pr-test:
@@ -40,11 +40,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: true # 서브모듈 가져오기 활성화
+          submodules: false
           token: ${{ secrets.PROJECT_REPO_TOKEN }} # repo에 접근가능한 token 획득
-
-      - name: Update Submodule
-        run: git submodule update --remote
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -78,16 +75,54 @@ jobs:
           cache-from: type=registry,ref=jungil12532/nova-spring-app:buildcache
           cache-to: type=registry,ref=jungil12532/nova-spring-app:buildcache,mode=max
 
-      - name: Save image tag to file
-        run: echo ${{ github.sha }} > ./image-tag.txt
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+  deploy:
+    needs: build-and-push # build-and-push job이 먼저 성공해야 depoly job 실행
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout for Secrets # secrets.yaml을 submodule에서 가져옴
+        uses: actions/checkout@v4
         with:
-          name: build-artifact
-          path: ./image-tag.txt
+          submodules: true
+          token: ${{ secrets.PROJECT_REPO_TOKEN }}
 
-      - name: Clean Docker space
-        run: |
-          docker system prune -af
-          docker volume prune -f
+      - name: Copy secrets to server via SCP # SCP로 secrets.yaml 파일을 서버로 전송
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          password: ${{ secrets.REMOTE_PASSWORD }}
+          port: 22
+          # 보낼 파일 위치 (GitHub Runner 기준)
+          source: "src/main/resources/config/secrets.yaml"
+          # 받을 서버 위치 (자동으로 폴더가 생성되지 않을 수 있으니, 미리 존재하면 좋음)
+          target: "/home/${{ secrets.REMOTE_USER }}/nova-server/config"
+          # 소스 경로의 앞부분(src/main/resources/config)을 잘라내고 파일만 target에 넣기 위함
+          strip_components: 4
+
+      - name: Deploy to Dev Server via SSH # SSH로 접속하여 도커 실행
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          password: ${{ secrets.REMOTE_PASSWORD }}
+          port: 22
+          script: |
+            # 서버에 config 디렉토리가 없으면 생성 (SCP 오류 방지용 안전장치)
+            mkdir -p /home/${{ secrets.REMOTE_USER }}/nova-server/config
+            
+            # 기존 컨테이너 중지 및 삭제 (에러 무시)
+            docker stop nova-app || true
+            docker rm nova-app || true
+
+            # 사용하지 않는 이미지 정리, new 이미지 pull
+            docker image prune -f
+            docker pull jungil12532/nova-spring-app:latest
+
+            # 새 컨테이너 실행 (Volume 마운트 적용)
+            docker run -d \
+              --name nova-app \
+              -p 58080:8080 \
+              -e SPRING_PROFILES_ACTIVE=prod \
+              -v /home/${{ secrets.REMOTE_USER }}/nova-server/config/secrets.yaml:/app/config/secrets.yaml \
+              jungil12532/nova-spring-app:latest

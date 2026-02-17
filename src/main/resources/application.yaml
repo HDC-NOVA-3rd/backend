@@ -5,7 +5,7 @@ spring:
   application:
     name: nova # 애플리케이션 이름 설정
   config:
-    import: optional:classpath:config/secrets.yaml #secrets.yaml 파일로 값 읽어오기
+    import: optional:classpath:config/secrets.yaml, optional:file:./config/secrets.yaml  #secrets.yaml 파일로 값 읽어오기
   mail: # 지메일 발송용
     host: ${SPRING_MAIL_HOST}
     port: ${SPRING_MAIL_PORT}
@@ -125,7 +125,7 @@ management:
         include: "*"
 # 파일 업로드 설정
 file:
-  # 윈도우 로컬 개발 경로
-  dir: C:/Users/Admin/Desktop/nova-images/
+  # 로컬 개발 경로
+  dir: ${FILE_DIR:/app/images/}
   # 접근할 URL prefix
   prefix: /images/
