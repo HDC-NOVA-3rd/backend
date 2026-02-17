@@ -75,65 +75,11 @@ jobs:
           cache-from: type=registry,ref=jungil12532/nova-spring-app:buildcache
           cache-to: type=registry,ref=jungil12532/nova-spring-app:buildcache,mode=max
 
-  deploy:
-    needs: build-and-push # build-and-push job이 먼저 성공해야 depoly job 실행
+  # 다음으로 실행할 스크립트 파일을 호출
+  deploy-trigger:
+    needs: build-and-push
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout for Secrets # secrets.yaml을 submodule에서 가져옴
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-          token: ${{ secrets.PROJECT_REPO_TOKEN }}
-
-      # SCP로 secrets, docker-compose, prometheus 파일을 서버로 전송
-      - name: Copy secrets to server via SCP
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ${{ secrets.REMOTE_USER }}
-          password: ${{ secrets.REMOTE_PASSWORD }}
-          port: 22
-          # 보낼 파일 위치 (GitHub Runner 기준)
-          source: "docker/docker-compose.yml,docker/prometheus.yml,src/main/resources/config/secrets.yaml"
-          # 받을 서버 위치
-          target: "/home/${{ secrets.REMOTE_USER }}/nova-server"
-
-      # SSH로 접속하여 Docker Compose 실행
-      - name: Deploy to Dev Server via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.REMOTE_HOST }}
-          username: ${{ secrets.REMOTE_USER }}
-          password: ${{ secrets.REMOTE_PASSWORD }}
-          port: 22
-          command_timeout: 30m
-          script: |
-            echo "작업 디렉토리로 이동"
-            cd /home/${{ secrets.REMOTE_USER }}/nova-server
-            
-            echo "docker 관련 파일 정리"
-            mv docker/docker-compose.yml ./docker-compose.yml
-            mv docker/prometheus.yml ./prometheus.yml
-            rm -rf docker 
-            
-            echo "secrets 파일 정리"
-            mv src/main/resources/config/secrets.yaml ./secrets.yaml
-            rm -rf src
-            
-            echo "[디버깅] 파일이 잘 왔는지 리스트 출력"
-            echo "====== FILE LIST CHECK ======"
-            ls -al
-            echo "============================="
-            
-            echo "이미지를 저장할 폴더 생성"
-            mkdir -p /home/${{ secrets.REMOTE_USER }}/images
-
-            echo "최신 이미지 Pull"
-            docker compose pull
-            
-            echo "컨테이너 강제 재생성 (이미지가 바뀌었으면 재시작됨)"
-            docker compose up -d --force-recreate --remove-orphans
-            
-            echo "불필요한 이미지 정리"
-            docker image prune -f
+    # 중요: 호출할 파일 경로 (같은 레포지토리 내 .github/workflows 폴더)
+    uses: ./.github/workflows/deploy.yml
+    # 중요: 메인 파일의 Secrets를 서브 파일로 모두 넘겨줍니다.
+    secrets: inherit
