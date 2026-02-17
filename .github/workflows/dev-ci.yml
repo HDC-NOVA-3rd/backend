@@ -86,7 +86,8 @@ jobs:
           submodules: true
           token: ${{ secrets.PROJECT_REPO_TOKEN }}
 
-      - name: Copy secrets to server via SCP # SCP로 secrets.yaml 파일을 서버로 전송
+      # SCP로 secrets, docker-compose, prometheus 파일을 서버로 전송
+      - name: Copy secrets to server via SCP
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.REMOTE_HOST }}
@@ -95,10 +96,11 @@ jobs:
           port: 22
           # 보낼 파일 위치 (GitHub Runner 기준)
           source: "docker/docker-compose.yml,docker/prometheus.yml,src/main/resources/config/secrets.yaml"
-          # 받을 서버 위치 (자동으로 폴더가 생성되지 않을 수 있으니, 미리 존재하면 좋음)
+          # 받을 서버 위치
           target: "/home/${{ secrets.REMOTE_USER }}/nova-server"
 
-      - name: Deploy to Dev Server via SSH # SSH로 접속하여 Docker Compose 실행
+      # SSH로 접속하여 Docker Compose 실행
+      - name: Deploy to Dev Server via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.REMOTE_HOST }}
@@ -106,22 +108,31 @@ jobs:
           password: ${{ secrets.REMOTE_PASSWORD }}
           port: 22
           script: |
-            # 작업 디렉토리로 이동
+            echo "작업 디렉토리로 이동"
             cd /home/${{ secrets.REMOTE_USER }}/nova-server
             
-            # secrets.yaml 위치 정리 (SCP로 온 파일 경로 정리)
-            # source 구조가 그대로 복사되므로, docker-compose 옆으로 옮겨줍니다.
-            mv src/main/resources/config/secrets.yaml ./secrets.yaml
-            rm -rf src # 빈 폴더 정리
+            echo "docker 관련 파일 정리"
+            mv docker/docker-compose.yml ./docker-compose.yml
+            mv docker/prometheus.yml ./prometheus.yml
+            rm -rf docker 
             
-            # 이미지를 저장할 호스트 폴더 생성
+            echo "secrets 파일 정리"
+            mv src/main/resources/config/secrets.yaml ./secrets.yaml
+            rm -rf src
+            
+            echo "[디버깅] 파일이 잘 왔는지 리스트 출력"
+            echo "====== FILE LIST CHECK ======"
+            ls -al
+            echo "============================="
+            
+            echo "이미지를 저장할 폴더 생성"
             mkdir -p /home/${{ secrets.REMOTE_USER }}/images
 
-            # 최신 이미지 Pull
+            echo "최신 이미지 Pull"
             docker compose pull
             
-            # 컨테이너 실행 (변경된 부분만 재생성됨)
-            docker compose up -d --remove-orphans
+            echo "컨테이너 강제 재생성 (이미지가 바뀌었으면 재시작됨)"
+            docker compose up -d --force-recreate --remove-orphans
             
-            # 불필요한 이미지 정리
+            echo "불필요한 이미지 정리"
             docker image prune -f
