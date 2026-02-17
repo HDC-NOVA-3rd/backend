@@ -94,7 +94,7 @@ jobs:
           password: ${{ secrets.REMOTE_PASSWORD }}
           port: 22
           # 보낼 파일 위치 (GitHub Runner 기준)
-          source: "docker-compose.yml,prometheus.yml,src/main/resources/config/secrets.yaml"
+          source: "docker/docker-compose.yml,docker/prometheus.yml,src/main/resources/config/secrets.yaml"
           # 받을 서버 위치 (자동으로 폴더가 생성되지 않을 수 있으니, 미리 존재하면 좋음)
           target: "/home/${{ secrets.REMOTE_USER }}/nova-server"
 
