@@ -85,8 +85,8 @@ jobs:
             echo "최신 이미지 Pull"
             docker compose pull
 
-            echo "컨테이너 강제 재생성 (이미지가 바뀌었으면 재시작됨)"
-            docker compose up -d --force-recreate --remove-orphans
+            echo "컨테이너 갱신 (이미지가 바뀌었으면 재시작)"
+            docker compose up -d --remove-orphans
 
             echo "====== 실행 상태 확인 ======"
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
