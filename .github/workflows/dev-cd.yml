@@ -17,6 +17,12 @@ jobs:
       - name: Update Submodule
         run: git submodule update --remote
 
+      # 3. 디버깅: 이제 파일이 진짜 있는지 확인
+      - name: Check File Structure (Debug)
+        run: |
+          echo "=== [DEBUG] Secrets 파일 확인 ==="
+          ls -l src/main/resources/config/secrets.yaml
+
       # SCP로 secrets, docker-compose, prometheus 파일을 서버로 전송
       - name: Copy secrets to server via SCP
         uses: appleboy/scp-action@v0.1.7
