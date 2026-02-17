@@ -80,6 +80,6 @@ jobs:
     needs: build-and-push
     if: github.event_name == 'push'
     # 중요: 호출할 파일 경로 (같은 레포지토리 내 .github/workflows 폴더)
-    uses: ./.github/workflows/deploy.yml
+    uses: ./.github/workflows/dev-cd.yml
     # 중요: 메인 파일의 Secrets를 서브 파일로 모두 넘겨줍니다.
     secrets: inherit
