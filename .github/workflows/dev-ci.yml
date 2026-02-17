@@ -110,6 +110,8 @@ jobs:
           script: |
             # 서버에 config 디렉토리가 없으면 생성 (SCP 오류 방지용 안전장치)
             mkdir -p /home/${{ secrets.REMOTE_USER }}/nova-server/config
+            # 이미지를 저장할 호스트 폴더 생성
+            mkdir -p /home/${{ secrets.REMOTE_USER }}/images
             
             # 기존 컨테이너 중지 및 삭제 (에러 무시)
             docker stop nova-app || true
@@ -125,4 +127,5 @@ jobs:
               -p 58080:8080 \
               -e SPRING_PROFILES_ACTIVE=prod \
               -v /home/${{ secrets.REMOTE_USER }}/nova-server/config/secrets.yaml:/app/config/secrets.yaml \
+              -v /home/${{ secrets.REMOTE_USER }}/images:/app/images \
               jungil12532/nova-spring-app:latest
