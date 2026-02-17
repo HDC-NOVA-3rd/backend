@@ -1,18 +1,17 @@
 version: '3.8'
 
 services:
-  # 1. Spring Boot 서버 (사용자가 만든 이미지)
+  # 1. Spring Boot 서버
   my-spring-app:
-    image: jungil12532/nova-spring-app:latest  # GitHub Actions로 만든 이미지 주소
-    container_name: spring-server
+    image: jungil12532/nova-spring-app:latest  # Docker 이미지 주소
+    container_name: nova-app
     volumes:
-      - ./secrets.yaml:/config/secrets.yaml
+      - ./secrets.yaml:/app/config/secrets.yaml
+      - ./images:/app/images
     ports:
-      - "8080:8080"
+      - "58080:8080"
     environment:
-      # application.yaml의 'spring.config.import' 값을 덮어씁니다.
-      # classpath(JAR 내부)가 아니라 file(컨테이너 내부 경로)을 바라보게 변경합니다.
-      - SPRING_CONFIG_IMPORT=optional:file:/config/secrets.yaml
+      - SPRING_CONFIG_IMPORT=optional:file:/app/config/secrets.yaml
       - TZ=Asia/Seoul  # (추천) 서버 시간 한국 시간으로 맞추기
     networks:
       - app-network
@@ -36,6 +35,17 @@ services:
       - "3000:3000"
     volumes:
       - grafana-data:/var/lib/grafana  # 그래프 설정이 날아가지 않게 저장소 잡기
+    networks:
+      - app-network
+
+  # 4. InfluxDB (k6 부하테스트 결과 저장용)
+  influxdb:
+    image: influxdb:1.8
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=k6
     networks:
       - app-network
 

@@ -94,13 +94,11 @@ jobs:
           password: ${{ secrets.REMOTE_PASSWORD }}
           port: 22
           # 보낼 파일 위치 (GitHub Runner 기준)
-          source: "src/main/resources/config/secrets.yaml"
+          source: "docker-compose.yml,prometheus.yml,src/main/resources/config/secrets.yaml"
           # 받을 서버 위치 (자동으로 폴더가 생성되지 않을 수 있으니, 미리 존재하면 좋음)
-          target: "/home/${{ secrets.REMOTE_USER }}/nova-server/config"
-          # 소스 경로의 앞부분(src/main/resources/config)을 잘라내고 파일만 target에 넣기 위함
-          strip_components: 4
+          target: "/home/${{ secrets.REMOTE_USER }}/nova-server"
 
-      - name: Deploy to Dev Server via SSH # SSH로 접속하여 도커 실행
+      - name: Deploy to Dev Server via SSH # SSH로 접속하여 Docker Compose 실행
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.REMOTE_HOST }}
@@ -108,24 +106,22 @@ jobs:
           password: ${{ secrets.REMOTE_PASSWORD }}
           port: 22
           script: |
-            # 서버에 config 디렉토리가 없으면 생성 (SCP 오류 방지용 안전장치)
-            mkdir -p /home/${{ secrets.REMOTE_USER }}/nova-server/config
+            # 작업 디렉토리로 이동
+            cd /home/${{ secrets.REMOTE_USER }}/nova-server
+            
+            # secrets.yaml 위치 정리 (SCP로 온 파일 경로 정리)
+            # source 구조가 그대로 복사되므로, docker-compose 옆으로 옮겨줍니다.
+            mv src/main/resources/config/secrets.yaml ./secrets.yaml
+            rm -rf src # 빈 폴더 정리
+            
             # 이미지를 저장할 호스트 폴더 생성
             mkdir -p /home/${{ secrets.REMOTE_USER }}/images
+
+            # 최신 이미지 Pull
+            docker compose pull
             
-            # 기존 컨테이너 중지 및 삭제 (에러 무시)
-            docker stop nova-app || true
-            docker rm nova-app || true
-
-            # 사용하지 않는 이미지 정리, new 이미지 pull
+            # 컨테이너 실행 (변경된 부분만 재생성됨)
+            docker compose up -d --remove-orphans
+            
+            # 불필요한 이미지 정리
             docker image prune -f
-            docker pull jungil12532/nova-spring-app:latest
-
-            # 새 컨테이너 실행 (Volume 마운트 적용)
-            docker run -d \
-              --name nova-app \
-              -p 58080:8080 \
-              -e SPRING_PROFILES_ACTIVE=prod \
-              -v /home/${{ secrets.REMOTE_USER }}/nova-server/config/secrets.yaml:/app/config/secrets.yaml \
-              -v /home/${{ secrets.REMOTE_USER }}/images:/app/images \
-              jungil12532/nova-spring-app:latest
