@@ -31,6 +31,12 @@ spring:
     properties:
       hibernate:
         format_sql: true # 로그에 출력되는 SQL을 보기 좋게 포맷팅
+  # Redis 설정
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  # Mqtt 설정
   mqtt:
     url: tcp://${MQTT_BROKER_IP}:${MQTT_PORT}
     client-id: ${CLIENT_ID}
@@ -120,7 +126,7 @@ voice:
 # Monitoring System
 management:
   server:
-    port: 8081 # Actuator는 8081 포트에서만 열림
+    port: 7080 # Actuator는 7080 포트에서만 열림
   endpoints:
     web:
       exposure:

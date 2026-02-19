@@ -57,9 +57,15 @@ public class MemberController {
     @Operation(summary = "로그아웃 시 Expo 푸시 토큰 삭제", description = "로그아웃 시 DB에 저장된 Push Token을 제거하여 알림이 가지 않도록 합니다.")
     @DeleteMapping("/push-token")
     public ResponseEntity<Void> deletePushToken(
-            @AuthenticationPrincipal MemberDetails memberDetails
+            @AuthenticationPrincipal MemberDetails memberDetails,
+            @RequestHeader("Authorization") String bearerToken
     ) {
-        memberService.deletePushToken(memberDetails.getMemberId());
+        // 클라이언트가 보낸 "Bearer {토큰}" 문자열에서 순수 토큰 값만 추출
+        String accessToken = bearerToken;
+        if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
+            accessToken = bearerToken.substring(7);
+        }
+        memberService.logout(memberDetails.getMemberId(), memberDetails.getUsername(), accessToken);
         return ResponseEntity.ok().build();
     }
 }

@@ -37,6 +37,7 @@ public class MemberService {
     private final JwtProvider jwtProvider;
     private final AuthCodeInMemoryRepository authCodeRepository;
     private final MemberDetailsService memberDetailsService;
+    private final RedisTokenService redisTokenService;
 
     @Transactional
     public TokenResponse refresh(RefreshTokenRequest request) {
@@ -50,6 +51,12 @@ public class MemberService {
         // 2. 토큰에서 LoginID 추출
         String loginId = jwtProvider.getSubject(refreshToken);
 
+        // Redis에 저장된 RT와 일치하는지 검증
+        String redisRt = redisTokenService.getRefreshToken(loginId);
+        if (redisRt == null || !redisRt.equals(refreshToken)) {
+            throw new CustomAuthenticationException(ErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
         // 3. LoginID 기반 memberDetails 생성
         MemberDetails memberDetails = (MemberDetails) memberDetailsService.loadUserByUsername(loginId);
 
@@ -60,7 +67,11 @@ public class MemberService {
                 memberDetails.getAuthorities()
         );
         // 새로운 인증 객체 기반 Access, Refresh 재발급
-        return jwtProvider.createTokenDto(authentication,memberDetails.getMemberId(),memberDetails.getName());
+        TokenResponse newTokenResponse = jwtProvider.createTokenDto(authentication, memberDetails.getMemberId(), memberDetails.getName());
+
+        // [RTR 적용] 새 토큰으로 덮어쓰기
+        saveTokensToRedis(newTokenResponse, memberDetails);
+        return newTokenResponse;
     }
 
     @Transactional
@@ -73,7 +84,11 @@ public class MemberService {
 
         MemberDetails memberDetails = (MemberDetails) authentication.getPrincipal();
 
-        return jwtProvider.createTokenDto(authentication,memberDetails.getMemberId(),memberDetails.getName());
+        TokenResponse tokenResponse = jwtProvider.createTokenDto(authentication,memberDetails.getMemberId(),memberDetails.getName());
+        //Access, Refresh 토큰 정보들을 Redis 저장소에 저장하기
+        saveTokensToRedis(tokenResponse, memberDetails);
+
+        return tokenResponse;
     }
 
     @Transactional
@@ -127,8 +142,10 @@ public class MemberService {
                 null,
                 memberDetails.getAuthorities()
         );
-
-        return jwtProvider.createTokenDto(authentication,memberDetails.getMemberId(),memberDetails.getName());
+        TokenResponse tokenResponse = jwtProvider.createTokenDto(authentication,memberDetails.getMemberId(),memberDetails.getName());
+        //Access, Refresh 토큰 정보들을 Redis 저장소에 저장하기
+        saveTokensToRedis(tokenResponse, memberDetails);
+        return tokenResponse;
     }
 
     public MemberInfoResponse getMemberInfo(String loginId) {
@@ -229,14 +246,29 @@ public class MemberService {
     }
 
     /**
-     * Expo 푸시 토큰 삭제 (로그아웃 시)
+     * 로그아웃 : redis access / refresh token 삭제 + Expo 푸시 토큰 삭제
      */
     @Transactional
-    public void deletePushToken(Long memberId) {
+    public void logout(Long memberId, String loginId, String accessToken) {
+        // 1. DB에서 Expo Push Token 삭제
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
 
         member.updatePushToken(null);
         log.info("push token 해제 완료");
+
+        // 2. Redis에서 Access Token 및 Refresh Token 삭제
+        redisTokenService.deleteTokens(accessToken, loginId);
+        log.info("회원(ID: {}) Redis 인증 토큰 삭제 완료", loginId);
+    }
+
+    // 공통 Redis 저장 메서드
+    private void saveTokensToRedis(TokenResponse tokenResponse, MemberDetails memberDetails) {
+        RedisMember dto = new RedisMember(
+                memberDetails.getMemberId(), memberDetails.getUsername(), memberDetails.getName(),
+                memberDetails.getApartmentId(), memberDetails.getHoId(), "MEMBER"
+        );
+        redisTokenService.saveAccessToken(tokenResponse.accessToken(), dto, jwtProvider.getAccessTokenExpires());
+        redisTokenService.saveRefreshToken(memberDetails.getUsername(), tokenResponse.refreshToken(), jwtProvider.getRefreshTokenExpires());
     }
 }

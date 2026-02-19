@@ -67,6 +67,8 @@ dependencies {
     implementation(platform("org.springframework.ai:spring-ai-bom:1.1.1"))
     implementation("org.springframework.ai:spring-ai-starter-model-openai-sdk")
     implementation("org.springframework.ai:spring-ai-starter-model-google-genai")
+    //Redis
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 }
 
 tasks.named('test') {

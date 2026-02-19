@@ -5,7 +5,9 @@ import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.auth.admin.AdminDetailsService;
 import com.backend.nova.auth.member.MemberDetails;
 import com.backend.nova.auth.member.MemberDetailsService;
+import com.backend.nova.member.dto.RedisMember;
 import com.backend.nova.member.dto.TokenResponse;
+import com.backend.nova.member.service.RedisTokenService;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -30,11 +32,13 @@ public class JwtProvider {
     private final Long refreshTokenExpires;
     private final MemberDetailsService memberDetailsService;
     private final AdminDetailsService adminDetailsService;
+    private final RedisTokenService redisTokenService;
 
     public JwtProvider(
             @Value("${jwt.secret}") String secretStr,
             MemberDetailsService memberDetailsService,
-            AdminDetailsService adminDetailsService
+            AdminDetailsService adminDetailsService,
+            RedisTokenService redisTokenService
     ) {
         byte[] keyBytes = Decoders.BASE64.decode(secretStr); //secretStr을 BASE64로 Decode
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
@@ -42,6 +46,7 @@ public class JwtProvider {
         refreshTokenExpires = 604800 * 1000L; // 7일
         this.memberDetailsService = memberDetailsService;
         this.adminDetailsService = adminDetailsService;
+        this.redisTokenService = redisTokenService;
     }
 
     /**
@@ -151,28 +156,33 @@ public class JwtProvider {
     // 검증된 토큰에서 인증 정보(Authentication) 추출 -> validateToken() 이후 실행
     public Authentication getAuthentication(String accessToken) {
         Claims claims = parseClaims(accessToken);
-
         if (claims.get("auth") == null) {
             throw new RuntimeException("권한 정보가 없는 토큰입니다.");
         }
         // 1. Claims 에서 권한 정보 가져오기
+        String authString = claims.get("auth").toString();
         Collection<? extends GrantedAuthority> authorities =
-                Arrays.stream(claims.get("auth").toString().split(","))
+                Arrays.stream(authString.split(","))
                         .map(SimpleGrantedAuthority::new)
                         .toList();
         String loginId = claims.getSubject();
 
-        try {
-            // Admin 우선
+        if(authString.contains("ADMIN")){
             AdminDetails admin =
                     (AdminDetails) adminDetailsService.loadUserByUsername(loginId);
             return new UsernamePasswordAuthenticationToken(admin, "", authorities);
+        }
+        else{
+            RedisMember redisMember = redisTokenService.getRedisMemberByAccessToken(accessToken);
+            if(redisMember == null){
+                throw new JwtException("유효하지 않거나 로그아웃된 토큰입니다.");
+            }
 
-        } catch (Exception e) {
-            // Member
-            MemberDetails member =
-                    (MemberDetails) memberDetailsService.loadUserByUsername(loginId);
-            return new UsernamePasswordAuthenticationToken(member, "", authorities);
+            MemberDetails memberDetails = new MemberDetails(
+                    redisMember.memberId(), redisMember.loginId(), redisMember.name(),
+                    redisMember.apartmentId(), redisMember.hoId(), authString
+            );
+            return new UsernamePasswordAuthenticationToken(memberDetails, "", authorities);
         }
     }
 
@@ -215,5 +225,12 @@ public class JwtProvider {
     }
     public Long getApartmentId(String token) {
         return parseClaims(token).get("apartmentId", Long.class);
+    }
+    public long getAccessTokenExpires() {
+        return accessTokenExpires; // 300 * 1000L (5분)
+    }
+
+    public long getRefreshTokenExpires() {
+        return refreshTokenExpires; // 604800 * 1000L (7일)
     }
 }

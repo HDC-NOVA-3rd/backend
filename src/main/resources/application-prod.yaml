@@ -4,6 +4,11 @@ spring:
     activate:
       on-profile: prod # 'prod' 프로필이 활성화될 때만 이 설정이 적용됨
 
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      password: ${REDIS_PASSWORD}
+
   security:
     oauth2:
       client:
