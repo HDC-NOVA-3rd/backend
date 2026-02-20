@@ -138,3 +138,6 @@ file:
   dir: ${FILE_DIR:/app/images/}
   # 접근할 URL prefix
   prefix: /images/
+
+server:
+  forward-headers-strategy: native # Nginx가 전달하는 X-Forwarded-* 헤더를 인식하도록 추가

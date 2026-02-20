@@ -9,7 +9,7 @@ services:
       - ./secrets.yaml:/app/config/secrets.yaml
       - ./images:/app/images
     ports:
-      - "58080:8080"
+      - "8088:8080"
     environment:
       - SPRING_CONFIG_IMPORT=optional:file:/app/config/secrets.yaml
       - TZ=Asia/Seoul  # 서버 시간 한국 시간으로 맞추기
