@@ -18,6 +18,6 @@ public class ImageConfig implements WebMvcConfigurer {
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         // 예: /images/** 요청이 들어오면 -> C:/Users/.../ 폴더로 연결
         registry.addResourceHandler(urlPrefix + "**")
-                .addResourceLocations("file:///" + uploadDir);
+                .addResourceLocations("file:" + uploadDir);
     }
 }
