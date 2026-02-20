@@ -25,7 +25,7 @@ public class BillController {
     // 고지서 리스트 조회 (관리자/사용자 분리)
     @Operation(summary = "고지서 조회", security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping
-    public ResponseEntity<List<BillResponse>> getBills(Authentication authentication) {
+    public ResponseEntity<List<BillSummaryResponse>> getBills(Authentication authentication) {
         Object principal = authentication.getPrincipal();
 
         if (principal instanceof AdminDetails admin) {
@@ -44,7 +44,7 @@ public class BillController {
     // 개별 고지서 상세 조회
     @Operation(summary = "개별 고지서 상세 조회", security = @SecurityRequirement(name = "bearerAuth"))
     @GetMapping("/{billId}")
-    public ResponseEntity<BillResponse> getBill(@PathVariable Long billId,
+    public ResponseEntity<BillDetailResponse> getBill(@PathVariable Long billId,
                                                 Authentication authentication) {
         Object principal = authentication.getPrincipal();
 
