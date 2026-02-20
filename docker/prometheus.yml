@@ -5,4 +5,4 @@ scrape_configs:
   - job_name: 'spring-boot-app'
     metrics_path: '/actuator/prometheus'
     static_configs:
-      - targets: ['nova-app:8081'] # Actuator 8081 내부 포트에 접속
+      - targets: ['nova-app:7080'] # Actuator 7080 내부 포트에 접속
