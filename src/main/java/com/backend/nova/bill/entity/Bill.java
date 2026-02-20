@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,8 +40,7 @@ public class Bill {
 
     // 청구월 (YYYY-MM)
     @Column(name = "bill_month", nullable = false, length = 7)
-    private String billMonth;
-
+    private String billMonth; // 부과 대상월 (예: 2026-01)
 
     // 총 금액
     @Column(nullable = false)
@@ -51,11 +51,15 @@ public class Bill {
     @Enumerated(EnumType.STRING)
     private BillStatus status;
 
-    //고지서 “기록 시작” 시점
+    //시스템이 계산을 시작한 날짜 (투명성)
     private LocalDateTime openAt;
 
-    //고지서 “확정/발행” 시점
+    //관리자가(혹은 시스템 설정이) 고지서를 공표한 날짜 (발행일)
     private LocalDateTime readyAt;
+
+    //발행일로부터 정확히 N일 뒤 (납기일 준수)
+    @Column(nullable = false)
+    private LocalDate dueDate;   // 납부 마감일 (발행일에 따라 유동적 설정)
 
     //고지서 “결제” 시점
     private LocalDateTime paidAt;
@@ -81,6 +85,26 @@ public class Bill {
 
     public void updateTotalPrice(BigDecimal totalPrice) {
         this.totalPrice = totalPrice;
+    }
+
+    public void markAsReady(LocalDate customDueDate) {
+        this.status = BillStatus.READY;
+        this.readyAt = LocalDateTime.now(); // 실제 확정/발행 버튼을 누른 시점
+        this.dueDate = customDueDate;      // 관리자가 지정한 납부 마감일
+    }
+
+    //매일 자정 dueDate가 지난 READY 건들을 OVERDUE로 강제 전환.
+    public void markAsOverdue() {
+        if (this.status == BillStatus.READY) {
+            this.status = BillStatus.OVERDUE;
+            // 필요하다면 연체 기록 시점 필드를 추가해 기록할 수 있습니다.
+            // this.updatedAt = LocalDateTime.now(); // @PreUpdate가 있다면 자동 처리됨
+        }
+    }
+
+    public void markAsPaid() {
+        this.status = BillStatus.PAID;
+        this.paidAt = LocalDateTime.now();
     }
 
     @PrePersist

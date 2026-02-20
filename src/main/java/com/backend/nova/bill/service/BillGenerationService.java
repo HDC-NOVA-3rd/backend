@@ -1,6 +1,8 @@
 package com.backend.nova.bill.service;
 
+import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.entity.Ho;
+import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.backend.nova.apartment.repository.HoRepository;
 import com.backend.nova.bill.entity.Bill;
 import com.backend.nova.bill.entity.BillItem;
@@ -16,10 +18,12 @@ import com.backend.nova.reservation.entity.Reservation;
 import com.backend.nova.reservation.entity.Status;
 import com.backend.nova.reservation.repository.ReservationRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
@@ -31,16 +35,58 @@ import java.util.UUID;
 @Transactional
 public class BillGenerationService {
 
+    private final ApartmentRepository apartmentRepository;
     private final HoRepository hoRepository;
     private final BillRepository billRepository;
     private final ManagementFeeRepository managementFeeRepository;
     private final ReservationRepository reservationRepository;
     //private final UtilityFeeRepository utilityFeeRepository;
 
+    @Scheduled(cron = "0 0 0 * * ?") // 매일 자정 실행
+    public void autoBillScheduler() {
+        LocalDate today = LocalDate.now();
+        int lastDay = today.lengthOfMonth();
+        List<Apartment> apartments = apartmentRepository.findAll();
+
+        for (Apartment apt : apartments) {
+            // 1. 생성일 체크 (OPEN)
+            int genDay = Math.min(apt.getBillGenerationDay(), lastDay);
+            if (today.getDayOfMonth() == genDay) {
+                generateBills(apt.getId(), YearMonth.from(today).toString());
+            }
+
+            // 2. 발행일 체크 (READY)
+            int pubDay = Math.min(apt.getBillPublishDay(), lastDay);
+            if (today.getDayOfMonth() == pubDay) {
+                publishBills(apt.getId(), YearMonth.from(today).toString());
+            }
+        }
+    }
+
+    // ----------------------
+    // 스케줄러: 매일 00:00 체크, 단지별 billGenerationDay 기준 생성
+    // ----------------------
+    @Scheduled(cron = "0 0 0 * * ?") // 매일 00:00
+    public void generateDailyCheck() {
+        LocalDate today = LocalDate.now();
+        List<Apartment> apartments = apartmentRepository.findAll();
+
+        for (Apartment apt : apartments) {
+            if (today.getDayOfMonth() == apt.getBillGenerationDay()) {
+                String generationMonth = YearMonth.from(today).toString(); // YYYY-MM
+                generateBills(apt.getId(), generationMonth);
+            }
+        }
+    }
 
     // =============================
     // 월별 고지서 일괄 생성
     // =============================
+    /**
+     * [단계 1] 고지서 초안 생성 (OPEN)
+     * 스케줄러에 의해 자동으로 실행되거나, 관리자가 생성 버튼을 누를 때 호출
+     */
+    //[OPEN 단계] 기초 데이터 수집 및 저장
     public void generateBills(Long apartmentId, String month) {
 
         YearMonth yearMonth;
@@ -73,9 +119,11 @@ public class BillGenerationService {
             // 4. Bill 생성
             Bill bill = Bill.builder()
                     .ho(ho)
-                    .billMonth(yearMonth.toString()) // YYYY-MM
+                    .billMonth(month)
                     .billUid("BILL-" + UUID.randomUUID())
-                    .status(BillStatus.OPEN)
+                    .status(BillStatus.OPEN) // 처음엔 OPEN 상태
+                    .openAt(LocalDateTime.now()) // 기록 시작 시점
+                    .dueDate(LocalDate.now().plusMonths(1).withDayOfMonth(10)) // 임시 마감일
                     .build();
 
             boolean hasAnyItem = false;
@@ -202,6 +250,44 @@ public class BillGenerationService {
 
             //고지서 저장
             billRepository.save(bill);
+        }
+    }
+
+    /**
+     * [단계 2] 고지서 확정 및 실제 발행 (READY)
+     * 관리자가 실제 종이 고지서를 돌리거나 앱으로 알림을 보낼 때 호출 (발행일 유연성 확보)
+     */
+    // [READY 단계] 입주민 공개 및 마감일 확정
+    public void publishBills(Long apartmentId, String month) {
+        List<Bill> bills = billRepository.findByHo_Dong_Apartment_IdAndBillMonth(apartmentId, month);
+
+        // 보통 발행일로부터 익월 10일까지를 납기일로 설정하는 사례가 많음
+        LocalDate dueDate = LocalDate.now().plusMonths(1).withDayOfMonth(10);
+
+        for (Bill bill : bills) {
+            if (bill.getStatus() == BillStatus.OPEN) {
+                bill.markAsReady(dueDate); // READY 상태로 변경 및 readyAt 기록
+            }
+        }
+    }
+
+    /**
+     * 매일 00:01에 실행: 납부 마감일이 지난 고지서를 OVERDUE로 변경
+     */
+    @Scheduled(cron = "0 1 0 * * ?") // 00:01 실행
+    public void checkOverdueBills() {
+        LocalDate today = LocalDate.now();
+
+        // 오늘보다 이전(Before)이 마감일인데 아직 READY인 것들
+        List<Bill> overdueBills = billRepository.findByStatusAndDueDateBefore(BillStatus.READY, today);
+
+        for (Bill bill : overdueBills) {
+            bill.markAsOverdue();
+        }
+
+        // (선택 사항) 로그 출력
+        if (!overdueBills.isEmpty()) {
+            System.out.println(today + " 기준 " + overdueBills.size() + "건의 고지서가 연체 처리되었습니다.");
         }
     }
 

@@ -1,8 +1,10 @@
 package com.backend.nova.bill.repository;
 
 import com.backend.nova.bill.entity.Bill;
+import com.backend.nova.bill.entity.BillStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -23,4 +25,9 @@ public interface BillRepository extends JpaRepository<Bill, Long> {
     Optional<Bill> findByIdAndHo_Id(Long id, Long hoId);
 
     boolean existsByHo_Dong_Apartment_IdAndBillMonth(Long apartmentId, String month);
+
+    List<Bill> findByHo_Dong_Apartment_IdAndBillMonth(Long apartmentId, String month);
+
+    // 마감일이 어제(혹은 그 이전)이고, 아직 READY(미납) 상태인 고지서 조회
+    List<Bill> findByStatusAndDueDateBefore(BillStatus status, LocalDate date);
 }
