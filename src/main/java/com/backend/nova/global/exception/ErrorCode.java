@@ -7,8 +7,8 @@ public enum ErrorCode {
     // ================= Admin =================
     ADMIN_LOGIN_ID_DUPLICATED(HttpStatus.CONFLICT, "이미 존재하는 관리자 ID입니다."),
     ADMIN_EMAIL_DUPLICATED(HttpStatus.CONFLICT, "이미 존재하는 관리자 이메일입니다."),
-    SUPER_ADMIN_OTP_REQUIRED(HttpStatus.CONFLICT, "슈퍼 관리자는 로그인시 OTP가 필요합니다."),
-    ADMIN_NOT_FOUND(HttpStatus.NOT_FOUND, "관리자를 찾을 수 없습니다."),
+    ADMIN_OTP_REQUIRED(HttpStatus.CONFLICT, "관리자는 로그인시 OTP가 필요합니다."),
+    ADMIN_NOT_FOUND(HttpStatus.NOT_FOUND, "입력하신 정보와 일치하는 계정을 찾을 수 없습니다."),
     ADMIN_LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."),
     INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다."),
     PASSWORD_NOT_MATCH(HttpStatus.BAD_REQUEST, "현재 비밀번호가 올바르지 않습니다."),
@@ -50,6 +50,7 @@ public enum ErrorCode {
     RESIDENT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 입주민 정보가 없습니다."),
     DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "이미 존재하는 아이디입니다."),
     SOCIAL_LOGIN_RESTRICTED(HttpStatus.CONFLICT, "소셜 로그인 회원은 비밀번호를 변경할 수 없습니다."),
+    MEMBER_LOGIN_FAILED(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 올바르지 않습니다."),
 
     // ================= Resident =================
     RESIDENT_DUPLICATED(HttpStatus.CONFLICT, "이미 등록된 입주민(휴대폰 번호)입니다."),

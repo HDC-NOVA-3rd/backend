@@ -29,7 +29,7 @@ class ResidentControllerTest extends ControllerTestSupport {
     void getResident_Success() throws Exception {
         // given
         ResidentResponse response = new ResidentResponse(1L, "Apartment", "101", "101", "Name", "010-1234-5678");
-        given(residentService.getResident(anyLong())).willReturn(response);
+        given(residentService.getResident(anyLong(),anyLong())).willReturn(response);
 
         // when & then
         mockMvc.perform(get("/api/resident/1"))
@@ -57,7 +57,7 @@ class ResidentControllerTest extends ControllerTestSupport {
     void createResident_Success() throws Exception {
         // given
         ResidentRequest request = new ResidentRequest(1L, "Name", "010-1234-5678");
-        given(residentService.createResident(any())).willReturn(1L);
+        given(residentService.createResident(any(), any())).willReturn(1L);
 
         // when & then
         mockMvc.perform(post("/api/resident")

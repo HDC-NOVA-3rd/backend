@@ -31,26 +31,34 @@ public class ResidentService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public Long createResident(ResidentRequest request) {
+    public Long createResident(ResidentRequest request, Long apartmentId) {
+
         Ho ho = hoRepository.findById(request.hoId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.HO_NOT_FOUND)); // 404 NOT FOUND
-        
+                .orElseThrow(() -> new BusinessException(ErrorCode.HO_NOT_FOUND));
+
+        if (!ho.getDong().getApartment().getId().equals(apartmentId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
         Resident resident = Resident.builder()
                 .ho(ho)
                 .name(request.name())
                 .phone(request.phone())
                 .build();
+
         try {
             return residentRepository.save(resident).getId();
         } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ErrorCode.RESIDENT_DUPLICATED); // 409 CONFLICT
+            throw new BusinessException(ErrorCode.RESIDENT_DUPLICATED);
         }
     }
 
-    public ResidentResponse getResident(Long residentId) {
-        Resident resident = residentRepository.findById(residentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND)); // 404 NOT FOUND
-        
+    public ResidentResponse getResident(Long residentId, Long apartmentId) {
+
+        Resident resident = residentRepository
+                .findByIdAndHo_Dong_Apartment_Id(residentId, apartmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND));
+
         return ResidentResponse.fromEntity(resident);
     }
 
@@ -61,26 +69,42 @@ public class ResidentService {
     }
 
     @Transactional
-    public void updateResident(Long residentId, ResidentRequest request) {
-        Resident resident = residentRepository.findById(residentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND)); // 404 NOT FOUND
+    public void updateResident(Long residentId, ResidentRequest request, Long apartmentId) {
+
+        Resident resident = residentRepository
+                .findByIdAndHo_Dong_Apartment_Id(residentId, apartmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND));
+
         Ho ho = hoRepository.findById(request.hoId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.HO_NOT_FOUND)); // 404 NOT FOUND
+                .orElseThrow(() -> new BusinessException(ErrorCode.HO_NOT_FOUND));
+
+        if (!ho.getDong().getApartment().getId().equals(apartmentId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
+        }
+
         resident.update(ho, request.name(), request.phone());
     }
 
     @Transactional
-    public void deleteResident(Long residentId) {
-        if (!residentRepository.existsById(residentId)) {
-            throw new BusinessException(ErrorCode.RESIDENT_NOT_FOUND); // 404 NOT FOUND
-        }
-        residentRepository.deleteById(residentId);
+    public void deleteResident(Long residentId, Long apartmentId) {
+
+        Resident resident = residentRepository
+                .findByIdAndHo_Dong_Apartment_Id(residentId, apartmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND));
+
+        residentRepository.delete(resident);
     }
+
     @Transactional
-    public void deleteAllResidents(Long hoId) {
-        if (!hoRepository.existsById(hoId)) {
-            throw new BusinessException(ErrorCode.HO_NOT_FOUND); // 404 NOT FOUND
+    public void deleteAllResidents(Long hoId, Long apartmentId) {
+
+        Ho ho = hoRepository.findById(hoId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HO_NOT_FOUND));
+
+        if (!ho.getDong().getApartment().getId().equals(apartmentId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
+
         residentRepository.deleteByHoId(hoId);
     }
     // 입주민 검증을 먼저 하고, 기존 가입 이력을 확인하는 메서드
