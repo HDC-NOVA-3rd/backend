@@ -5,6 +5,7 @@ import com.backend.nova.admin.service.AdminService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -33,9 +34,12 @@ public class AdminAuthController {
      */
     @PostMapping("/login/otp")
     public ResponseEntity<AdminTokenResponse> loginVerifyOtp(
-            @RequestBody @Valid AdminLoginConfirmRequest request
+            @RequestBody @Valid AdminLoginConfirmRequest request,
+            HttpServletResponse response // 쿠키 설정을 위해 추가
     ) {
-        return ResponseEntity.ok(adminService.loginVerifyOtp(request));
+        // 서비스에서 토큰 생성 및 쿠키 설정 로직 수행
+        AdminTokenResponse tokenResponse = adminService.loginVerifyOtp(request, response);
+        return ResponseEntity.ok(tokenResponse);
     }
 
 
@@ -66,9 +70,10 @@ public class AdminAuthController {
     @Operation(summary = "Access 토큰 재발급", security = @SecurityRequirement(name = "bearerAuth"))
     @PostMapping("/refresh")
     public ResponseEntity<AdminTokenResponse> refresh(
-            @RequestBody AdminRefreshTokenRequest request
+            @CookieValue(name = "refreshToken") String refreshToken, // 쿠키에서 직접 읽음
+            HttpServletResponse response
     ) {
-        return ResponseEntity.ok(adminService.refresh(request));
+        return ResponseEntity.ok(adminService.refresh(refreshToken, response));
     }
 
 }
