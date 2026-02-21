@@ -37,16 +37,25 @@ public class AdminService {
     private static final int MAX_FAILED_ATTEMPTS = 5;
 
     /* ================= 관리자 생성 ================= */
+    @Transactional
     public void createAdmin(AdminCreateRequest request, Long currentAdminId) {
+
         Admin currentAdmin = adminRepository.findById(currentAdminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
+        if (currentAdmin.getRole() != AdminRole.SUPER_ADMIN) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
 
-        if (adminRepository.findByLoginId(request.loginId()).isPresent()) {
+        if (!request.password().equals(request.passwordConfirm())) {
+            throw new BusinessException(ErrorCode.PASSWORD_NOT_MATCH);
+        }
+
+        if (adminRepository.existsByLoginId(request.loginId())) {
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_ID_DUPLICATED);
         }
 
-        if (adminRepository.findByEmail(request.email()).isPresent()) {
+        if (adminRepository.existsByEmail(request.email())) {
             throw new BusinessException(ErrorCode.ADMIN_EMAIL_DUPLICATED);
         }
 
@@ -60,7 +69,9 @@ public class AdminService {
                 .password(passwordEncoder.encode(request.password()))
                 .name(request.name())
                 .email(request.email())
-                .role(request.role() != null ? request.role() : AdminRole.ADMIN)
+                .phoneNumber(request.phoneNumber())
+                .birthDate(request.birthDate())
+                .role(AdminRole.ADMIN)
                 .status(AdminStatus.ACTIVE)
                 .apartment(apartment)
                 .build();
