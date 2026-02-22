@@ -62,6 +62,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.extern.slf4j.Slf4j;
@@ -74,7 +75,7 @@ public class ChatService {
     private final ChatClient chatClient; //spring ai
     private final ObjectMapper objectMapper; //llm이 준 json문자열을 자바 객체로 변환
     private final Resource systemResource; //프롬프트
-
+    private final RagAnswerService ragAnswerService;
     //intent 처리할때 필요한 DB 조회용
     private final FacilityRepository facilityRepository;
     private final RoomRepository roomRepository;
@@ -146,7 +147,7 @@ public class ChatService {
     public ChatService(
             ChatClient.Builder builder, //실제 ChatClient 만들어서 주입
             ObjectMapper objectMapper,//
-            @Value("classpath:prompt/chat-system.st") Resource systemResource,
+            @Value("classpath:prompt/chat-system.st") Resource systemResource, RagAnswerService ragAnswerService,
             FacilityRepository facilityRepository,
             RoomRepository roomRepository,
             RoomEnvLogRepository roomEnvLogRepository,
@@ -162,6 +163,7 @@ public class ChatService {
         this.chatClient = builder.build();
         this.objectMapper = objectMapper;
         this.systemResource = systemResource;
+        this.ragAnswerService = ragAnswerService;
         this.facilityRepository = facilityRepository;
         this.roomRepository = roomRepository;
         this.roomEnvLogRepository = roomEnvLogRepository;
@@ -222,10 +224,19 @@ public class ChatService {
         }
 
         //  실제 Device 조회 (type 기준)
-        Device device = deviceRepository
-                .findByRoom_IdAndType(room.getId(), deviceType)
-                .orElseThrow(() ->
-                        new IllegalArgumentException("해당 방에 기기가 없습니다: " + deviceType));
+        Optional<Device> deviceOpt =
+                deviceRepository.findByRoom_IdAndType(room.getId(), deviceType);
+
+        if (deviceOpt.isEmpty()) {
+            return new ChatResponse(
+                    sessionId,
+                    roomName + "에 해당 기기가 없습니다.",
+                    "DEVICE_CONTROL",
+                    Map.of()
+            );
+        }
+        Device device = deviceOpt.get();
+
 
         //  진짜 DB의 device_code (light-1 같은 값)
         String realDeviceCode = device.getDeviceCode();
@@ -323,41 +334,39 @@ public class ChatService {
 
         // 2. 사용자 메시지 저장
         saveMessage(session, Role.USER, req.message());
+
         if (session.getPendingIntent() != null && !session.getPendingIntent().isBlank()) {
+
             String pendingIntent = session.getPendingIntent();
             Map<String, Object> pendingSlots = readPendingSlots(session);
 
-            // 이번 입력에서 채울 수 있는 slot만 추출해서 merge
-            Map<String, Object> filled = extractSlotsFromFollowUp(pendingIntent, req.message());
-            pendingSlots.putAll(filled);
+            Map<String, Object> filled =
+                    extractSlotsFromFollowUp(pendingIntent, req.message());
 
-            // pending으로 cmd 구성해서 바로 라우팅 시도
-            LlmCommand merged = new LlmCommand(
-                    pendingIntent,
-                    "",
-                    pendingSlots,
-                    false,
-                    ""
-            );
-
-            ChatResponse response = routeByIntent(sessionId, req, merged);
-
-            // 라우팅 결과가 또 clarification이면 pending 유지(업데이트)
-            // 정상 처리면 pending 제거
-            if ("UNKNOWN".equalsIgnoreCase(response.intent())) {
-                //  UNKNOWN은 pending 끊어서 다음 입력을 새로 해석하게 만들기
+            // ✅ follow-up 단서가 없으면 → pending 해제하고 정상 흐름으로 진행
+            if (filled.isEmpty() && !looksLikeFollowUp(req.message())) {
                 clearPending(session);
             } else {
-                if (session.getPendingIntent() != null && session.getPendingIntent().equals(pendingIntent)) {
-                    clearPending(session);
-                }
+                pendingSlots.putAll(filled);
+
+                LlmCommand merged = new LlmCommand(
+                        pendingIntent,
+                        "",
+                        pendingSlots,
+                        false,
+                        ""
+                );
+
+                AtomicReference<ChatResponse> response =
+                        new AtomicReference<>(routeByIntent(sessionId, req, merged));
+
+                applyRagFallbackIfNeeded(sessionId, req, response);
+
+                saveMessage(session, Role.ASSISTANT, response.get().answer());
+                return response.get();
             }
-
-
-            // assistant 메시지 저장하고 종료
-            saveMessage(session, Role.ASSISTANT, response.answer());
-            return response;
         }
+
         // 3. 룰 기반 먼저 시도
         LlmCommand cmd = ruleBasedCommand(sessionId, req.message(), req.memberId());
 
@@ -410,13 +419,42 @@ public class ChatService {
 
 
         // 5. intent 라우팅
-        ChatResponse response = routeByIntent(sessionId, req, cmd);
+        AtomicReference<ChatResponse> response = new AtomicReference<>(routeByIntent(sessionId, req, cmd));
+        applyRagFallbackIfNeeded(sessionId, req, response);
+
+        //  RAG fallback: UNKNOWN/FREE_CHAT일 때만 시도
+        if ("UNKNOWN".equalsIgnoreCase(response.get().intent()) || "FREE_CHAT".equalsIgnoreCase(response.get().intent())) {
+            ragAnswerService.tryAnswer(req.memberId(), req.message(), null)
+                    .ifPresent(ragAnswer -> {
+                        // intent는 FREE_CHAT으로 두는 게 자연스러움
+                        // (RAG는 "답변 생성"이니까)
+                        response.set(new ChatResponse(
+                                sessionId,
+                                ragAnswer,
+                                "FREE_CHAT",
+                                Map.of("source", "PINECONE_RAG")
+                        ));
+                    });
+        }
 
         // 6. 어시스턴트 메시지 저장
-        saveMessage(session, Role.ASSISTANT, response.answer());
+        saveMessage(session, Role.ASSISTANT, response.get().answer());
 
-        return response;
+        return response.get();
     }
+    private boolean looksLikeFollowUp(String message) {
+        if (message == null) return false;
+        String m = message.trim();
+
+        // "2", "2번"
+        if (m.matches("^\\d+$") || m.matches("^\\d+\\s*번$")) return true;
+
+        // 사용자가 흐름 끊고 싶을 때
+        if (containsAny(m, "취소", "그만", "닫기", "아니", "됐어")) return true;
+
+        return false;
+    }
+
 
 
     private String toMqttCommand(String deviceType, String action, Integer value) {
@@ -461,6 +499,32 @@ public class ChatService {
             default -> "요청을 처리할게요.";
         };
     }
+
+    private void applyRagFallbackIfNeeded(
+            String sessionId,
+            ChatRequest req,
+            AtomicReference<ChatResponse> responseRef
+    ) {
+        ChatResponse r = responseRef.get();
+
+        boolean needRag =
+                (r == null)
+                        || (r.answer() == null)
+                        || (r.answer().trim().isBlank())
+                        || "UNKNOWN".equalsIgnoreCase(r.intent())
+                        || "FREE_CHAT".equalsIgnoreCase(r.intent());
+
+        if (!needRag) return;
+
+        ragAnswerService.tryAnswer(req.memberId(), req.message(), null)
+                .ifPresent(answer -> responseRef.set(new ChatResponse(
+                        sessionId,
+                        answer,
+                        "RAG",
+                        Map.of("source", "pinecone")
+                )));
+    }
+
 
     // =========================
     // Routing (intent → handler)
@@ -514,6 +578,19 @@ public class ChatService {
                 );
             }
         }
+        // RESERVATION_LIST pending 상태에서 "1번" 입력 시 -> RESERVATION_DETAIL
+        if ("RESERVATION_LIST".equalsIgnoreCase(cmd.intent())) {
+            ChatSession s = chatSessionRepository.findById(sessionId)
+                    .orElseThrow(() -> new IllegalArgumentException("세션 없음: " + sessionId));
+
+            if ("RESERVATION_LIST".equalsIgnoreCase(s.getPendingIntent())
+                    && cmd.slots() != null
+                    && cmd.slots().get("index") != null) {
+
+                cmd = new LlmCommand("RESERVATION_DETAIL", "", cmd.slots(), false, "");
+            }
+        }
+
 
 
         // intent별 실제 처리 로직 분기
@@ -568,6 +645,32 @@ public class ChatService {
             // 명령어를 통한 디바이스 제어
             case "DEVICE_CONTROL" -> handleDeviceControl(sessionId, req.memberId(), cmd);
 
+            case "RAG" -> {
+
+                String st = null;
+                if (cmd.slots() != null) {
+                    Object v = cmd.slots().get("sourceType");
+                    if (v != null) st = String.valueOf(v);
+                }
+
+                Optional<String> ans = ragAnswerService.tryAnswer(req.memberId(), req.message(), st);
+
+                if (ans.isPresent() && !ans.get().isBlank()) {
+                    yield new ChatResponse(
+                            sessionId,
+                            ans.get(),
+                            "RAG",
+                            Map.of("source", "PINECONE_RAG", "sourceType", st)
+                    );
+                }
+                yield new ChatResponse(
+                        sessionId,
+                        "아직 해당 정보가 없어요. (예: '공지사항 보여줘', '헬스장 이용수칙 알려줘')",
+                        "FREE_CHAT",
+                        Map.of("source", "RAG_EMPTY", "sourceType", st)
+                );
+            }
+
             default -> {
                 String reply = (cmd.reply() == null) ? "" : cmd.reply().trim();
 
@@ -589,6 +692,8 @@ public class ChatService {
                 if ("UNKNOWN".equalsIgnoreCase(cmd.intent())) {
                     yield new ChatResponse(sessionId, reply, "FREE_CHAT", Map.of());
                 }
+
+
 
                 yield new ChatResponse(sessionId, reply, cmd.intent(), cmd.slots());
             }
@@ -715,6 +820,18 @@ public class ChatService {
             );
         }
 
+        // RAG 지식(행사/규칙/FAQ) 룰: 공지보다 먼저!
+        if (containsAny(m, "행사", "이벤트", "캠페인", "축제", "기념", "프로그램")) {
+            // 기존: EVENT
+            return new LlmCommand("RAG", "", Map.of("sourceType", "GUIDE"), false, "");
+        }
+        if (containsAny(m, "규칙", "수칙", "이용수칙", "룰", "규정", "금지", "안전수칙")) {
+            return new LlmCommand("RAG", "", Map.of("sourceType", "RULE"), false, "");
+        }
+        if (containsAny(m, "faq", "자주", "자주 묻", "문의", "어떻게", "방법", "절차")) {
+            return new LlmCommand("RAG", "", Map.of("sourceType", "FAQ"), false, "");
+        }
+
         // =========================
     // DEVICE_CONTROL 룰 (LLM 없이 제어)
     // =========================
@@ -807,7 +924,7 @@ public class ChatService {
             );
         }
         // ---- NOTICE 룰 ----
-        if (containsAny(m, "공지", "공지사항", "알림", "안내")) {
+        if (containsAny(m, "공지", "공지사항" )) {
             return new LlmCommand("NOTICE_LIST", "", Map.of(), false, "");
         }
 
@@ -828,7 +945,9 @@ public class ChatService {
         // SPACE 룰 (가격/정원/인원/룸/타입) - FACILITY_INFO보다 우선!
         // =========================
         boolean looksSpaceQuery =
-                containsAny(m, "가격", "비용", "요금", "얼마", "정원", "인원", "몇 명", "수용", "capacity", "룸", "방", "공간", "좌석", "타입", "종류");
+                containsAny(m, "가격", "비용", "요금", "얼마",
+                        "정원", "인원", "몇 명", "수용",
+                        "capacity", "룸", "공간", "좌석", "타입", "종류");
 
         if (looksSpaceQuery) {
 
@@ -1287,7 +1406,7 @@ public class ChatService {
 
         // 2) infoType이 비었으면 message 기반 추정 (기존 네 로직 유지/강화)
         if (infoType.isBlank() || "UNKNOWN".equalsIgnoreCase(infoType)) {
-            if (containsAny(message, "운영", "시간", "몇 시", "언제", "오픈", "마감")) infoType = "HOURS";
+            if (containsAny(message, "운영", "시간", "몇 시", "오픈", "마감")) infoType = "HOURS";
             else if (containsAny(message, "예약", "가능", "예약 가능", "예약돼", "예약 되")) infoType = "AVAILABLE";
             else if (containsAny(message, "설명", "소개", "어디", "위치", "층")) infoType = "DESCRIPTION";
             else {
@@ -1455,13 +1574,12 @@ public class ChatService {
     private String sensorTypeToKorean(String type) {
         return switch (type) {
             case "TEMP" -> "온도";
-            case "HUMID" -> "습도";
-            case "CO2" -> "이산화탄소";
-            case "GAS" -> "가스";
+            case "HUMIDITY", "HUMID" -> "습도";
             case "LIGHT" -> "조도";
             default -> "환경";
         };
     }
+
 
     /* ENV_STATUS
      * - 특정 방(room)의 현재 환경 상태를 조회한다.
@@ -1483,8 +1601,19 @@ public class ChatService {
         }
 
         // 1) ho + roomName 으로 Room 찾기
-        Room room = (Room) roomRepository.findByHo_IdAndName(ho.getId(), roomName)
-                .orElseThrow(() -> new IllegalArgumentException("방을 찾을 수 없습니다: " + roomName));
+        Optional<Object> roomOpt =
+                roomRepository.findByHo_IdAndName(ho.getId(), roomName);
+
+        if (roomOpt.isEmpty()) {
+            return new ChatResponse(
+                    sessionId,
+                    "해당 방을 찾을 수 없습니다. 등록된 방을 확인해보세요.",
+                    "DEVICE_CONTROL",
+                    Map.of()
+            );
+        }
+        Room room = (Room) roomOpt.get();
+
 
         // 2) 최신 로그 1건
         RoomEnvLog log = (RoomEnvLog) roomEnvLogRepository
@@ -1774,7 +1903,7 @@ public class ChatService {
         // FOLLOW-UP에서는 "추측" 금지. 키워드 매칭만.
         switch (intent) {
             case "FACILITY_INFO" -> {
-                if (containsAny(message, "운영", "시간", "몇 시", "언제", "오픈", "마감")) slots.put("info_type", "HOURS");
+                if (containsAny(message, "운영", "시간", "몇 시",  "오픈", "마감")) slots.put("info_type", "HOURS");
                 else if (containsAny(message, "예약", "가능")) slots.put("info_type", "AVAILABLE");
                 else if (containsAny(message, "설명", "소개", "어디", "위치", "층")) slots.put("info_type", "DESCRIPTION");
             }
@@ -1831,6 +1960,19 @@ public class ChatService {
                     slots.put("index", Integer.parseInt(mi2.group(1)));
                 }
             }
+            case "RESERVATION_LIST" -> {
+                Matcher mi = Pattern.compile("(\\d+)\\s*번").matcher(message);
+                if (mi.find()) {
+                    slots.put("index", Integer.parseInt(mi.group(1)));
+                    break;
+                }
+
+                Matcher mi2 = Pattern.compile("^\\s*(\\d+)\\s*$").matcher(message);
+                if (mi2.find()) {
+                    slots.put("index", Integer.parseInt(mi2.group(1)));
+                }
+            }
+
 
 
 
@@ -2005,6 +2147,7 @@ public class ChatService {
 //            throw new IllegalArgumentException("접근 권한이 없습니다.");
 //        }
 
+
         // 4) DONG 공지면 내 동 포함인지 체크
         if (notice.getTargetScope() == NoticeTargetScope.DONG) {
             List<Long> dongIds = noticeTargetDongRepository.findDongIdsByNoticeId(noticeId);
@@ -2014,7 +2157,7 @@ public class ChatService {
         }
 
         // 5) 상세 열었으면 pending 제거(1차에서는 읽음 처리 안함)
-        clearPending(session);
+       // clearPending(session);
 
         String answer = "📌 " + safeString(notice.getTitle()) + "\n\n" + safeString(notice.getContent());
 
