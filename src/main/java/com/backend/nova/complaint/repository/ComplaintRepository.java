@@ -32,6 +32,16 @@ public interface ComplaintRepository extends JpaRepository<Complaint, Long> {
 
     Optional<Complaint> findByIdAndMember_IdAndDeletedFalse(Long id, Long memberId);
 
+    // 명칭을 더 명확하게 변경 (deleted 조건을 쿼리에서 뺌)
+    List<Complaint> findByApartmentId(Long apartmentId);
+
+    // deleted 상태에 따라 필터링하고 싶을 때 사용
+    List<Complaint> findByApartmentIdAndDeleted(Long apartmentId, boolean deleted);
+
+    List<Complaint> findByMemberIdAndDeletedFalse(Long memberId);
+
+    List<Complaint> findByMemberIdAndDeletedTrue(Long memberId);
+
 }
 
 
