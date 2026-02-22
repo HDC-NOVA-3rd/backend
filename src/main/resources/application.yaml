@@ -20,6 +20,7 @@ spring:
     url: jdbc:mariadb://${DB_IP}:${DB_PORT}/${DB_TABLE}?serverTimezone=Asia/Seoul # DB 접속 URL (Timezone: Asia/Seoul)
     username: ${DB_USER} # DB 사용자 계정
     password: ${DB_PW} # DB 비밀번호
+
   sql:
     init:
       mode: never # 애플리케이션 시작 시 SQL 스크립트 실행 모드 (always: 항상 실행, never: 실행 x)
@@ -60,6 +61,12 @@ spring:
         options:
           model: google/gemini-3-flash-preview
           temperature: 0.7
+
+    openrouter:
+      api-key: ${OPENROUTER_API_KEY}
+      base-url: https://openrouter.ai/api/v1
+      embedding-model: openai/text-embedding-3-small
+
 
 
   #OAuth 설정
