@@ -32,7 +32,7 @@ jobs:
           password: ${{ secrets.REMOTE_PASSWORD }}
           port: 22
           # 보낼 파일 위치 (GitHub Runner 기준)
-          source: "docker/docker-compose.yml,docker/prometheus.yml,src/main/resources/config/secrets.yaml"
+          source: "docker/docker-compose.yml,docker/prometheus.yml,docker/promtail-config.yml,src/main/resources/config/secrets.yaml"
           # 받을 서버 위치
           target: "/home/${{ secrets.REMOTE_USER }}/nova-server"
 
@@ -58,6 +58,7 @@ jobs:
             if [ -f "docker/docker-compose.yml" ]; then
                 mv docker/docker-compose.yml ./docker-compose.yml
                 mv docker/prometheus.yml ./prometheus.yml
+                mv docker/promtail-config.yml ./promtail-config.yml
                 rm -rf docker # 빈 폴더 정리
                 echo "-> 설정 파일 이동 완료"
             else

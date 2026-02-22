@@ -50,6 +50,7 @@ services:
       - INFLUXDB_DB=k6
     networks:
       - app-network
+
   # 5. Redis
   redis:
     image: redis:alpine
@@ -59,6 +60,33 @@ services:
       - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data # 데이터 영구 저장
+    networks:
+      - app-network
+
+  # 6. Loki (로그 저장 및 검색 엔진)
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - app-network
+
+  # 7. Promtail (로그 수집 에이전트)
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml
+
+      # Spring Boot 컨테이너의 로그를 읽기 위해 Docker 소켓이나 로그 파일 마운트 필요
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+
+      # 실제 로그 텍스트 파일은 호스트 서버의 '/var/lib/docker/containers' 경로에 저장
+      # Promtail이 이 '실제 로그 파일들'을 읽어서 Loki로 보낼 수 있도록 물리적인 폴더 자체를 마운트
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
     networks:
       - app-network
 
