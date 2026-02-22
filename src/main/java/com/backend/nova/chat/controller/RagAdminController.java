@@ -1,7 +1,9 @@
 package com.backend.nova.chat.controller;
 
+import com.backend.nova.chat.dto.RagAdminQueryResponse;
 import com.backend.nova.chat.dto.RagDocInput;
 import com.backend.nova.chat.service.RagSeedService;
+import com.backend.nova.chat.service.RagService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.ArraySchema;
@@ -22,6 +24,47 @@ import java.util.List;
 public class RagAdminController {
 
     private final RagSeedService ragSeedService;
+    private final RagService ragService;
+
+    @Operation(
+            summary = "RAG 검색(Query) - Pinecone TopK 조회",
+            description = """
+                Pinecone(Vector DB)에서 특정 아파트(apartmentId)의 문서들을 대상으로
+                질의(q)를 임베딩한 뒤, 유사도 기반 TopK 결과를 조회합니다.
+
+                - apartmentId: 아파트 구분 키 (Pinecone metadata filter)
+                - sourceType: 문서 타입 필터 (GUIDE/EVENT/RULE/NOTICE/FAQ 등) [선택]
+                - q: 검색 질의 텍스트(자연어)
+                - topK: 반환할 최대 결과 수 (기본 5)
+
+                반환값(hits)은 score(유사도), vectorId(Pinecone 벡터 ID), docId, sourceType, text(metadata)를 포함합니다.
+                """
+    )
+    @ApiResponses({
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "조회 성공",
+                    content = @Content(schema = @Schema(implementation = RagAdminQueryResponse.class))
+            ),
+            @ApiResponse(responseCode = "400", description = "요청 파라미터 오류", content = @Content),
+            @ApiResponse(responseCode = "500", description = "임베딩/검색 실패", content = @Content)
+    })
+    @GetMapping("/query")
+    public RagAdminQueryResponse query(
+            @Parameter(description = "대상 아파트 ID", example = "1", required = true)
+            @RequestParam Long apartmentId,
+
+            @Parameter(description = "문서 타입 필터 (GUIDE/EVENT/RULE/NOTICE/FAQ 등). 미입력 시 전체", example = "GUIDE")
+            @RequestParam(required = false) String sourceType,
+
+            @Parameter(description = "검색 질의(자연어)", example = "헬스장 운영시간 알려줘", required = true)
+            @RequestParam String q,
+
+            @Parameter(description = "TopK 결과 개수", example = "5")
+            @RequestParam(defaultValue = "5") int topK
+    ) {
+        return ragService.adminQuery(apartmentId, sourceType, q, topK);
+    }
 
     @Operation(
             summary = "RAG 문서 업서트(Seed) - 커스텀",
