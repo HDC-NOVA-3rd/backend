@@ -215,7 +215,7 @@ public class SecurityConfig {
                         .requestMatchers("/api", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         .requestMatchers("/api/voice/**").permitAll()
                         //모니터링 툴 API -> 접근 허용
-                        .requestMatchers("/actuator/prometheus").permitAll()
+                        .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/admin/rag/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()

@@ -45,7 +45,7 @@ public class ReservationService {
         return reservationRepository.findAllByMemberIdOrderByStartTimeDesc(memberId)
                 .stream()
                 .map(ReservationResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -87,7 +87,7 @@ public class ReservationService {
         return reservationRepository.findAllBySpaceIdAndDate(spaceId, startOfDay, endOfDay)
                 .stream()
                 .map(OccupiedReservationResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     /**
@@ -137,19 +137,12 @@ public class ReservationService {
         // 예약 시작 시간이 (현재 시간 + 10분)보다 이전이거나 같다면, 바로 입장 가능(INUSE) 상태로 설정
         Status initialStatus = Status.CONFIRMED;
         LocalDateTime entryAvailableThreshold = LocalDateTime.now().plusMinutes(10);
-
-        String pushToken = member.getPushToken();
-
-
-        if (!request.startTime().isAfter(entryAvailableThreshold)) {
+        boolean isImmediateEntry = !request.startTime().isAfter(entryAvailableThreshold);
+        if (isImmediateEntry) {
             initialStatus = Status.INUSE;
-            // 토큰이 유효한 경우만 메시지 생성
-            PushMessageRequest messageRequest = notificationService.sendNotification(pushToken, "입장 안내", "예약하신 시설에 바로 입장 가능합니다.");
-
-            notificationService.sendPushMessages(List.of(messageRequest));
         }
 
-        // 6. 예약 엔티티 생성
+        // 예약 엔티티 생성
         Reservation reservation = Reservation.builder()
                 .space(space)
                 .member(member)
@@ -163,9 +156,18 @@ public class ReservationService {
                 .qrToken(UUID.randomUUID().toString()) // 입장용 QR 토큰 생성
                 .status(initialStatus)   // 혹은 결제 전이면 PENDING
                 .build();
-
-        // 7. 저장
         Reservation savedReservation = reservationRepository.save(reservation);
+
+        // 발급된 ID를 활용해 redirect 경로를 생성하고 알림을 보냅니다.
+        if (isImmediateEntry) {
+            String pushToken = member.getPushToken();
+            Map<String, Object> data = Map.of("url", "/member/reservations");
+
+            PushMessageRequest messageRequest = notificationService.sendNotification(
+                    pushToken, "입장 안내", "예약하신 시설에 바로 입장 가능합니다.", data);
+
+            notificationService.sendPushMessages(List.of(messageRequest));
+        }
 
         return savedReservation.getId();
     }
@@ -191,7 +193,9 @@ public class ReservationService {
             String pushToken = member.getPushToken();
 
             // 토큰이 유효한 경우만 메시지 생성
-            PushMessageRequest messageRequest = notificationService.sendNotification(pushToken, "입장 안내", "예약하신 [" + reservation.getSpace().getName() + "] 이 현재 입장 가능합니다.");
+            Map<String, Object> data = Map.of("url", "/member/reservations");
+            PushMessageRequest messageRequest = notificationService.sendNotification(
+                    pushToken, "입장 안내", "예약하신 [" + reservation.getSpace().getName() + "] 이 현재 입장 가능합니다.", data);
             messages.add(messageRequest);
         }
 
