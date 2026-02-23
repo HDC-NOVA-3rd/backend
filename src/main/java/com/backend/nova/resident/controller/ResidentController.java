@@ -1,7 +1,7 @@
 package com.backend.nova.resident.controller;
 
 import com.backend.nova.auth.admin.AdminDetails;
-import com.backend.nova.resident.dto.ResidentCreateRequest;
+import com.backend.nova.resident.dto.ResidentSaveRequest;
 import com.backend.nova.resident.dto.ResidentRequest;
 import com.backend.nova.resident.dto.ResidentResponse;
 import com.backend.nova.resident.dto.ResidentVerifyResponse;
@@ -57,7 +57,7 @@ public class ResidentController {
     @Operation(summary = "입주민 등록", description = "새로운 입주민을 등록합니다.")
     @PostMapping
     public ResponseEntity<?> createResident(
-            @RequestBody ResidentCreateRequest request,
+            @RequestBody ResidentSaveRequest request,
             @AuthenticationPrincipal AdminDetails adminDetails) {
 
         Long residentId = residentService.createResident(request, adminDetails.getApartmentId());
@@ -68,7 +68,7 @@ public class ResidentController {
     @PutMapping("/{residentId}")
     public ResponseEntity<Void> updateResident(
             @PathVariable Long residentId,
-            @RequestBody ResidentCreateRequest request,
+            @RequestBody ResidentSaveRequest request,
             @AuthenticationPrincipal AdminDetails adminDetails) {
 
         residentService.updateResident(

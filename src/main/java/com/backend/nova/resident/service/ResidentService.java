@@ -33,7 +33,7 @@ public class ResidentService {
     private final MemberRepository memberRepository;
 
     @Transactional
-    public Long createResident(ResidentCreateRequest request, Long apartmentId) {
+    public Long createResident(ResidentSaveRequest request, Long apartmentId) {
         // request.hoId() 대신 request.dongNo()와 request.hoNo()를 사용하도록 로직 변경
         // (DTO인 ResidentRequest에 해당 필드들이 있다고 가정합니다)
 
@@ -72,7 +72,7 @@ public class ResidentService {
     }
 
     @Transactional
-    public void updateResident(Long residentId, ResidentCreateRequest request, Long apartmentId) {
+    public void updateResident(Long residentId, ResidentSaveRequest request, Long apartmentId) {
         Resident resident = residentRepository
                 .findByIdAndHo_Dong_Apartment_Id(residentId, apartmentId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND));
