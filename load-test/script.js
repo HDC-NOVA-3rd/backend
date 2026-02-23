@@ -1,4 +1,4 @@
-import https from 'k6/https';
+import http from 'k6/http';
 import { check, sleep } from 'k6';
 
 // 1. 부하 테스트 시나리오 (Options)
@@ -15,8 +15,18 @@ const BASE_URL = __ENV.TARGET_URL || 'https://localhost:8080';
 
 // 2. 가상 사용자가 반복해서 실행할 행동
 export default function () {
-  // 테스트할 실제 API 엔드포인트로 변경하세요. (예: 메인 화면 조회, 공지사항 목록 조회 등)
-  const res = https.get(`${BASE_URL}/api/health`); // 임시로 health check 경로 가정
+  // 테스트할 실제 API 엔드포인트로 변경
+  const url = `${BASE_URL}/api/health`; // 테스트 할 API
+  // 헤더에 JWT 토큰 추가
+    const params = {
+      headers: {
+        'Authorization': 'Bearer 여기에_실제_발급받은_액세스_토큰_문자열_입력',
+        'Content-Type': 'application/json',
+      },
+    };
+
+    const res = http.get(url);
+    // const res = http.get(url, params);
 
   // 3. 검증 로직 (Assertions)
   // 응답 코드가 200인지, 응답 시간이 500ms 이하인지 확인
@@ -25,6 +35,7 @@ export default function () {
     'transaction time < 500ms': (r) => r.timings.duration < 500,
   });
 
+  console.log(`Response Status: ${res.status}`);
   // 실제 사용자처럼 행동하도록 각 요청 사이에 0.5초 ~ 1.5초 사이의 랜덤한 대기 시간 추가
   sleep(Math.random() + 0.5);
 }
