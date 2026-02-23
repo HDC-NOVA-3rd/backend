@@ -48,8 +48,7 @@ public class MqttEntranceInbound {
                 mqttEntranceOutbound.sendOpenCommand(req.spaceId());
             } else {
                 log.warn("Access DENIED for spaceId={}, token={}", req.spaceId(), req.qrToken());
-                // 필요하다면 '실패 알림' 메시지를 보낼 수도 있음
-                // sendErrorCommand(req.getSpaceId(), "Invalid Token");
+                mqttEntranceOutbound.sendFailCommand(req.spaceId());
             }
         } catch (Exception e) {
             log.error("Entrance verification failed", e);
