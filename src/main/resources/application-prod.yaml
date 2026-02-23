@@ -1,6 +1,5 @@
 spring:
   config:
-    import: optional:classpath:config/secrets.yaml, optional:file:./config/secrets.yaml #secrets.yaml 파일로 값 읽어오기
     activate:
       on-profile: prod # 'prod' 프로필이 활성화될 때만 이 설정이 적용됨
 
@@ -8,6 +7,8 @@ spring:
     redis:
       host: ${REDIS_HOST}
       password: ${REDIS_PASSWORD}
+  mqtt:
+    url: tcp://mosquitto-server:${MQTT_PORT}
 
   security:
     oauth2:
