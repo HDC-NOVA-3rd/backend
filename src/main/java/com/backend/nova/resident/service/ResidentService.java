@@ -35,7 +35,6 @@ public class ResidentService {
     @Transactional
     public Long createResident(ResidentSaveRequest request, Long apartmentId) {
         // request.hoId() 대신 request.dongNo()와 request.hoNo()를 사용하도록 로직 변경
-        // (DTO인 ResidentRequest에 해당 필드들이 있다고 가정합니다)
 
         Ho ho = hoRepository.findByDong_Apartment_IdAndDong_DongNoAndHoNo(
                         apartmentId, request.dong(), request.ho())
