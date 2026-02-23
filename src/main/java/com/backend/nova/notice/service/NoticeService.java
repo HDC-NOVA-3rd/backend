@@ -5,6 +5,8 @@ import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.Dong;
 import com.backend.nova.apartment.repository.DongRepository;
 import com.backend.nova.auth.admin.AdminDetails;
+import com.backend.nova.global.notification.NotificationService;
+import com.backend.nova.global.notification.PushMessageRequest;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
 import com.backend.nova.member.entity.Member;
@@ -24,8 +26,6 @@ import com.backend.nova.notice.entity.NoticeTargetScope;
 import com.backend.nova.notice.repository.NoticeRepository;
 import com.backend.nova.notice.repository.NoticeSendLogRepository;
 import com.backend.nova.notice.repository.NoticeTargetDongRepository;
-import com.backend.nova.resident.entity.Resident;
-import com.backend.nova.resident.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -46,9 +46,9 @@ public class NoticeService {
     private final NoticeSendLogRepository noticeSendLogRepository;
     private final NoticeTargetDongRepository noticeTargetDongRepository;
     private final AdminRepository adminRepository;
-    private final ResidentRepository residentRepository;
     private final DongRepository dongRepository;
     private final MemberRepository memberRepository;
+    private final NotificationService notificationService;
 
     public NoticeCreateResponse createNotice(NoticeCreateRequest request) {
         Admin admin = getCurrentAdmin();
@@ -140,22 +140,15 @@ public class NoticeService {
         if (allowedDongIds.isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        List<Long> targetResidentIds = resolveTargetResidentIds(request, admin, allowedDongIds);
+        List<Member> targetMembers = resolveTargetMembers(request, admin, allowedDongIds);
+        saveNoticeSendLogs(notice, targetMembers);
 
-        List<NoticeSendLog> logs = targetResidentIds.stream()
-                .map(residentId -> NoticeSendLog.builder()
-                        .notice(notice)
-                        .recipientId(residentId)
-                        .title(notice.getTitle())
-                        .content(notice.getContent())
-                        .read(false)
-                        .build())
-                .toList();
+        List<PushMessageRequest> pushMessages = buildNoticePushMessages(notice, targetMembers);
 
-        noticeSendLogRepository.saveAll(logs);
-
-        String message = targetResidentIds.size() + "명에게 공지 알림이 전송되었습니다.";
-        return new NoticeSendResponse(true, message, targetResidentIds.size());
+        if (!pushMessages.isEmpty()) {
+            notificationService.sendPushMessages(pushMessages);
+        }
+        return buildSendResponse(pushMessages.size());
     }
 
     @Transactional(readOnly = true)
@@ -201,7 +194,7 @@ public class NoticeService {
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
     }
 
-    private List<Long> resolveTargetResidentIds(NoticeSendRequest request, Admin admin, Set<Long> allowedDongIds) {
+    private List<Member> resolveTargetMembers(NoticeSendRequest request, Admin admin, Set<Long> allowedDongIds) {
         if (request == null) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
@@ -210,14 +203,13 @@ public class NoticeService {
         List<Long> targetDongIds = requestedDongIds.isEmpty() ? List.copyOf(allowedDongIds) : requestedDongIds;
         validateDongIds(targetDongIds, apartmentId, allowedDongIds);
 
-        List<Resident> residents = residentRepository.findByHo_Dong_IdIn(targetDongIds);
-        validateRequest(!residents.isEmpty());
-        List<Long> targetResidentIds = toResidentIdList(residents);
-
-        if (targetResidentIds.isEmpty()) {
+        List<Member> targetMembers = memberRepository.findByResident_Ho_Dong_IdIn(targetDongIds).stream()
+                .filter(member -> member.getResident() != null && member.getResident().getId() != null)
+                .toList();
+        if (targetMembers.isEmpty()) {
             throw new BusinessException(ErrorCode.INVALID_REQUEST);
         }
-        return targetResidentIds;
+        return targetMembers;
     }
 
     private List<Long> normalizeIds(List<Long> ids) {
@@ -239,11 +231,35 @@ public class NoticeService {
         validateRequest(!invalidDong);
     }
 
-    private List<Long> toResidentIdList(List<Resident> residents) {
-        return residents.stream()
-                .map(Resident::getId)
+    private void saveNoticeSendLogs(Notice notice, List<Member> targetMembers) {
+        List<NoticeSendLog> logs = targetMembers.stream()
+                .map(member -> NoticeSendLog.builder()
+                        .notice(notice)
+                        .recipientId(member.getResident().getId())
+                        .title(notice.getTitle())
+                        .content(notice.getContent())
+                        .read(false)
+                        .build())
+                .toList();
+        noticeSendLogRepository.saveAll(logs);
+    }
+
+    private List<PushMessageRequest> buildNoticePushMessages(
+            Notice notice,
+            List<Member> targetMembers
+    ) {
+        return targetMembers.stream()
+                .map(member -> notificationService.sendNotification(
+                        member.getPushToken(),
+                        notice.getTitle(),
+                        notice.getContent()))
                 .filter(Objects::nonNull)
                 .toList();
+    }
+
+    private NoticeSendResponse buildSendResponse(int sentCount) {
+        String message = sentCount + "명에게 공지 알림이 전송되었습니다.";
+        return new NoticeSendResponse(true, message, sentCount);
     }
 
     private void validateRequest(boolean condition) {
