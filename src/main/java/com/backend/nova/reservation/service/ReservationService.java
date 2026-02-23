@@ -161,7 +161,7 @@ public class ReservationService {
         // 발급된 ID를 활용해 redirect 경로를 생성하고 알림을 보냅니다.
         if (isImmediateEntry) {
             String pushToken = member.getPushToken();
-            Map<String, Object> data = Map.of("redirect", "/member/reservations");
+            Map<String, Object> data = Map.of("url", "/member/reservations");
 
             PushMessageRequest messageRequest = notificationService.sendNotification(
                     pushToken, "입장 안내", "예약하신 시설에 바로 입장 가능합니다.", data);
@@ -193,7 +193,7 @@ public class ReservationService {
             String pushToken = member.getPushToken();
 
             // 토큰이 유효한 경우만 메시지 생성
-            Map<String, Object> data = Map.of("redirect", "/member/reservations");
+            Map<String, Object> data = Map.of("url", "/member/reservations");
             PushMessageRequest messageRequest = notificationService.sendNotification(
                     pushToken, "입장 안내", "예약하신 [" + reservation.getSpace().getName() + "] 이 현재 입장 가능합니다.", data);
             messages.add(messageRequest);

@@ -1,10 +1,10 @@
-name: Dev Server CI/CD
+name: Dev Server CI
 
 on:
   pull_request:
     branches: [ develop ]
   push:
-    branches: [ develop, feat/cicd ]
+    branches: [ develop, main]
 
 jobs:
   pr-test:
