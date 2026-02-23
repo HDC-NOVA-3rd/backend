@@ -4,6 +4,7 @@ import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.service.AdminService;
 import com.backend.nova.auth.admin.AdminDetails;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -41,10 +42,9 @@ public class AdminAccountController {
     @Operation(summary = "로그아웃", security = @SecurityRequirement(name = "bearerAuth"))
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
-            @AuthenticationPrincipal AdminDetails adminDetails,
-            @RequestBody AdminRefreshTokenRequest request
+            HttpServletResponse response // 쿠키 삭제를 위해 추가
     ) {
-        adminService.logout(request.refreshToken());
+        adminService.logout(response); // 서비스에 response 전달
         return ResponseEntity.ok().build();
     }
 
