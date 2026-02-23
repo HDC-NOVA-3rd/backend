@@ -63,7 +63,7 @@ public class ComplaintController {
     /* ================= 민원 피드백 (입주민) ================= */
     @Operation(summary = "민원 피드백 등록", description = "입주민이 민원 처리에 대한 피드백을 남깁니다.")
     @PreAuthorize("hasRole('MEMBER')")
-    @PostMapping("/{complaintId}/feedbacks")
+    @PostMapping("/{complaintId}/review")
     public ResponseEntity<Void> createFeedback(
             @PathVariable Long complaintId,
             @AuthenticationPrincipal @Parameter(hidden = true) MemberDetails memberDetails,
