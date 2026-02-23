@@ -10,7 +10,12 @@ public record ResidentResponse(
         String name,
         String phone
 ) {
-    public static ResidentResponse fromEntity(Resident resident) {
+    /**
+     * Entity를 DTO로 변환
+     * QueryDSL에서 Fetch Join으로 ho, dong, apartment를 한꺼번에 가져오므로
+     * 이 메서드 호출 시 추가 쿼리가 발생하지 않습니다.
+     */
+    public static ResidentResponse from(Resident resident) {
         return new ResidentResponse(
                 resident.getId(),
                 resident.getHo().getDong().getApartment().getName(),

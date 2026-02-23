@@ -61,8 +61,7 @@ public class SecurityConfig {
         config.addAllowedHeader("*");
         config.setAllowCredentials(true);
 
-        UrlBasedCorsConfigurationSource source =
-                new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
     }
@@ -102,7 +101,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/management-fee/**").permitAll()
                         .requestMatchers("/api/admin/bill/**").permitAll()
                         .requestMatchers("/api/admin/notice**").permitAll()
+                        .requestMatchers("/api/admin/auth/refresh").permitAll()
 
+                        .requestMatchers("/admin/rag/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
                         .requestMatchers("/api/room/**").permitAll()
@@ -215,6 +216,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/voice/**").permitAll()
                         //모니터링 툴 API -> 접근 허용
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/admin/rag/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()

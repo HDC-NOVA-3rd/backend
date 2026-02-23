@@ -6,81 +6,104 @@ import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
-import com.backend.nova.resident.dto.ResidentRequest;
-import com.backend.nova.resident.dto.ResidentResponse;
-import com.backend.nova.resident.dto.ResidentVerifyResponse;
-import com.backend.nova.resident.dto.SignupStatus;
+import com.backend.nova.resident.dto.*;
 import com.backend.nova.resident.entity.Resident;
+import com.backend.nova.resident.repository.ResidentQueryRepository;
 import com.backend.nova.resident.repository.ResidentRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+
 import java.util.Optional;
-import java.util.stream.Collectors;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ResidentService {
-    private final ResidentRepository residentRepository;
+
+    private final ResidentRepository residentRepository; // 등록, 수정, 삭제용 (JPA)
+    private final ResidentQueryRepository residentQueryRepository; // 복잡한 조회용 (QueryDSL)
     private final HoRepository hoRepository;
     private final MemberRepository memberRepository;
 
     @Transactional
-    public Long createResident(ResidentRequest request) {
-        Ho ho = hoRepository.findById(request.hoId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.HO_NOT_FOUND)); // 404 NOT FOUND
-        
+    public Long createResident(ResidentSaveRequest request, Long apartmentId) {
+        // request.hoId() 대신 request.dongNo()와 request.hoNo()를 사용하도록 로직 변경
+
+        Ho ho = hoRepository.findByDong_Apartment_IdAndDong_DongNoAndHoNo(
+                        apartmentId, request.dong(), request.ho())
+                .orElseThrow(() -> new BusinessException(ErrorCode.HO_NOT_FOUND));
+
         Resident resident = Resident.builder()
                 .ho(ho)
                 .name(request.name())
                 .phone(request.phone())
                 .build();
+
         try {
             return residentRepository.save(resident).getId();
         } catch (DataIntegrityViolationException e) {
-            throw new BusinessException(ErrorCode.RESIDENT_DUPLICATED); // 409 CONFLICT
+            throw new BusinessException(ErrorCode.RESIDENT_DUPLICATED);
         }
     }
 
-    public ResidentResponse getResident(Long residentId) {
-        Resident resident = residentRepository.findById(residentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND)); // 404 NOT FOUND
-        
-        return ResidentResponse.fromEntity(resident);
+    public ResidentResponse getResident(Long residentId, Long apartmentId) {
+
+        Resident resident = residentRepository
+                .findByIdAndHo_Dong_Apartment_Id(residentId, apartmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND));
+
+        return ResidentResponse.from(resident);
     }
 
-    public List<ResidentResponse> getAllResidents(Long apartmentId) {
-        return residentRepository.findByHo_Dong_Apartment_Id(apartmentId).stream()
-                .map(ResidentResponse::fromEntity)
-                .collect(Collectors.toList());
+    @Transactional(readOnly = true)
+    public Page<ResidentResponse> getAllResidents(Long apartmentId, Long dongId, String searchTerm, Pageable pageable) {
+        // residentRepository가 아니라 residentQueryRepository를 사용!
+        Page<Resident> residentPage = residentQueryRepository.findAllByFilters(apartmentId, dongId, searchTerm, pageable);
+
+        return residentPage.map(ResidentResponse::from);
     }
 
     @Transactional
-    public void updateResident(Long residentId, ResidentRequest request) {
-        Resident resident = residentRepository.findById(residentId)
-                .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND)); // 404 NOT FOUND
-        Ho ho = hoRepository.findById(request.hoId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.HO_NOT_FOUND)); // 404 NOT FOUND
+    public void updateResident(Long residentId, ResidentSaveRequest request, Long apartmentId) {
+        Resident resident = residentRepository
+                .findByIdAndHo_Dong_Apartment_Id(residentId, apartmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND));
+
+        // 수정 시에도 동/호수 텍스트로 Ho 엔티티 조회
+        Ho ho = hoRepository.findByDong_Apartment_IdAndDong_DongNoAndHoNo(
+                        apartmentId, request.dong(), request.ho())
+                .orElseThrow(() -> new BusinessException(ErrorCode.HO_NOT_FOUND));
+
         resident.update(ho, request.name(), request.phone());
     }
 
     @Transactional
-    public void deleteResident(Long residentId) {
-        if (!residentRepository.existsById(residentId)) {
-            throw new BusinessException(ErrorCode.RESIDENT_NOT_FOUND); // 404 NOT FOUND
-        }
-        residentRepository.deleteById(residentId);
+    public void deleteResident(Long residentId, Long apartmentId) {
+
+        Resident resident = residentRepository
+                .findByIdAndHo_Dong_Apartment_Id(residentId, apartmentId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.RESIDENT_NOT_FOUND));
+
+        residentRepository.delete(resident);
     }
+
     @Transactional
-    public void deleteAllResidents(Long hoId) {
-        if (!hoRepository.existsById(hoId)) {
-            throw new BusinessException(ErrorCode.HO_NOT_FOUND); // 404 NOT FOUND
+    public void deleteAllResidents(Long hoId, Long apartmentId) {
+
+        Ho ho = hoRepository.findById(hoId)
+                .orElseThrow(() -> new BusinessException(ErrorCode.HO_NOT_FOUND));
+
+        if (!ho.getDong().getApartment().getId().equals(apartmentId)) {
+            throw new BusinessException(ErrorCode.FORBIDDEN);
         }
+
         residentRepository.deleteByHoId(hoId);
     }
     // 입주민 검증을 먼저 하고, 기존 가입 이력을 확인하는 메서드

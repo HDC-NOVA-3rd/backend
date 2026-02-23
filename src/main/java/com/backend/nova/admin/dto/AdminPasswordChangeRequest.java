@@ -6,6 +6,5 @@ import jakarta.validation.constraints.NotBlank;
  * 관리자 비밀번호 변경요청
  */
 public record AdminPasswordChangeRequest(
-        @NotBlank String loginId,
         @NotBlank String currentPassword
 ) {}
