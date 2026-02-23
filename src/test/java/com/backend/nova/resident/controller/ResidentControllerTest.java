@@ -12,8 +12,8 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.List;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
+
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -43,7 +43,7 @@ class ResidentControllerTest extends ControllerTestSupport {
     void getAllResidents_Success() throws Exception {
         // given
         List<ResidentResponse> response = List.of(new ResidentResponse(1L, "Apartment", "101", "101", "Name", "010-1234-5678"));
-        given(residentService.getAllResidents(anyLong())).willReturn(response);
+        given(residentService.getAllResidents(anyLong(),anyLong(),anyString(),any())).willReturn(any());
 
         // when & then
         mockMvc.perform(get("/api/resident/apartment/1"))

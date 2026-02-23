@@ -1,20 +1,23 @@
 package com.backend.nova.resident.controller;
 
 import com.backend.nova.auth.admin.AdminDetails;
+import com.backend.nova.resident.dto.ResidentCreateRequest;
 import com.backend.nova.resident.dto.ResidentRequest;
 import com.backend.nova.resident.dto.ResidentResponse;
 import com.backend.nova.resident.dto.ResidentVerifyResponse;
 import com.backend.nova.resident.service.ResidentService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.net.URI;
-import java.util.List;
 
 @Tag(name = "Resident", description = "입주민 관리 API (관리자 전용)")
 @RestController
@@ -36,19 +39,25 @@ public class ResidentController {
         );
     }
 
-    @Operation(summary = "아파트별 입주민 목록 조회", description = "아파트 ID로 해당 아파트의 모든 입주민을 조회합니다.")
+    @Operation(summary = "아파트별 입주민 목록 조회", description = "페이징과 검색 조건을 포함하여 조회합니다.")
     @GetMapping("/apartment")
-    public ResponseEntity<List<ResidentResponse>> getAllResidents(
+    public ResponseEntity<Page<ResidentResponse>> getAllResidents(
+            @RequestParam(required = false) Long dongId,
+            @RequestParam(required = false) String searchTerm,
+            @Parameter(description = "페이지 번호(0부터), 페이지 크기 등") Pageable pageable,
             @AuthenticationPrincipal AdminDetails adminDetails) {
 
         Long apartmentId = adminDetails.getApartmentId();
-        return ResponseEntity.ok(residentService.getAllResidents(apartmentId));
+
+        return ResponseEntity.ok(
+                residentService.getAllResidents(apartmentId, dongId, searchTerm, pageable)
+        );
     }
 
     @Operation(summary = "입주민 등록", description = "새로운 입주민을 등록합니다.")
     @PostMapping
     public ResponseEntity<?> createResident(
-            @RequestBody ResidentRequest request,
+            @RequestBody ResidentCreateRequest request,
             @AuthenticationPrincipal AdminDetails adminDetails) {
 
         Long residentId = residentService.createResident(request, adminDetails.getApartmentId());
@@ -59,7 +68,7 @@ public class ResidentController {
     @PutMapping("/{residentId}")
     public ResponseEntity<Void> updateResident(
             @PathVariable Long residentId,
-            @RequestBody ResidentRequest request,
+            @RequestBody ResidentCreateRequest request,
             @AuthenticationPrincipal AdminDetails adminDetails) {
 
         residentService.updateResident(
