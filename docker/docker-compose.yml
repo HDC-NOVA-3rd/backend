@@ -14,7 +14,7 @@ services:
       - SPRING_CONFIG_IMPORT=optional:file:/app/config/secrets.yaml
       - TZ=Asia/Seoul  # 서버 시간 한국 시간으로 맞추기
       - SPRING_PROFILES_ACTIVE=prod # application-prod 적용
-      - REDIS_HOST= redis
+      - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     networks:
       - app-network
