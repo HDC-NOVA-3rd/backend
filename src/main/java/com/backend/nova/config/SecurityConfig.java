@@ -102,7 +102,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/management-fee/**").permitAll()
                         .requestMatchers("/api/admin/bill/**").permitAll()
                         .requestMatchers("/api/admin/notice**").permitAll()
-
+                        .requestMatchers("/admin/rag/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
                         .requestMatchers("/api/room/**").permitAll()
@@ -215,6 +215,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/voice/**").permitAll()
                         //모니터링 툴 API -> 접근 허용
                         .requestMatchers("/actuator/prometheus").permitAll()
+                        .requestMatchers("/admin/rag/**").permitAll()
                         .requestMatchers("/ws/**").permitAll()
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
