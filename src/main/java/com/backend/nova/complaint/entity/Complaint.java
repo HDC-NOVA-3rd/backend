@@ -59,7 +59,7 @@ public class Complaint {
     private boolean deleted = false;
 
     // 해결일
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = true, updatable = false)
     private LocalDateTime resolvedAt;
 
     // 배정일
