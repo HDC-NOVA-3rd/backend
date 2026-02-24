@@ -2,8 +2,11 @@ package com.backend.nova.bill.service;
 
 import com.backend.nova.bill.dto.*;
 import com.backend.nova.bill.entity.*;
+import com.backend.nova.bill.repository.BillQueryRepository;
 import com.backend.nova.bill.repository.BillRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,20 +18,24 @@ import java.util.List;
 public class BillService {
 
     private final BillRepository billRepository;
+    private final BillQueryRepository billQueryRepository;
 
     // =============================
     // 관리자: 단지별 전체 고지서 조회
     // =============================
-    public List<BillSummaryResponse> getBillsByApartment(Long apartmentId) {
-        return billRepository.findSummaryByApartmentId(apartmentId);
+    public Page<BillSummaryResponse> getBillsByApartment(Long apartmentId, BillSearchCondition condition, Pageable pageable) {
+        return billQueryRepository.findAllByAdmin(apartmentId, condition, pageable);
     }
 
     // =============================
     // 사용자: 세대별 고지서 조회
     // =============================
-    public List<BillSummaryResponse> getBillsByHo(Long hoId) {
-        return billRepository.findSummaryByHoId(hoId);
+    public Page<BillSummaryResponse> getBillsByHo(Long hoId, Pageable pageable) {
+        return billQueryRepository.findAllByMember(hoId, pageable);
     }
+//    public List<BillSummaryResponse> getBillsByHo(Long hoId) {
+//        return billRepository.findSummaryByHoId(hoId);
+//    }
 
     // =============================
     // 관리자: 단지 내 고지서 상세
@@ -70,5 +77,12 @@ public class BillService {
                                 .build())
                         .toList())
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<BillSummaryResponse> getAllBillsForExcel(Long apartmentId, BillSearchCondition condition) {
+        // 대량 데이터일 수 있으므로 필요 시 fetchSize 등을 조절할 수 있으나,
+        // 고지서는 보통 단지당 수천 건 수준이므로 List로 한 번에 조회해도 무방합니다.
+        return billQueryRepository.findAllForExcel(apartmentId, condition);
     }
 }
