@@ -4,6 +4,7 @@ import com.backend.nova.apartment.entity.Ho;
 import com.backend.nova.apartment.repository.HoRepository;
 import com.backend.nova.homeEnvironment.mode.dto.ModeDetailResponse;
 import com.backend.nova.homeEnvironment.mode.dto.ModeListItemResponse;
+import com.backend.nova.homeEnvironment.mode.dto.ModeScheduleSetRequest;
 import com.backend.nova.homeEnvironment.mode.entity.Mode;
 import com.backend.nova.homeEnvironment.mode.entity.ModeAction;
 import com.backend.nova.homeEnvironment.mode.entity.ModeSchedule;
@@ -12,20 +13,27 @@ import com.backend.nova.homeEnvironment.mode.repository.ModeRepository;
 import com.backend.nova.homeEnvironment.mode.repository.ModeScheduleRepository;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
-import com.backend.nova.mqtt.MqttAssistantPublisher;
+import com.backend.nova.mqtt.MqttCommandPublisher;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.backend.nova.homeEnvironment.entity.Device;
 import com.backend.nova.homeEnvironment.entity.DeviceType;
 import com.backend.nova.homeEnvironment.repository.DeviceRepository;
 import com.backend.nova.homeEnvironment.mode.entity.ModeActionCommand;
-import java.util.List;
 
+import java.time.LocalTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import com.backend.nova.homeEnvironment.mode.dto.ModeActionsUpsertRequest;
+import java.util.ArrayList;
+import java.util.Objects;
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ModeService {
-    private final MqttAssistantPublisher mqttAssistantPublisher;
+    private final MqttCommandPublisher mqttCommandPublisher;
     private final MemberRepository memberRepository;
     private final HoRepository hoRepository; // 추가
     private final ModeRepository modeRepository;
@@ -46,7 +54,9 @@ public class ModeService {
 
     @Transactional
     public List<ModeListItemResponse> getMyModes(String loginId) {
+
         Long hoId = getHoIdByLoginId(loginId);
+        log.info("[getMyModes] loginId={}, hoId={}", loginId, hoId);
         // 기본 모드가 없으면 최초 1회 자동 생성
         DefaultModes(hoId);
         // 모드 엔티티만 조회(연관 스케줄에 직접 접근하지 않음)
@@ -139,6 +149,8 @@ public class ModeService {
 
     @Transactional
     public void DefaultModes(Long hoId) {
+        // 기본모드 액션이 왜 생성되지 않는지(hoId/디바이스 수/기본모드 수/seed 실행 여부) 확인하기 위함
+        log.info("[DefaultModes] start hoId={}", hoId);
         Ho ho = hoRepository.findById(hoId)
                 .orElseThrow(() -> new IllegalArgumentException("세대를 찾을 수 없습니다. hoId=" + hoId));
 
@@ -171,7 +183,8 @@ public class ModeService {
 
         // 2)기본모드가 "이미 있어도", 액션이 비어있으면 채워넣기
         for (Mode m : defaults) {
-            if (modeActionRepository.existsByMode_Id(m.getId())) continue; // 이미 액션 있으면 스킵
+            // 기존 액션 삭제 후 항상 재시드
+            if (modeActionRepository.existsByMode_Id(m.getId())) continue;
 
             switch (m.getModeName()) {
                 case "외출" -> seedOutingActions(m, devices);
@@ -182,10 +195,19 @@ public class ModeService {
     }
 
     private void seedOutingActions(Mode outing, List<Device> devices) {
+        seedAllOff(outing, devices);
+    }
+
+    private void seedSleepActions(Mode sleep, List<Device> devices) {
+        seedAllOff(sleep, devices);
+    }
+
+    private void seedAllOff(Mode mode, List<Device> devices) {
         int order = 1;
+
         for (Device d : devices) {
             modeActionRepository.save(ModeAction.builder()
-                    .mode(outing)
+                    .mode(mode)
                     .sortOrder(order++)
                     .device(d)
                     .command(ModeActionCommand.POWER)
@@ -194,92 +216,27 @@ public class ModeService {
         }
     }
 
-    private void seedSleepActions(Mode sleep, List<Device> devices) {
-        // "침/안" 방 우선
-        List<Device> bedRoomDevices = devices.stream()
-                .filter(d -> d.getRoom() != null && d.getRoom().getName() != null)
-                .filter(d -> d.getRoom().getName().contains("침") || d.getRoom().getName().contains("안"))
-                .toList();
-
-        Device sleepLed = bedRoomDevices.stream().filter(d -> d.getType() == DeviceType.LED).findFirst()
-                .orElseGet(() -> devices.stream().filter(d -> d.getType() == DeviceType.LED).findFirst().orElse(null));
-
-        Device sleepAircon = bedRoomDevices.stream().filter(d -> d.getType() == DeviceType.AIRCON).findFirst()
-                .orElseGet(() -> devices.stream().filter(d -> d.getType() == DeviceType.AIRCON).findFirst().orElse(null));
-
-        Device sleepFan = bedRoomDevices.stream().filter(d -> d.getType() == DeviceType.FAN).findFirst()
-                .orElseGet(() -> devices.stream().filter(d -> d.getType() == DeviceType.FAN).findFirst().orElse(null));
-
-        int order = 1;
-
-        // 수면등(밝기 10), 에어컨 26도 ON, 팬 ON (없으면 skip)
-        if (sleepLed != null) {
-            modeActionRepository.save(ModeAction.builder()
-                    .mode(sleep)
-                    .sortOrder(order++)
-                    .device(sleepLed)
-                    .command(ModeActionCommand.BRIGHTNESS)
-                    .value("10")
-                    .build());
-        }
-        if (sleepAircon != null) {
-            modeActionRepository.save(ModeAction.builder()
-                    .mode(sleep)
-                    .sortOrder(order++)
-                    .device(sleepAircon)
-                    .command(ModeActionCommand.SET_TEMP)
-                    .value("26")
-                    .build());
-            modeActionRepository.save(ModeAction.builder()
-                    .mode(sleep)
-                    .sortOrder(order++)
-                    .device(sleepAircon)
-                    .command(ModeActionCommand.POWER)
-                    .value("ON")
-                    .build());
-        }
-        if (sleepFan != null) {
-            modeActionRepository.save(ModeAction.builder()
-                    .mode(sleep)
-                    .sortOrder(order++)
-                    .device(sleepFan)
-                    .command(ModeActionCommand.POWER)
-                    .value("ON")
-                    .build());
-        }
-    }
-
     private void seedHomeActions(Mode home, List<Device> devices) {
-        Device homeAircon = devices.stream().filter(d -> d.getType() == DeviceType.AIRCON).findFirst().orElse(null);
-        Device homeFan = devices.stream().filter(d -> d.getType() == DeviceType.FAN).findFirst().orElse(null);
-
         int order = 1;
 
-        // 귀가 = 쾌적온도 24~25 맞춰놓기 + 팬 ON
-        if (homeAircon != null) {
-            modeActionRepository.save(ModeAction.builder()
-                    .mode(home)
-                    .sortOrder(order++)
-                    .device(homeAircon)
-                    .command(ModeActionCommand.SET_TEMP)
-                    .value("24")
-                    .build());
-            modeActionRepository.save(ModeAction.builder()
-                    .mode(home)
-                    .sortOrder(order++)
-                    .device(homeAircon)
-                    .command(ModeActionCommand.POWER)
-                    .value("ON")
-                    .build());
-        }
-        if (homeFan != null) {
-            modeActionRepository.save(ModeAction.builder()
-                    .mode(home)
-                    .sortOrder(order++)
-                    .device(homeFan)
-                    .command(ModeActionCommand.POWER)
-                    .value("ON")
-                    .build());
+        for (Device d : devices) {
+            if (d.getType() == DeviceType.LED) {
+                modeActionRepository.save(ModeAction.builder()
+                        .mode(home)
+                        .sortOrder(order++)
+                        .device(d)
+                        .command(ModeActionCommand.POWER)
+                        .value("ON")
+                        .build());
+            } else {
+                modeActionRepository.save(ModeAction.builder()
+                        .mode(home)
+                        .sortOrder(order++)
+                        .device(d)
+                        .command(ModeActionCommand.POWER)
+                        .value("OFF")
+                        .build());
+            }
         }
     }
 
@@ -296,6 +253,8 @@ public class ModeService {
             modeScheduleRepository.save(ModeSchedule.builder()
                     .mode(mode)
                     .startTime(s.getStartTime())
+                    .endTime(s.getEndTime())
+                    .endMode(s.getEndMode())
                     .repeatDays(s.getRepeatDays())
                     .isEnabled(s.isEnabled())
                     .build());
@@ -345,6 +304,8 @@ public class ModeService {
         var schedules = modeScheduleRepository.findAllByMode_Id(mode.getId()).stream()
                 .map(s -> new ModeDetailResponse.ScheduleItem(
                         s.getStartTime() != null ? s.getStartTime().toString() : null,
+                        s.getEndTime() != null ? s.getEndTime().toString() : null,
+                        s.getEndMode() != null ? s.getEndMode().getId() : null,
                         s.getRepeatDays(),
                         s.isEnabled()
                 ))
@@ -361,39 +322,264 @@ public class ModeService {
     }
     @Transactional
     public void executeMyMode(String loginId, Long modeId) {
-        Long hoId = getHoIdByLoginId(loginId);
+        // 소유권 검증
+        getMyModeDetail(loginId, modeId);
 
-        Mode mode = getMyModeDetail(loginId, modeId);
-        List<ModeAction> actions = modeActionRepository.findAllByMode_IdOrderBySortOrderAsc(mode.getId());
+        // 실제 실행은 공통 메서드
+        executeModeByModeId(modeId);
+    }
+    @Transactional
+    public void executeModeByModeId(Long modeId) {
+        Mode mode = modeRepository.findById(modeId)
+                .orElseThrow(() -> new IllegalArgumentException("모드를 찾을 수 없습니다. modeId=" + modeId));
 
+        Long hoId = mode.getHo().getId();
+
+        List<ModeAction> actions = modeActionRepository.findAllByMode_IdOrderBySortOrderAsc(modeId);
         if (actions.isEmpty()) throw new IllegalStateException("모드에 등록된 액션이 없습니다.");
 
         for (ModeAction a : actions) {
             Device d = a.getDevice();
             String v = a.getValue();
 
+            if (d == null || d.getRoom() == null) {
+                throw new IllegalStateException("액션에 디바이스/룸이 연결되지 않았습니다. actionId=" + a.getId());
+            }
+
+            Long roomId = d.getRoom().getId();
+
             switch (a.getCommand()) {
                 case POWER -> {
                     boolean on = "ON".equalsIgnoreCase(v) || "TRUE".equalsIgnoreCase(v);
+
+                    // DB 반영
                     d.changePower(on);
-                    mqttAssistantPublisher.publishCommand(hoId, d.getDeviceCode(), "POWER", on);
+
+                    // ✅ MQTT는 roomId 포함해서 device-req로 발행
+                    mqttCommandPublisher.publishDeviceCommand(hoId, roomId, d.getDeviceCode(), "POWER", on);
+
+                    // LED 켜질 때 밝기 기본값 보정
+                    if (d.getType() == DeviceType.LED && on) {
+                        Integer cur = d.getBrightness();
+                        if (cur == null || cur <= 0) {
+                            int defaultB = 50;
+                            d.changeBrightness(defaultB);
+                            mqttCommandPublisher.publishDeviceCommand(hoId, roomId, d.getDeviceCode(), "BRIGHTNESS", defaultB);
+                        }
+                    }
+
+                    // LED 꺼질 때 밝기 0 동기화
+                    if (d.getType() == DeviceType.LED && !on) {
+                        d.changeBrightness(0);
+                        mqttCommandPublisher.publishDeviceCommand(hoId, roomId, d.getDeviceCode(), "BRIGHTNESS", 0);
+                    }
                 }
+
                 case BRIGHTNESS -> {
                     int b = Integer.parseInt(v);
+
                     d.changeBrightness(b);
-                    mqttAssistantPublisher.publishCommand(hoId, d.getDeviceCode(), "BRIGHTNESS", b);
+
+                    boolean on = b > 0;
+                    d.changePower(on);
+
+                    // ✅ 순서 중요: 밝기 -> 전원 or 전원 -> 밝기 는 Pi 구현에 맞춰
+                    // 보통은 POWER 먼저 주고 BRIGHTNESS 주는 게 안전
+                    mqttCommandPublisher.publishDeviceCommand(hoId, roomId, d.getDeviceCode(), "POWER", on);
+                    mqttCommandPublisher.publishDeviceCommand(hoId, roomId, d.getDeviceCode(), "BRIGHTNESS", b);
                 }
+
                 case SET_TEMP -> {
                     int t = Integer.parseInt(v);
+
                     d.changeTargetTemp(t);
                     d.changePower(true);
-                    mqttAssistantPublisher.publishCommand(hoId, d.getDeviceCode(), "SET_TEMP", t);
-                    mqttAssistantPublisher.publishCommand(hoId, d.getDeviceCode(), "POWER", true);
+
+                    mqttCommandPublisher.publishDeviceCommand(hoId, roomId, d.getDeviceCode(), "SET_TEMP", t);
+                    mqttCommandPublisher.publishDeviceCommand(hoId, roomId, d.getDeviceCode(), "POWER", true);
                 }
             }
         }
     }
     // MQTT 붙일 거면 여기서 actions대로 publish 하면 됨
+    @Transactional
+    public void setMyModeActions(String loginId, Long modeId, ModeActionsUpsertRequest req) {
+        if (req == null || req.actions() == null) {
+            throw new IllegalArgumentException("actions가 비어있습니다.");
+        }
 
+        Mode mode = getMyModeDetail(loginId, modeId);
 
+        if (!mode.isEditable() || mode.isDefault()) {
+            throw new IllegalStateException("기본 모드/편집 불가 모드는 동작을 수정할 수 없습니다.");
+        }
+
+        Long hoId = getHoIdByLoginId(loginId);
+
+        // 1) 기존 액션 전체 삭제
+        modeActionRepository.deleteAllByMode_Id(mode.getId());
+        modeActionRepository.flush(); // ✅ 중요: delete를 DB에 먼저 반영
+
+        // actions 비어있으면 “전체 삭제”로 처리하고 종료
+        if (req.actions().isEmpty()) return;
+
+        // ✅ 2) 중복 정리: (deviceId + command) 기준으로 마지막 것만 남김
+        List<ModeActionsUpsertRequest.ActionItem> normalized = normalizeActionsKeepLast(req.actions());
+
+        // ✅ 3) 정규화된 목록으로 저장 (sortOrder는 서버가 1..N 재부여)
+        int sortOrder = 1;
+
+        for (var a : normalized) {
+            if (a.deviceId() == null) throw new IllegalArgumentException("deviceId는 필수입니다.");
+            if (a.command() == null) throw new IllegalArgumentException("command는 필수입니다.");
+            if (a.value() == null) throw new IllegalArgumentException("value는 필수입니다.");
+
+            Device device = deviceRepository.findById(a.deviceId())
+                    .orElseThrow(() -> new IllegalArgumentException("디바이스 없음: deviceId=" + a.deviceId()));
+
+            // 내 세대(hoId) 디바이스인지 검증
+            if (device.getRoom() == null || device.getRoom().getHo() == null ||
+                    !device.getRoom().getHo().getId().equals(hoId)) {
+                throw new IllegalStateException("내 세대 디바이스만 등록 가능합니다. deviceId=" + a.deviceId());
+            }
+
+            ModeActionCommand cmd = a.command();
+
+            // value 검증/정규화
+            String value = a.value().trim();
+            switch (cmd) {
+                case POWER -> {
+                    String upper = value.toUpperCase();
+                    if (!(upper.equals("ON") || upper.equals("OFF") || upper.equals("TRUE") || upper.equals("FALSE"))) {
+                        throw new IllegalArgumentException("POWER 값은 ON/OFF(TRUE/FALSE)만 허용됩니다.");
+                    }
+                    value = (upper.equals("TRUE")) ? "ON" : (upper.equals("FALSE") ? "OFF" : upper);
+                }
+                case BRIGHTNESS -> {
+                    int b;
+                    try { b = Integer.parseInt(value); }
+                    catch (Exception e) { throw new IllegalArgumentException("BRIGHTNESS는 숫자여야 합니다."); }
+                    if (b < 0 || b > 100) throw new IllegalArgumentException("BRIGHTNESS 범위는 0~100 입니다.");
+                    value = String.valueOf(b);
+                }
+                case SET_TEMP -> {
+                    int t;
+                    try { t = Integer.parseInt(value); }
+                    catch (Exception e) { throw new IllegalArgumentException("SET_TEMP는 숫자여야 합니다."); }
+                    if (t < 16 || t > 30) throw new IllegalArgumentException("SET_TEMP 범위는 16~30 입니다.");
+                    value = String.valueOf(t);
+                }
+            }
+
+            modeActionRepository.save(ModeAction.builder()
+                    .mode(mode)
+                    .sortOrder(sortOrder++) // ✅ 서버에서 1..N로 재부여
+                    .device(device)
+                    .command(cmd)
+                    .value(value)
+                    .build());
+        }
+    }
+
+    /**
+     * (deviceId + command) 기준으로 마지막 것만 남기되,
+     * "마지막 등장 순서"대로 리스트를 반환한다.
+     */
+    private List<ModeActionsUpsertRequest.ActionItem> normalizeActionsKeepLast(
+            List<ModeActionsUpsertRequest.ActionItem> actions
+    ) {
+        // LinkedHashMap: 삽입 순서 유지
+        LinkedHashMap<ActionKey, ModeActionsUpsertRequest.ActionItem> map = new LinkedHashMap<>();
+
+        for (var a : actions) {
+            if (a == null) continue;
+            if (a.deviceId() == null || a.command() == null) continue;
+
+            ActionKey key = new ActionKey(a.deviceId(), a.command());
+
+            // ✅ “마지막 등장” 순서를 만들기 위해: 기존이 있으면 제거 후 다시 put(맨 뒤로 이동)
+            if (map.containsKey(key)) {
+                map.remove(key);
+            }
+            map.put(key, a);
+        }
+
+        return new ArrayList<>(map.values());
+    }
+
+    // (deviceId, command) 키
+    private static final class ActionKey {
+        private final Long deviceId;
+        private final ModeActionCommand command;
+
+        private ActionKey(Long deviceId, ModeActionCommand command) {
+            this.deviceId = deviceId;
+            this.command = command;
+        }
+
+        @Override public boolean equals(Object o) {
+            if (this == o) return true;
+            if (!(o instanceof ActionKey other)) return false;
+            return Objects.equals(deviceId, other.deviceId) && command == other.command;
+        }
+
+        @Override public int hashCode() {
+            return Objects.hash(deviceId, command);
+        }
+    }
+
+    @Transactional
+    public List<ModeListItemResponse> getMyModesAll(String loginId) {
+        Long hoId = getHoIdByLoginId(loginId);
+        DefaultModes(hoId);
+
+        List<Mode> modes = modeRepository.findAllByHo_IdOrderByModeNameAsc(hoId);
+
+        return modes.stream().map(m -> {
+            var s = modeScheduleRepository.findFirstByMode_IdOrderByIdAsc(m.getId());
+
+            boolean isScheduled = (s != null);
+            String summary = null;
+            if (isScheduled && s.getRepeatDays() != null && s.getStartTime() != null) {
+                summary = s.getRepeatDays() + " " + s.getStartTime();
+            }
+
+            return new ModeListItemResponse(
+                    m.getId(),
+                    m.getModeName(),
+                    m.isDefault(),
+                    m.isEditable(),
+                    m.isVisible(),
+                    isScheduled,
+                    summary
+            );
+        }).toList();
+    }
+    @Transactional
+    public void setMyModeSchedulesFromDto(String loginId, Long modeId, ModeScheduleSetRequest request) {
+        Mode mode = getMyModeDetail(loginId, modeId); // ✅ 내 모드 소유권 검증
+
+        modeScheduleRepository.deleteAllByMode_Id(mode.getId());
+
+        Long hoId = getHoIdByLoginId(loginId);
+
+        for (var s : request.schedules()) {
+            Mode endMode = null;
+
+            if (s.endModeId() != null) {
+                // endMode도 내 세대 모드인지 검증
+                endMode = modeRepository.findByIdAndHo_Id(s.endModeId(), hoId)
+                        .orElseThrow(() -> new IllegalArgumentException("endModeId가 유효하지 않습니다. endModeId=" + s.endModeId()));
+            }
+
+            modeScheduleRepository.save(ModeSchedule.builder()
+                    .mode(mode)
+                    .startTime(s.startTime() != null ? LocalTime.parse(s.startTime()) : null)
+                    .endTime(s.endTime() != null ? LocalTime.parse(s.endTime()) : null)
+                    .endMode(endMode)
+                    .repeatDays(s.repeatDays())
+                    .isEnabled(s.isEnabled())
+                    .build());
+        }
+    }
 }

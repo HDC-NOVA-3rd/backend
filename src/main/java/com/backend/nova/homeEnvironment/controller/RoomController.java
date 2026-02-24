@@ -1,10 +1,8 @@
 package com.backend.nova.homeEnvironment.controller;
 
-import com.backend.nova.homeEnvironment.dto.DeviceStateUpdateRequest;
-import com.backend.nova.homeEnvironment.dto.DeviceStateUpdateResponse;
-import com.backend.nova.homeEnvironment.dto.RoomListItemResponse;
-import com.backend.nova.homeEnvironment.dto.RoomSnapshotResponse;
+import com.backend.nova.homeEnvironment.dto.*;
 import com.backend.nova.homeEnvironment.service.DeviceStateService;
+import com.backend.nova.homeEnvironment.service.RoomCommandService;
 import com.backend.nova.homeEnvironment.service.RoomQueryService;
 import com.backend.nova.homeEnvironment.service.RoomSnapshotService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,6 +12,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
+
 @Tag(
         name = "Room",
         description = "방 조회 및 방 내 디바이스 상태 제어 API"
@@ -26,6 +26,7 @@ public class RoomController {
     private final RoomQueryService roomQueryService;
     private final RoomSnapshotService roomSnapshotService;
     private final DeviceStateService deviceStateService;
+    private final RoomCommandService roomCommandService;
     // 방 상세 진입 시 스냅샷(최신 온습도 + 디바이스 현재상태) 조회
     @Operation(
             summary = "방 스냅샷 조회",
@@ -64,5 +65,18 @@ public class RoomController {
     @GetMapping("/my")
     public List<RoomListItemResponse> getMyRooms(@AuthenticationPrincipal org.springframework.security.core.userdetails.User user) {
         return roomQueryService.getRoomsByLoginId(user.getUsername());
+    }
+    @Operation(
+            summary = "방 숨김/표시 변경",
+            description = "홈 화면에서 방을 숨기거나 다시 표시합니다."
+    )
+    @PatchMapping("/{roomId}/visibility")
+    public Map<String, Object> updateRoomVisibility(
+            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user,
+            @PathVariable Long roomId,
+            @RequestBody RoomVisibilityRequest request
+    ) {
+        roomCommandService.updateRoomVisibility(user.getUsername(), roomId, request.visible());
+        return Map.of("roomId", roomId, "status", "UPDATED", "visible", request.visible());
     }
 }

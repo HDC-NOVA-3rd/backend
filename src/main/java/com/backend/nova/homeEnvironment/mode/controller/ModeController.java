@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalTime;
@@ -106,20 +107,11 @@ public class ModeController {
     )
     @PatchMapping("/{modeId}/schedule")
     public Map<String, Object> setMyModeSchedule(
-            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user,
-            @Parameter(description = "예약을 설정할 모드 ID", example = "1")
+            @AuthenticationPrincipal User user,
             @PathVariable Long modeId,
             @RequestBody ModeScheduleSetRequest request
     ) {
-        List<ModeSchedule> schedules = request.schedules().stream()
-                .map(s -> ModeSchedule.builder()
-                        .startTime(LocalTime.parse(s.startTime()))
-                        .repeatDays(s.repeatDays())
-                        .isEnabled(s.isEnabled())
-                        .build())
-                .toList();
-
-        modeService.setMyModeSchedules(user.getUsername(), modeId, schedules);
+        modeService.setMyModeSchedulesFromDto(user.getUsername(), modeId, request);
         return Map.of("modeId", modeId, "status", "SCHEDULED");
     }
 
@@ -178,4 +170,32 @@ public class ModeController {
         return Map.of("result", "DELETED");
     }
 
+    // 액션 "전체 교체" 저장
+    @Operation(
+            summary = "모드 실행 동작(actions) 전체 교체 저장",
+            description = """
+                특정 모드에 등록된 실행 동작(actions)을 '전체 교체' 방식으로 저장합니다.
+                - 기존 actions는 모두 삭제 후, 요청으로 받은 actions로 다시 저장합니다.
+                - 커스텀 모드(편집 가능)만 수정할 수 있습니다. (기본 모드/편집불가 모드는 거부)
+                """
+    )
+    @PutMapping("/{modeId}/action")
+    public void setModeActions(
+            @AuthenticationPrincipal(expression = "username") String loginId,
+            @PathVariable Long modeId,
+            @RequestBody ModeActionsUpsertRequest request
+    ) {
+        modeService.setMyModeActions(loginId, modeId, request);
+    }
+
+    @Operation(
+            summary = "내 모드 목록 조회(숨김 포함)",
+            description = "설정 화면용. 숨김 처리된 모드도 포함해서 조회합니다."
+    )
+    @GetMapping("/my/all")
+    public List<ModeListItemResponse> getMyModesAll(
+            @AuthenticationPrincipal org.springframework.security.core.userdetails.User user
+    ) {
+        return modeService.getMyModesAll(user.getUsername());
+    }
 }

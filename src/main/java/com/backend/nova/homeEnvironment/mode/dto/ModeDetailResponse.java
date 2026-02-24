@@ -22,6 +22,8 @@ public record ModeDetailResponse(
     // 상세 화면에 보여줄 스케줄 한 줄
     public record ScheduleItem(
             String startTime,   // "23:00"
+            String endTime,
+            Long endModeId,
             String repeatDays,  // "MON,WED,FRI"
             boolean isEnabled
     ) {}
