@@ -4,7 +4,6 @@ import jakarta.persistence.*;
 import lombok.*;
 /**
  * 아파트(단지) 엔티티
- *
  * - 단지 기본 정보 + 외부 날씨 조회를 위한 위도/경도 포함
  * - latitude / longitude는 OpenWeather API 요청에 사용됨
  */
@@ -32,4 +31,5 @@ public class Apartment {
     // 경도
     @Column(nullable = false)
     private Double longitude;
+
 }
