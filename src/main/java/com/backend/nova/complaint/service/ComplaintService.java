@@ -8,13 +8,14 @@ import com.backend.nova.auth.admin.AdminDetails;
 import com.backend.nova.complaint.dto.*;
 import com.backend.nova.complaint.entity.Complaint;
 import com.backend.nova.complaint.entity.ComplaintAnswer;
-import com.backend.nova.complaint.entity.ComplaintFeedback;
+import com.backend.nova.complaint.entity.ComplaintReview;
 import com.backend.nova.complaint.entity.ComplaintStatus;
 import com.backend.nova.complaint.repository.ComplaintAnswerRepository;
-import com.backend.nova.complaint.repository.ComplaintFeedbackRepository;
+import com.backend.nova.complaint.repository.ComplaintReviewRepository;
 import com.backend.nova.complaint.repository.ComplaintRepository;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -31,7 +32,7 @@ public class ComplaintService {
     private final AdminRepository adminRepository;
     private final ComplaintRepository complaintRepository;
     private final ComplaintAnswerRepository complaintAnswerRepository;
-    private final ComplaintFeedbackRepository complaintFeedbackRepository;
+    private final ComplaintReviewRepository complaintReviewRepository;
 
     /* ================= 멤버가 민원 등록 ================= */
     public void createComplaint(Long memberId, ComplaintCreateRequest request) {
@@ -73,6 +74,9 @@ public class ComplaintService {
 
         if (!complaint.getMember().getId().equals(memberId)) {
             throw new IllegalStateException("본인 민원만 삭제 가능");
+        }
+        if (complaint.getStatus() == ComplaintStatus.COMPLETED) {
+            throw new IllegalStateException("완료된 민원은 삭제할 수 없습니다.");
         }
 
         complaint.softDelete();
@@ -228,29 +232,33 @@ public class ComplaintService {
     }
 
 
-    /* ================= 멤버가 피드백 등록 ================= */
-    public void createFeedback(Long complaintId, Long memberId, ComplaintFeedbackCreateRequest request) {
+    /* ================= 멤버가 리뷰 등록 ================= */
+    public void createReview(Long complaintId, Long memberId, ComplaintReviewCreateRequest request) {
         Complaint complaint = findComplaint(complaintId);
         Member member = memberRepository.findById(memberId)
                 .orElseThrow(() -> new IllegalArgumentException("회원 없음"));
 
         if (!complaint.getStatus().equals(ComplaintStatus.COMPLETED)) {
-            throw new IllegalStateException("해결 완료된 민원만 피드백 가능");
+            throw new IllegalStateException("해결 완료된 민원만 리뷰등록 가능");
         }
 
-        if (complaintFeedbackRepository.findByComplaint_Id(complaintId).isPresent()) {
-            throw new IllegalStateException("이미 피드백이 등록된 민원입니다.");
+        if (complaintReviewRepository.findByComplaint_Id(complaintId).isPresent()) {
+            throw new IllegalStateException("이미 리뷰가 등록된 민원입니다.");
+        }
+
+        if (complaintReviewRepository.existsByComplaintId(complaintId)) {
+            throw new IllegalStateException("이미 리뷰가 등록된 민원입니다.");
         }
 
 
-        ComplaintFeedback feedback = ComplaintFeedback.builder()
+        ComplaintReview review = ComplaintReview.builder()
                 .complaint(complaint)
                 .member(member)
                 .content(request.content())
                 .rating(request.rating())
                 .build();
 
-        complaintFeedbackRepository.save(feedback);
+        complaintReviewRepository.save(review);
     }
 
     /* ================= 공통 민원 조회 ================= */
@@ -260,13 +268,21 @@ public class ComplaintService {
     }
 
 
-    //민원 상세 조회
+    //멤버 본인 민원 상세 조회
     @Transactional(readOnly = true)
-    public ComplaintResponse getComplaintDetail(Long complaintId) {
+    public ComplaintDetailResponse getComplaintDetail(Long complaintId) {
         Complaint complaint = complaintRepository.findById(complaintId)
-                .orElseThrow(() -> new IllegalArgumentException("민원 없음"));
+                .orElseThrow(() -> new EntityNotFoundException("민원을 찾을 수 없습니다."));
 
-        return ComplaintResponse.from(complaint);
+        // 1. 해당 민원에 대한 리뷰가 있는지 확인
+        boolean hasReview = complaintReviewRepository.existsByComplaintId(complaintId);
+
+        // 2. 답변 정보 조회 (Repository가 Optional<ComplaintAnswer>를 반환한다고 가정)
+        ComplaintAnswerResponse answerDto = complaintAnswerRepository.findByComplaintId(complaintId)
+                .map(ComplaintAnswerResponse::from)
+                .orElse(null);
+
+        return ComplaintDetailResponse.of(complaint, hasReview, answerDto);
     }
 
 

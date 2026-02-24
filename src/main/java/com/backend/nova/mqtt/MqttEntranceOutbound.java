@@ -29,6 +29,13 @@ public class MqttEntranceOutbound {
         send(topic, payload);
         log.info("Sent OPEN_DOOR to {}", topic);
     }
+    // 2. 문 열기 실패 전송
+    public void sendFailCommand(String spaceId) {
+        String topic = String.format("hdc/entrance/command/%s", spaceId);
+        String payload = "{\"command\": \"FAIL_DOOR\"}";
+        send(topic, payload);
+        log.info("Sent FAIL_DOOR to {}", topic);
+    }
 
     // 공통 전송 로직
     private void send(String topic, String payload) {

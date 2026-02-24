@@ -1,0 +1,28 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  # Promtail이 로그를 어디까지 읽었는지 기억하는 파일 (재시작 시 중복 수집 방지)
+  filename: /tmp/positions.yaml
+
+clients:
+  # 같은 docker-compose 에 있는 loki:3100 Port로 전송
+  - url: http://loki:3100/loki/api/v1/push
+
+# 어떻게 로그를 긁어올지(Scrape) 정의
+scrape_configs:
+  - job_name: docker
+    # Docker 엔진과 직접 통신하여 컨테이너 로그를 동적으로 수집
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    # 수집한 로그에 Label 을 붙여주는 작업. 나중에 Grafana에서 검색 시 Label 로 검색
+    relabel_configs:
+      # 컨테이너 이름을 추출하여 container 라벨 사용
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/(.*)'
+        target_label: 'container'
+      # docker-compose 서비스 이름 추출하여 compose_service 라벨 사용
+      - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
+        target_label: 'compose_service'

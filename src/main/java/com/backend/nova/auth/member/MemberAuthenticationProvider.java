@@ -28,7 +28,7 @@ public class MemberAuthenticationProvider implements AuthenticationProvider {
 
         // 2. 비밀번호 검증 (직접 비교)
         if (!passwordEncoder.matches(password, userDetails.getPassword())) {
-            throw new CustomAuthenticationException(ErrorCode.ADMIN_LOGIN_FAILED); // 401
+            throw new CustomAuthenticationException(ErrorCode.MEMBER_LOGIN_FAILED); // 401
         }
 
         // 3. 인증 성공 시, 인증된 토큰 생성 후 반환

@@ -2,9 +2,11 @@ package com.backend.nova.oauth2.handler;
 
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.member.dto.MemberLocationResponse;
+import com.backend.nova.member.dto.RedisMember;
 import com.backend.nova.member.dto.TokenResponse;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
+import com.backend.nova.member.service.RedisTokenService;
 import com.backend.nova.oauth2.dto.CustomOAuth2User;
 import com.backend.nova.oauth2.dto.OAuth2Response;
 import com.backend.nova.oauth2.repository.AuthCodeInMemoryRepository;
@@ -37,6 +39,7 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
     private final MemberRepository memberRepository;
     private final OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
     private final AuthCodeInMemoryRepository authCodeRepository; // In memory 환경 token 저장소
+    private final RedisTokenService redisTokenService;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
@@ -82,6 +85,10 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
             Authentication newAuth = new UsernamePasswordAuthenticationToken(memberDetails,null, memberDetails.getAuthorities());
 
             TokenResponse tokenResponse = jwtProvider.createTokenDto(newAuth, existMember.getId(), existMember.getName());
+
+            RedisMember dto = new RedisMember(existMember.getId(), existMember.getLoginId(), existMember.getName(), apartmentId, hoId, "MEMBER");
+            redisTokenService.saveAccessToken(tokenResponse.accessToken(), dto, jwtProvider.getAccessTokenExpires());
+            redisTokenService.saveRefreshToken(existMember.getLoginId(), tokenResponse.refreshToken(), jwtProvider.getRefreshTokenExpires());
 
             // 메모리에 저장 (Code -> TokenResponse)
             authCodeRepository.save(authCode, tokenResponse);

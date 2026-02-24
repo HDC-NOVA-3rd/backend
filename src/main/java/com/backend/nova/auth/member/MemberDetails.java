@@ -25,4 +25,13 @@ public class MemberDetails extends User {
         this.apartmentId = apartmentId;
         this.hoId = hoId;
     }
+
+    // Redis 캐시 데이터 기반 생성자 (DB 접근 X)
+    public MemberDetails(Long memberId, String loginId, String name, Long apartmentId, Long hoId, String role) {
+        super(loginId, "", List.of(new SimpleGrantedAuthority(role))); // 비밀번호는 불필요하므로 빈문자열
+        this.memberId = memberId;
+        this.name = name;
+        this.apartmentId = apartmentId;
+        this.hoId = hoId;
+    }
 }

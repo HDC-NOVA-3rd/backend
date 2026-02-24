@@ -4,49 +4,55 @@ import com.backend.nova.admin.dto.*;
 import com.backend.nova.admin.entity.*;
 import com.backend.nova.admin.repository.AdminRepository;
 import com.backend.nova.apartment.entity.Apartment;
-import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.backend.nova.auth.jwt.JwtProvider;
 import com.backend.nova.auth.jwt.JwtToken;
 import com.backend.nova.auth.otp.StatelessOtpService;
 import com.backend.nova.global.exception.BusinessException;
 import com.backend.nova.global.exception.ErrorCode;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
 @Transactional
 public class AdminService {
 
-    private final AdminRepository adminRepository;
-    private final ApartmentRepository apartmentRepository;
     private final StatelessOtpService otpService;
-    private final PasswordEncoder passwordEncoder;
     private final MailService mailService;
+    private final AdminRepository adminRepository;
+    private final PasswordEncoder passwordEncoder;
     private final JwtProvider jwtProvider;
 
-    // 메모리 기반 refresh token 블랙리스트
-    private final Set<String> refreshTokenBlacklist = ConcurrentHashMap.newKeySet();
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
 
     /* ================= 관리자 생성 ================= */
+    @Transactional
     public void createAdmin(AdminCreateRequest request, Long currentAdminId) {
+
         Admin currentAdmin = adminRepository.findById(currentAdminId)
                 .orElseThrow(() -> new BusinessException(ErrorCode.ADMIN_NOT_FOUND));
 
+        if (currentAdmin.getRole() != AdminRole.SUPER_ADMIN) {
+            throw new BusinessException(ErrorCode.ACCESS_DENIED);
+        }
 
-        if (adminRepository.findByLoginId(request.loginId()).isPresent()) {
+        if (!request.password().equals(request.passwordConfirm())) {
+            throw new BusinessException(ErrorCode.PASSWORD_NOT_MATCH);
+        }
+
+        if (adminRepository.existsByLoginId(request.loginId())) {
             throw new BusinessException(ErrorCode.ADMIN_LOGIN_ID_DUPLICATED);
         }
 
-        if (adminRepository.findByEmail(request.email()).isPresent()) {
+        if (adminRepository.existsByEmail(request.email())) {
             throw new BusinessException(ErrorCode.ADMIN_EMAIL_DUPLICATED);
         }
 
@@ -60,7 +66,9 @@ public class AdminService {
                 .password(passwordEncoder.encode(request.password()))
                 .name(request.name())
                 .email(request.email())
-                .role(request.role() != null ? request.role() : AdminRole.ADMIN)
+                .phoneNumber(request.phoneNumber())
+                .birthDate(request.birthDate())
+                .role(AdminRole.ADMIN)
                 .status(AdminStatus.ACTIVE)
                 .apartment(apartment)
                 .build();
@@ -91,7 +99,7 @@ public class AdminService {
     }
 
     /* ================= 로그인 OTP 검증 ================= */
-    public AdminTokenResponse loginVerifyOtp(AdminLoginConfirmRequest request) {
+    public AdminTokenResponse loginVerifyOtp(AdminLoginConfirmRequest request, HttpServletResponse response) {
 
         Admin admin = getAdminByLoginId(request.loginId());
         validateAdminStatus(admin);
@@ -100,53 +108,77 @@ public class AdminService {
             throw new BusinessException(ErrorCode.OTP_INVALID);
         }
 
+        // 토큰 생성
         JwtToken token = jwtProvider.generateAdminToken(admin);
 
+        // Refresh Token을 HttpOnly 쿠키로 설정
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", token.refreshToken())
+                .httpOnly(true)
+                .secure(true) // HTTPS가 아니면 작동 안 할 수 있으니 로컬 개발시엔 false로 하거나 배포시 반드시 true
+                .path("/")
+                .maxAge(7 * 24 * 60 * 60) // 7일
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        // 클라이언트(프론트)에는 AccessToken과 관리자 정보만 전달
         return AdminTokenResponse.builder()
                 .accessToken(token.accessToken())
-                .refreshToken(token.refreshToken())
                 .adminId(admin.getId())
                 .name(admin.getName())
                 .role(admin.getRole().name())
                 .build();
-
     }
 
 
 
     /* ================= 토큰 재발급 ================= */
-    public AdminTokenResponse refresh(AdminRefreshTokenRequest request) {
+    public AdminTokenResponse refresh(String refreshToken, HttpServletResponse response) {
 
-        String refreshToken = request.refreshToken();
-
-        if (!jwtProvider.validateToken(refreshToken) || refreshTokenBlacklist.contains(refreshToken)) {
+        // 쿠키에서 온 토큰 검증 (레디스가 없으므로 블랙리스트 체크 제외하거나 DB 체크로 대체 가능)
+        if (refreshToken == null || !jwtProvider.validateToken(refreshToken)) {
             throw new BusinessException(ErrorCode.INVALID_TOKEN);
         }
 
         Admin admin = getAdminByLoginId(jwtProvider.getSubject(refreshToken));
         validateAdminStatus(admin);
 
-        JwtToken token = jwtProvider.generateAdminToken(admin);
+        // 새 토큰 생성
+        JwtToken newToken = jwtProvider.generateAdminToken(admin);
 
+        // 새 Refresh Token도 쿠키에 다시 구워줌 (Rotation 방식)
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", newToken.refreshToken())
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(7 * 24 * 60 * 60)
+                .sameSite("Lax")
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
         return AdminTokenResponse.builder()
-                .accessToken(token.accessToken())
-                .refreshToken(token.refreshToken())
+                .accessToken(newToken.accessToken())
                 .adminId(admin.getId())
                 .name(admin.getName())
                 .role(admin.getRole().name())
                 .build();
-
     }
 
     /* ================= 로그아웃 ================= */
-    public void logout(String refreshToken) {
+    public void logout(HttpServletResponse response) {
+        // 쿠키의 유효기간을 0으로 설정하여 브라우저가 즉시 삭제하게 함
+        // 유효기간(maxAge)을 0으로 설정한 쿠키를 응답 헤더에 실음
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(true)
+                .path("/")
+                .maxAge(0) // 즉시 삭제
+                .sameSite("Lax")
+                .build();
 
-        if (!jwtProvider.validateToken(refreshToken)) {
-            throw new BusinessException(ErrorCode.INVALID_TOKEN);
-        }
-
-        refreshTokenBlacklist.add(refreshToken);
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
     private Admin getAdminByLoginId(String loginId) {

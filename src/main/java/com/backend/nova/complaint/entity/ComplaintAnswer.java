@@ -32,12 +32,26 @@ public class ComplaintAnswer {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String resultContent;
 
+    //소프트 딜리트용
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean deleted = false;
+
     // 처리일
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }

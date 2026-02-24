@@ -25,9 +25,9 @@ public class Complaint {
     @JoinColumn(name = "member_id", nullable = false)
     private Member member;
 
-    // 담당 관리자 (nullable)
+    // 담당 관리자
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "admin_id")
+    @JoinColumn(name = "admin_id", nullable = true)
     private Admin admin;
 
     // apartment
@@ -54,14 +54,23 @@ public class Complaint {
     @Column(nullable = false, columnDefinition = "TEXT")
     private String content;
 
+    @Builder.Default
     @Column(nullable = false)
-    private boolean deleted;
+    private boolean deleted = false;
+
+    // 해결일
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime resolvedAt;
+
+    // 배정일
+    @Column(nullable = true, updatable = false)
+    private LocalDateTime assignedAt;
 
     // 등록일
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    // 수정일
+    // 변경일
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 

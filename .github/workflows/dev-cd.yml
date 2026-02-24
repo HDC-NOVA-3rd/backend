@@ -1,0 +1,96 @@
+name: Deploy to Server
+
+on:
+  workflow_call:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      # secrets.yaml을 submodule에서 가져오는 작업
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true # 서브모듈 가져오기 활성화
+          token: ${{ secrets.PROJECT_REPO_TOKEN }} # repo에 접근가능한 token 획득
+
+      - name: Update Submodule
+        run: git submodule update --remote
+
+      # SCP로 secrets, docker-compose, prometheus 파일을 서버로 전송
+      - name: Copy secrets to server via SCP
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          password: ${{ secrets.REMOTE_PASSWORD }}
+          port: 22
+
+          # docker-compose : 백엔드 서버에 사용되는 연관 이미지들을 모아놓은 compose 파일
+          # prometheus : 애플리케이션 및 인프라의 CPU, 메모리 등 메트릭 데이터 수집
+          # promtail-config : Loki로 로그를 전송하는 에이전트, 서버 또는 컨테이너 환경에서 로그 파일 수집
+          # secrets : submodule에 들어있는 민감 파일
+
+          # 보낼 파일 위치 (GitHub Runner 기준)
+          source: "docker/docker-compose.yml,docker/prometheus.yml,docker/promtail-config.yml,src/main/resources/config/secrets.yaml"
+          # 받을 서버 위치
+          target: "/home/${{ secrets.REMOTE_USER }}/nova-server"
+
+      # SSH로 접속하여 Docker Compose 실행
+      - name: Deploy to Dev Server via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ${{ secrets.REMOTE_USER }}
+          password: ${{ secrets.REMOTE_PASSWORD }}
+          port: 22
+          command_timeout: 30m
+          script: |
+            echo "작업 디렉토리로 이동"
+            cd /home/${{ secrets.REMOTE_USER }}/nova-server
+            
+            echo "====== 기존 설정 파일 정리 ======"
+            rm -f docker-compose.yml
+            rm -f prometheus.yml
+
+            echo "====== 새 파일 이동 ======"
+            # docker 폴더 안에 있는 파일들을 밖으로 꺼내기
+            if [ -f "docker/docker-compose.yml" ]; then
+                mv docker/docker-compose.yml ./docker-compose.yml
+                mv docker/prometheus.yml ./prometheus.yml
+                mv docker/promtail-config.yml ./promtail-config.yml
+                rm -rf docker # 빈 폴더 정리
+                echo "-> 설정 파일 이동 완료"
+            else
+                echo "-> ERROR: docker 폴더나 파일이 없습니다! SCP 전송을 확인하세요."
+                ls -al
+                exit 1
+            fi
+
+            # secrets.yaml 파일 이동 및 정리
+            if [ -f "src/main/resources/config/secrets.yaml" ]; then
+              rm -f secrets.yaml # 기존 시크릿 삭제
+              mv src/main/resources/config/secrets.yaml ./secrets.yaml
+              rm -rf src
+              echo "-> secrets.yaml 이동 완료"
+            fi
+
+            echo "[디버깅] 파일이 잘 왔는지 리스트 출력"
+            echo "====== FILE LIST CHECK ======"
+            ls -al
+            echo "============================="
+            
+            echo "images 저장소 파일 생성"
+            mkdir -p /home/${{ secrets.REMOTE_USER }}/images
+
+            echo "최신 이미지 Pull"
+            docker compose pull
+
+            echo "컨테이너 갱신 (이미지가 바뀌었으면 재시작)"
+            docker compose up -d --remove-orphans
+
+            echo "====== 실행 상태 확인 ======"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            
+            echo "불필요한 이미지 정리"
+            docker image prune -f
