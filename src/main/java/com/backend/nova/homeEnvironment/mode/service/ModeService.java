@@ -56,7 +56,6 @@ public class ModeService {
     public List<ModeListItemResponse> getMyModes(String loginId) {
 
         Long hoId = getHoIdByLoginId(loginId);
-        log.info("[getMyModes] loginId={}, hoId={}", loginId, hoId);
         // 기본 모드가 없으면 최초 1회 자동 생성
         DefaultModes(hoId);
         // 모드 엔티티만 조회(연관 스케줄에 직접 접근하지 않음)
@@ -149,8 +148,6 @@ public class ModeService {
 
     @Transactional
     public void DefaultModes(Long hoId) {
-        // 기본모드 액션이 왜 생성되지 않는지(hoId/디바이스 수/기본모드 수/seed 실행 여부) 확인하기 위함
-        log.info("[DefaultModes] start hoId={}", hoId);
         Ho ho = hoRepository.findById(hoId)
                 .orElseThrow(() -> new IllegalArgumentException("세대를 찾을 수 없습니다. hoId=" + hoId));
 
