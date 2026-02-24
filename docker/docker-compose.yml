@@ -26,7 +26,8 @@ services:
     image: eclipse-mosquitto:latest
     container_name: mosquitto-server
     ports:
-      - "1883:1883"
+      - "1883:1883" # tcp 포트
+      - "9001:9001" # WebSocket 포트
     volumes:
       - ./mosquitto/config:/mosquitto/config
       - ./mosquitto/data:/mosquitto/data
