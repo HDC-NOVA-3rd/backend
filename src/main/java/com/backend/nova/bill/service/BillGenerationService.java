@@ -40,41 +40,32 @@ public class BillGenerationService {
     private final BillRepository billRepository;
     private final ManagementFeeRepository managementFeeRepository;
     private final ReservationRepository reservationRepository;
-    //private final UtilityFeeRepository utilityFeeRepository;
 
-    @Scheduled(cron = "0 0 0 * * ?") // 매일 자정 실행
+    // 시스템 공통 설정값 (단지별 컬럼 대신 전역 설정 사용)
+    private static final int GLOBAL_GEN_DAY = 15; // 매월 15일 고지서 생성(OPEN)
+    private static final int GLOBAL_PUB_DAY = 25; // 매월 25일 고지서 발행(READY)
+
+    /**
+     * 통합 스케줄러: 매일 자정(00:00) 실행
+     * 모든 아파트 단지에 대해 동일한 날짜 규칙 적용 (생성 및 발행 체크)
+     */
+    @Scheduled(cron = "0 0 0 * * ?")
     public void autoBillScheduler() {
         LocalDate today = LocalDate.now();
-        int lastDay = today.lengthOfMonth();
+        int dayOfMonth = today.getDayOfMonth();
+        String currentMonth = YearMonth.from(today).toString(); // "YYYY-MM"
+
         List<Apartment> apartments = apartmentRepository.findAll();
 
         for (Apartment apt : apartments) {
-            // 1. 생성일 체크 (OPEN)
-            int genDay = Math.min(apt.getBillGenerationDay(), lastDay);
-            if (today.getDayOfMonth() == genDay) {
-                generateBills(apt.getId(), YearMonth.from(today).toString());
+            // 1. 생성일 체크 (매월 15일 - OPEN 상태 생성)
+            if (dayOfMonth == GLOBAL_GEN_DAY) {
+                generateBills(apt.getId(), currentMonth);
             }
 
-            // 2. 발행일 체크 (READY)
-            int pubDay = Math.min(apt.getBillPublishDay(), lastDay);
-            if (today.getDayOfMonth() == pubDay) {
-                publishBills(apt.getId(), YearMonth.from(today).toString());
-            }
-        }
-    }
-
-    // ----------------------
-    // 스케줄러: 매일 00:00 체크, 단지별 billGenerationDay 기준 생성
-    // ----------------------
-    @Scheduled(cron = "0 0 0 * * ?") // 매일 00:00
-    public void generateDailyCheck() {
-        LocalDate today = LocalDate.now();
-        List<Apartment> apartments = apartmentRepository.findAll();
-
-        for (Apartment apt : apartments) {
-            if (today.getDayOfMonth() == apt.getBillGenerationDay()) {
-                String generationMonth = YearMonth.from(today).toString(); // YYYY-MM
-                generateBills(apt.getId(), generationMonth);
+            // 2. 발행일 체크 (매월 25일 - READY 상태로 변경 및 입주민 공개)
+            if (dayOfMonth == GLOBAL_PUB_DAY) {
+                publishBills(apt.getId(), currentMonth);
             }
         }
     }
