@@ -4,6 +4,10 @@ import com.backend.nova.apartment.entity.Dong;
 import com.backend.nova.facility.entity.Facility;
 import com.backend.nova.facility.repository.FacilityRepository;
 import com.backend.nova.apartment.repository.DongRepository;
+import com.backend.nova.global.notification.NotificationService;
+import com.backend.nova.global.notification.PushMessageRequest;
+import com.backend.nova.member.entity.Member;
+import com.backend.nova.member.repository.MemberRepository;
 import com.backend.nova.safety.dto.SafetySensorInboundPayload;
 import com.backend.nova.safety.dto.SafetyEventLogResponse;
 import com.backend.nova.safety.dto.SafetyMqttUpdatePayload;
@@ -59,6 +63,8 @@ public class SafetyService {
     private final SensorRepository sensorRepository;
     private final MessageChannel mqttOutboundChannel;
     private final ObjectMapper objectMapper;
+    private final MemberRepository memberRepository;
+    private final NotificationService notificationService;
 
     public List<SafetyStatusResponse> listSafetyStatus(Long apartmentId) {
         if (apartmentId == null || apartmentId <= 0) {
@@ -346,6 +352,12 @@ public class SafetyService {
                     .eventAt(eventAt)
                     .build();
             safetyEventLogRepository.save(eventLog);
+
+            if (isDanger && statusEntity.canSendAlert(eventAt)) {
+                sendFireAlertToAllMembers(scopeContext, sensorType, safetySensor);
+                statusEntity.recordAlert(eventAt);
+                safetyStatusRepository.save(statusEntity);
+            }
         }
 
         // 항상 프론트엔드에 업데이트 전송 (센서 값 변경 시마다)
@@ -372,6 +384,56 @@ public class SafetyService {
             facilityRepository.save(scopeContext.facility());
             log.info("Safety alert requested deviceId={}, scope={}", deviceId, scopeContext);
         }
+    }
+
+    private void sendFireAlertToAllMembers(ScopeContext scopeContext, SensorType sensorType, SafetySensor safetySensor) {
+        Long apartmentId = scopeContext.apartmentId();
+        if (apartmentId == null) return;
+
+        String title;
+        String body;
+        if (sensorType == SensorType.HEAT) {
+            title = "🔥 화재 경보";
+            String location = resolveLocationLabel(scopeContext, safetySensor);
+            body = location.isBlank()
+                    ? "화재가 감지되었습니다! 즉시 대피하세요."
+                    : location + "에서 화재가 감지되었습니다! 즉시 대피하세요.";
+        } else {
+            title = "⚠️ 가스 누출 경보";
+            String location = resolveLocationLabel(scopeContext, safetySensor);
+            body = location.isBlank()
+                    ? "가스 누출이 감지되었습니다! 즉시 대피하세요."
+                    : location + "에서 가스 누출이 감지되었습니다! 즉시 대피하세요.";
+        }
+
+        List<Member> members = memberRepository.findMembersWithPushTokenByApartmentId(apartmentId);
+        if (members.isEmpty()) {
+            log.info("화재 경보 FCM 전송 대상 없음: apartmentId={}", apartmentId);
+            return;
+        }
+
+        List<PushMessageRequest> messages = members.stream()
+                .map(member -> notificationService.sendNotification(
+                        member.getPushToken(),
+                        title,
+                        body,
+                        Map.of("type", "FIRE_ALERT", "apartmentId", String.valueOf(apartmentId))
+                ))
+                .filter(Objects::nonNull)
+                .toList();
+
+        notificationService.sendPushMessages(messages);
+        log.info("화재 경보 FCM 전송: apartmentId={}, sensorType={}, recipients={}", apartmentId, sensorType, messages.size());
+    }
+
+    private String resolveLocationLabel(ScopeContext scopeContext, SafetySensor safetySensor) {
+        if (scopeContext.facility() != null) {
+            return scopeContext.facility().getName();
+        }
+        if (safetySensor.getHo() != null && safetySensor.getHo().getDong() != null) {
+            return safetySensor.getHo().getDong().getDongNo() + "동 " + safetySensor.getHo().getHoNo() + "호";
+        }
+        return "";
     }
 
         private void publishSafetyUpdate(

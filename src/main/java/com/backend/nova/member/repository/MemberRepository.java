@@ -26,4 +26,7 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
             "JOIN d.apartment a " +
             "WHERE m.id = :memberId")
     Optional<MemberLocationResponse> findApartmentIdByMemberId(@Param("memberId") Long memberId);
+
+    @Query("SELECT m FROM Member m JOIN m.resident r JOIN r.ho h JOIN h.dong d WHERE d.apartment.id = :apartmentId AND m.pushToken IS NOT NULL AND m.pushToken <> ''")
+    List<Member> findMembersWithPushTokenByApartmentId(@Param("apartmentId") Long apartmentId);
 }

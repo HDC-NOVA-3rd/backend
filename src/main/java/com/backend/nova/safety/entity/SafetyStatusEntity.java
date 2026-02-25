@@ -42,6 +42,9 @@ public class SafetyStatusEntity {
     @Column(name = "safety_status", nullable = false, length = 20)
     private SafetyStatus safetyStatus;
 
+    @Column(name = "last_alert_at")
+    private LocalDateTime lastAlertAt;
+
     @Builder
     public SafetyStatusEntity(
             Apartment apartment,
@@ -49,7 +52,8 @@ public class SafetyStatusEntity {
             Long facilityId,
             LocalDateTime updatedAt,
             SafetyReason reason,
-            SafetyStatus safetyStatus
+            SafetyStatus safetyStatus,
+            LocalDateTime lastAlertAt
     ) {
         this.apartment = apartment;
         this.dongId = dongId;
@@ -57,12 +61,22 @@ public class SafetyStatusEntity {
         this.updatedAt = updatedAt;
         this.reason = reason;
         this.safetyStatus = safetyStatus;
+        this.lastAlertAt = lastAlertAt;
     }
 
     public void update(LocalDateTime updatedAt, SafetyReason reason, SafetyStatus safetyStatus) {
         this.updatedAt = updatedAt;
         this.reason = reason;
         this.safetyStatus = safetyStatus;
+    }
+
+    public void recordAlert(LocalDateTime alertTime) {
+        this.lastAlertAt = alertTime;
+    }
+
+    public boolean canSendAlert(LocalDateTime now) {
+        if (lastAlertAt == null) return true;
+        return now.isAfter(lastAlertAt.plusSeconds(60));
     }
 
 }
