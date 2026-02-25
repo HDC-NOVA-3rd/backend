@@ -13,7 +13,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.util.List;
@@ -45,7 +44,7 @@ class ResidentControllerTest extends ControllerTestSupport {
     @DisplayName("입주민 상세 조회 테스트")
     void getResident_Success() throws Exception {
         ResidentResponse response =
-                new ResidentResponse(1L, "아파트", "101", "101", "이름", "010-1234-5678");
+                new ResidentResponse(1L, "아파트", "101", "101", 3L, "010-1234-5678","");
 
         given(residentService.getResident(anyLong(), anyLong()))
                 .willReturn(response);
@@ -59,7 +58,7 @@ class ResidentControllerTest extends ControllerTestSupport {
     @DisplayName("아파트별 입주민 목록 조회 테스트")
     void getAllResidents_Success() throws Exception {
         ResidentResponse response =
-                new ResidentResponse(1L, "아파트", "101", "101", "이름", "010-1234-5678");
+                new ResidentResponse(1L, "아파트", "101", "101", 3L, "010-1234-5678","");
 
         PageImpl<ResidentResponse> page =
                 new PageImpl<>(List.of(response), PageRequest.of(0, 10), 1);
