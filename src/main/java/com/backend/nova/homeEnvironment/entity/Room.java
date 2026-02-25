@@ -25,9 +25,15 @@ public class Room {
     @Column(nullable = false)
     private String name;
 
+    @Column(name = "is_visible", nullable = false)
+    private boolean isVisible = true;
+
+    public void hide() { this.isVisible = false; }
+    public void show() { this.isVisible = true; }
     @Builder
     public Room(Ho ho, String name){
         this.ho = ho;
         this.name = name;
+        this.isVisible = true;
     }
 }
