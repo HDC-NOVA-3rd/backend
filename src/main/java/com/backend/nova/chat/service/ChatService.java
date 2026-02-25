@@ -194,6 +194,7 @@ public class ChatService {
     @Transactional
     public ChatResponse handleDeviceControl(String sessionId, Long memberId, LlmCommand cmd) {
 
+
         Ho ho = resolveHo(memberId);
         Long hoId = ho.getId();
 
@@ -237,9 +238,15 @@ public class ChatService {
         }
         Device device = deviceOpt.get();
 
-
         //  진짜 DB의 device_code (light-1 같은 값)
         String realDeviceCode = device.getDeviceCode();
+
+        log.info("[DEVICE_CONTROL] roomName={} resolvedRoomId={} deviceCode={}",
+                roomName,
+                room.getId(),
+                realDeviceCode);
+
+
 
         //  MQTT 명령 생성 (type 기준)
         String command = toMqttCommand(deviceType.name(), action, value);
@@ -257,8 +264,22 @@ public class ChatService {
                 )
         );
 
-        String topic = "hdc/" + hoId + "/assistant/execute/req";
-        ExecuteCommandReq payload = new ExecuteCommandReq(traceId, command);
+
+// 1. rn_worker에서 사용하는 실제 deviceCode
+        String deviceCode = realDeviceCode; // ex) light-1, fan-1-2
+
+// 2. rn_worker 규격 command/value 변환
+        MqttCmd mv = toRoomMqtt(deviceType, action, value);
+
+// 3. room 기반 토픽으로 변경
+        String topic = "hdc/" + hoId + "/room/" + room.getId() + "/device/execute/req";
+
+        RoomDeviceExecuteReq payload = new RoomDeviceExecuteReq(
+                traceId,
+                deviceCode,
+                mv.command(),
+                mv.value()
+        );
 
         org.springframework.messaging.Message<String> message = MessageBuilder
                 .withPayload(writeJson(payload))
@@ -281,6 +302,34 @@ public class ChatService {
                 "DEVICE_CONTROL",
                 Map.of("traceId", traceId)
         );
+    }
+    private record MqttCmd(String command, Object value) {}
+
+    private MqttCmd toRoomMqtt(DeviceType deviceType, String action, Integer value) {
+
+        if (deviceType == DeviceType.LED) {
+            if ("ON".equalsIgnoreCase(action))
+                return new MqttCmd("POWER", "ON");
+
+            if ("OFF".equalsIgnoreCase(action))
+                return new MqttCmd("POWER", "OFF");
+
+            if ("SET_BRIGHTNESS".equalsIgnoreCase(action)) {
+                int v = Math.max(0, Math.min(100, value == null ? 0 : value));
+                return new MqttCmd("BRIGHTNESS", v);
+            }
+        }
+
+        if (deviceType == DeviceType.FAN) {
+            if ("ON".equalsIgnoreCase(action))
+                return new MqttCmd("POWER", "ON");
+
+            if ("OFF".equalsIgnoreCase(action))
+                return new MqttCmd("POWER", "OFF");
+        }
+
+
+        throw new IllegalArgumentException("지원하지 않는 명령: " + deviceType + "/" + action);
     }
 
 
@@ -347,7 +396,7 @@ public class ChatService {
             Map<String, Object> filled =
                     extractSlotsFromFollowUp(pendingIntent, req.message());
 
-            // ✅ follow-up 단서가 없으면 → pending 해제하고 정상 흐름으로 진행
+            //  follow-up 단서가 없으면 → pending 해제하고 정상 흐름으로 진행
             if (filled.isEmpty() && !looksLikeFollowUp(req.message())) {
                 clearPending(session);
             } else {
@@ -803,9 +852,9 @@ public class ChatService {
 
         String room = null;
         if (containsAny(m, "거실")) room = "거실";
-        else if (containsAny(m, "침실", "안방")) room = "침실";   // 안방을 침실로 매핑(원하면 별도 처리)
+        else if (containsAny(m, "침실", "안방")) room = "안방";   // 안방을 침실로 매핑(원하면 별도 처리)
         else if (containsAny(m, "부엌", "주방")) room = "주방";
-        else if (containsAny(m, "화장실", "욕실")) room = "화장실";
+        else if (containsAny(m, "작은방", "오피스방")) room = "작은방";
 
         // 센서 타입
         String sensorType = null;
@@ -843,9 +892,8 @@ public class ChatService {
         // 방 이름 추출(너가 이미 위에서 room 변수를 만들고 있으니 재사용 가능)
         String ctrlRoom = null;
         if (containsAny(m, "거실")) ctrlRoom = "거실";
-        else if (containsAny(m, "침실", "안방")) ctrlRoom = "침실";
-        else if (containsAny(m, "부엌", "주방")) ctrlRoom = "주방";
-        else if (containsAny(m, "화장실", "욕실")) ctrlRoom = "화장실";
+        else if (containsAny(m, "침실", "안방")) ctrlRoom = "안방";
+        else if (containsAny(m, "작은방", "오피스방")) ctrlRoom = "작은방";
 
         // 디바이스 타입 추출
         String deviceType = null;
@@ -1932,9 +1980,9 @@ public class ChatService {
                 else if (containsAny(message, "조도")) slots.put("sensor_type", "LIGHT");
 
                 if (containsAny(message, "거실")) slots.put("room", "거실");
-                else if (containsAny(message, "침실", "안방")) slots.put("room", "침실");
+                else if (containsAny(message, "침실", "안방")) slots.put("room", "안방");
                 else if (containsAny(message, "주방", "부엌")) slots.put("room", "주방");
-                else if (containsAny(message, "욕실", "화장실")) slots.put("room", "화장실");
+                else if (containsAny(message, "작은방", "오피스방")) slots.put("room", "작은방");
             }
 
             case "NOTICE_LIST" -> {
