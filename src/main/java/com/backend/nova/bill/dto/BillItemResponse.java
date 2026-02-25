@@ -6,8 +6,7 @@ import lombok.*;
 import java.math.BigDecimal;
 
 @Getter
-@Setter
-@NoArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED) // 기본 생성자 접근 제한
 @AllArgsConstructor
 @Builder
 public class BillItemResponse {
