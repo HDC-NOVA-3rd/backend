@@ -16,14 +16,10 @@ public class DeviceStateService {
     private final RoomRepository roomRepository;
     private final DeviceRepository deviceRepository;
 
-    /**
-     * roomId 방에 있는 디바이스들의 상태를 부분 업데이트한다.
-     * - request.devices 안에 들어온 값만 반영
-     */
+    // roomId 방에 있는 디바이스들의 상태를 부분 업데이트한다
     @Transactional
     public void patchDevicesState(Long roomId, DeviceStateUpdateRequest request) {
 
-        // 1) 방 존재 체크 (없는 roomId면 바로 에러)
         roomRepository.findById(roomId)
                 .orElseThrow(() -> new IllegalArgumentException("방을 찾을 수 없습니다. roomId=" + roomId));
 
@@ -42,23 +38,39 @@ public class DeviceStateService {
                             "해당 방에 디바이스가 없습니다. roomId=" + roomId + ", deviceCode=" + patch.deviceCode()
                     ));
 
-            // 1) 밝기 먼저 (밝기가 오면 power는 brightness가 결정)
+            // ===== 타입 검증 =====
+            if (patch.brightness() != null && device.getType() != DeviceType.LED) {
+                throw new IllegalArgumentException("밝기 조절은 LED만 가능합니다. deviceCode=" + device.getDeviceCode());
+            }
+
+            if (patch.targetTemp() != null && !(device.getType() == DeviceType.FAN || device.getType() == DeviceType.AIRCON)) {
+                throw new IllegalArgumentException("온도 설정은 FAN/AIRCON만 가능합니다. deviceCode=" + device.getDeviceCode());
+            }
+
+            if (patch.autoMode() != null && !(device.getType() == DeviceType.FAN || device.getType() == DeviceType.AIRCON)) {
+                throw new IllegalArgumentException("자동모드는 FAN/AIRCON만 가능합니다. deviceCode=" + device.getDeviceCode());
+            }
+
+            // ===== 업데이트 적용 =====
             boolean brightnessUpdated = false;
+
             if (patch.brightness() != null) {
-                if (device.getType() != DeviceType.LED) {
-                    throw new IllegalArgumentException("밝기 조절은 LED만 가능합니다. deviceCode=" + device.getDeviceCode());
-                }
                 device.changeBrightness(patch.brightness());
                 brightnessUpdated = true;
             }
 
-            // 2) power는 brightness가 같이 안 온 경우에만 적용
             if (!brightnessUpdated && patch.power() != null) {
                 device.changePower(patch.power());
             }
 
-            // 3) 나머지
-            if (patch.targetTemp() != null) device.changeTargetTemp(patch.targetTemp());
+            if (patch.targetTemp() != null) {
+                device.changeTargetTemp(patch.targetTemp());
+            }
+
+            if (patch.autoMode() != null) {
+                device.changeAutoMode(patch.autoMode());
+            }
+
             deviceRepository.save(device);
         }
     }

@@ -123,7 +123,6 @@
                 String ko = localNames.get("ko").toString();
                 if (!ko.isBlank()) place = ko;
             }
-            log.info("GEO FIRST = " + first);
             if (place.isBlank()) return "위치 정보 없음";
 
 // 3) state가 있으면 "서울특별시 역삼동" 형태로

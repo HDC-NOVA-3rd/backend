@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Builder
 @Table(
         name = "device",
-        uniqueConstraints = @UniqueConstraint(columnNames = {"device_code"})
+        uniqueConstraints = @UniqueConstraint(columnNames = {"room_id", "device_code"})
 )
 public class Device {
 
@@ -42,6 +42,9 @@ public class Device {
     @Column(name = "target_temp")
     private Integer targetTemp;
 
+    @Column(name = "auto_mode", nullable = false)
+    private Boolean autoMode;
+
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
@@ -54,7 +57,6 @@ public class Device {
             return;
         }
 
-        // LED만 밝기 기준으로 ON 여부 결정
         if (this.type == DeviceType.LED) {
             int b = (this.brightness == null) ? 0 : this.brightness;
             this.power = b > 0;
@@ -65,33 +67,34 @@ public class Device {
         this.updatedAt = LocalDateTime.now();
     }
 
-
     public void changeBrightness(Integer brightness) {
         if (brightness == null) {
-            this.brightness = null; // LED 아닌 경우
+            this.brightness = null;
             this.updatedAt = LocalDateTime.now();
             return;
         }
 
         int b = Math.max(0, Math.min(100, brightness));
         this.brightness = b;
-
-        // 밝기 0이면 OFF, 1~100이면 ON
         this.power = b > 0;
 
         this.updatedAt = LocalDateTime.now();
     }
-
-
 
     public void changeTargetTemp(Integer targetTemp) {
         this.targetTemp = targetTemp;
         this.updatedAt = LocalDateTime.now();
     }
 
-    @PrePersist // JPA가 INSERT 하기 직전 딱 한 번 실행
+    public void changeAutoMode(Boolean autoMode) {
+        this.autoMode = Boolean.TRUE.equals(autoMode);
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    @PrePersist
     void prePersist() {
         if (updatedAt == null) updatedAt = LocalDateTime.now();
         if (power == null) power = false;
+        if (autoMode == null) autoMode = false;
     }
 }

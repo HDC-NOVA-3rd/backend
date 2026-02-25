@@ -10,7 +10,8 @@ public record DeviceSnapshot(
         DeviceType type,
         Boolean power,
         Integer brightness,
-        Integer targetTemp
+        Integer targetTemp,
+        Boolean autoMode
 ) {
     public static DeviceSnapshot from(Device d) {
         return new DeviceSnapshot(
@@ -20,7 +21,8 @@ public record DeviceSnapshot(
                 d.getType(),
                 d.getPower(),
                 d.getBrightness(),
-                d.getTargetTemp()
+                d.getTargetTemp(),
+                d.getAutoMode()
         );
     }
 }

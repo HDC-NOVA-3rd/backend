@@ -221,9 +221,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/safety/**").permitAll()
                         .requestMatchers("/api/apartment/**").permitAll()
                         .requestMatchers("/api/room/**").permitAll()
+                        .requestMatchers("/api/mode/**").permitAll()
                         // 이미지 경로에 권한 x 처리
                         .requestMatchers("/images/**").permitAll()
                         .anyRequest().authenticated()
+
                 )
 
                 // 커스텀 필터 설정 JwtFilter 선행 처리

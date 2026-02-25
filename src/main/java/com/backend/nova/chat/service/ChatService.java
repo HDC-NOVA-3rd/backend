@@ -358,8 +358,12 @@ public class ChatService {
             // 속도 같은 건 DTO/컬럼 추가 후 확장
         }
 
+        Boolean autoMode = null; // 채팅 제어에서 자동모드까지 만지려면 여기서 세팅
+
+// 지금은 채팅 명령은 자동모드 값을 건드리지 않는 걸 추천
+// -> null로 보내면 DeviceStateService가 변경 안 함(영구 유지에 안전)
         DeviceStateUpdateRequest.DevicePatch patch =
-                new DeviceStateUpdateRequest.DevicePatch(realDeviceCode, power, brightness, targetTemp);
+                new DeviceStateUpdateRequest.DevicePatch(realDeviceCode, power, brightness, targetTemp, autoMode);
 
         return new DeviceStateUpdateRequest(List.of(patch));
     }

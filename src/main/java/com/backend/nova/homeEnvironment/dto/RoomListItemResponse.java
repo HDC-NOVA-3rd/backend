@@ -4,10 +4,11 @@ import com.backend.nova.homeEnvironment.entity.Room;
 
 public record RoomListItemResponse(
         Long roomId,
-        String roomName
+        String roomName,
+        boolean isVisible
 ) {
-    public static RoomListItemResponse from(Room room) {
-        return new RoomListItemResponse(room.getId(), room.getName());
+    public static RoomListItemResponse from(Room r) {
+        return new RoomListItemResponse(r.getId(), r.getName(), r.isVisible());
     }
 }
 
