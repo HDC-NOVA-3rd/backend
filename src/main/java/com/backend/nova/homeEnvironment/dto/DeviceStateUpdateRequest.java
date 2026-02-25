@@ -9,6 +9,7 @@ public record DeviceStateUpdateRequest(
             String deviceCode,     // 필수
             Boolean power,         // 선택
             Integer brightness,    // 선택 (LED)
-            Integer targetTemp     // 선택 (AIRCON)
+            Integer targetTemp,    // 선택 (AIRCON/FAN)
+            Boolean autoMode       // 선택 (자동모드 유지)
     ) {}
 }
