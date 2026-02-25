@@ -898,8 +898,7 @@ public class ChatService {
         // 디바이스 타입 추출
         String deviceType = null;
         if (containsAny(m, "전등", "불", "조명", "등")) deviceType = "LED";
-        else if (containsAny(m, "에어컨", "냉방", "난방")) deviceType = "AIRCON";
-        else if (containsAny(m, "팬", "선풍기")) deviceType = "FAN";
+        else if (containsAny(m, "에어컨", "선풍기")) deviceType = "FAN";
 
         // 🔥 (추가) 밝기/어두움 키워드만으로도 LED로 추론 (방이 있을 때만)
         boolean looksBrightness = containsAny(m, "밝기", "밝게", "어둡게", "어둡다", "너무 어둡");
@@ -2482,7 +2481,7 @@ public class ChatService {
 
         if (t.contains("전등") || t.contains("조명") || t.contains("등") || t.contains("불")) return "LED";
         if (t.contains("에어컨")) return "AIRCON";
-        if (t.contains("팬") || t.contains("선풍기")) return "FAN";
+        if (t.contains("에어컨") || t.contains("에어컨")) return "FAN";
 
         return t;
     }
