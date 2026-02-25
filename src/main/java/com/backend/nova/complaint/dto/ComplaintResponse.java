@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 
 @Builder
 public record ComplaintResponse(
-        Long id,
+        Long complaintId,
         ComplaintType type,
         ComplaintStatus status,
         String title,
@@ -22,7 +22,7 @@ public record ComplaintResponse(
 ) {
     public static ComplaintResponse from(Complaint complaint) {
         return ComplaintResponse.builder()
-                .id(complaint.getId())
+                .complaintId(complaint.getId())
                 .type(complaint.getType())
                 .status(complaint.getStatus())
                 .title(complaint.getTitle())
