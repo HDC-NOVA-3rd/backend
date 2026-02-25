@@ -126,10 +126,6 @@ public class ComplaintService {
         // ─────────────────────────
         if (admin.getRole() == AdminRole.ADMIN) {
 
-            if (complaint.getAdmin() != null) {
-                throw new IllegalStateException("일반 관리자는 재배정할 수 없습니다.");
-            }
-
             if (!admin.getId().equals(targetAdmin.getId())) {
                 throw new IllegalStateException("본인에게만 배정할 수 있습니다.");
             }
