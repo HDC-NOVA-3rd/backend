@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [ develop ]
   push:
-    branches: [ develop, main]
+    branches: [ develop, main, performance-test]
 
 jobs:
   pr-test:
