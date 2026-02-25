@@ -28,7 +28,7 @@ spring:
     defer-datasource-initialization: true
     show-sql: false # 실행되는 SQL 쿼리를 콘솔에 출력
     hibernate:
-      ddl-auto: none # DDL 자동 생성 전략 (none / create / validate / update)
+      ddl-auto: none   # DDL 자동 생성 전략 (none / create / validate / update)
     properties:
       hibernate:
         format_sql: true # 로그에 출력되는 SQL을 보기 좋게 포맷팅
@@ -45,10 +45,15 @@ spring:
     password: ${MQTT_PASSWORD}
     topic:
       safety: hdc/device/+/safety/data
-      env: hdc/device/+/env/data
+      env: hdc/+/room/+/env/data
       assistant: hdc/+/assistant/execute/res
+      assistant-req: hdc/{hoId}/assistant/execute/req
+      device-req: hdc/{hoId}/room/{roomId}/device/execute/req
+      mode-req: hdc/{hoId}/room/{roomId}/mode/execute/req
+      device-res: hdc/{hoId}/room/{roomId}/device/execute/res
       voice: hdc/+/assistant/voice/req
       entrance: hdc/entrance/verify
+
   ai:
     google:
       genai:

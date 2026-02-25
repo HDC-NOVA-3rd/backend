@@ -25,7 +25,7 @@ public class RoomQueryService {
                 .toList();
     }
 
-    // 추가: 로그인 아이디로 내 방 목록
+    // 로그인 아이디로 내 방 목록
     public List<RoomListItemResponse> getRoomsByLoginId(String loginId) {
         Member member = memberRepository.findByLoginId(loginId)
                 .orElseThrow(() -> new IllegalArgumentException("회원 없음: " + loginId));
