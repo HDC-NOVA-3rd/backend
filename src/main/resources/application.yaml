@@ -78,7 +78,9 @@ spring:
       base-url: https://openrouter.ai/api/v1
       embedding-model: openai/text-embedding-3-small
 
-
+  # 기본 예외 로그 해제
+  mvc:
+    log-resolved-exception: false
 
   #OAuth 설정
   security:

@@ -62,6 +62,9 @@ public enum ErrorCode {
     MANAGEMENT_FEE_ALREADY_ACTIVE(HttpStatus.BAD_REQUEST, "이미 활성화된 관리비 항목입니다."),
     MANAGEMENT_FEE_RESTORE_CONFLICT(HttpStatus.CONFLICT, "동일한 이름의 활성 관리비 항목이 존재하여 복구할 수 없습니다."),
 
+    // ================= Reservation ================
+    RESERVATION_TIME_OVERLAPPED(HttpStatus.CONFLICT, "해당 시간에 이미 예약이 존재합니다."),
+
     // ================= Common =================
     INVALID_REQUEST(HttpStatus.BAD_REQUEST, "요청값이 올바르지 않습니다."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "서버 오류가 발생했습니다.");

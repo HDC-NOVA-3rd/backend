@@ -11,7 +11,7 @@ export const options = {
 };
 
 // 환경 변수에서 URL을 가져오도록 설정 (값이 없으면 로컬값 사용)
-const BASE_URL = __ENV.TARGET_URL || 'https://localhost:8080';
+const BASE_URL = __ENV.TARGET_URL || 'http://localhost:8080';
 
 // 2. 가상 사용자가 반복해서 실행할 행동
 export default function () {
