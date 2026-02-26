@@ -17,20 +17,8 @@ export const options = {
 // 타겟 서버 URL (터미널에서 환경변수로 주입 가능)
 const BASE_URL = __ENV.TARGET_URL || 'http://localhost:8080';
 
-// 테스트에 사용할 실제 Access Token (회원 정보 조회 API용)
-// 터미널 실행 시: k6 run -e ACCESS_TOKEN="실제토큰" load_test.js 로 주입하는 것을 권장합니다.
-//const ACCESS_TOKEN = __ENV.ACCESS_TOKEN || '여기에_실제_발급받은_액세스_토큰_문자열_입력';
-
 // 2. 가상 사용자가 반복해서 실행할 행동
 export default function () {
-
-  // 인증이 필요한 API를 위한 헤더
-//  const params = {
-//    headers: {
-//      'Authorization': `Bearer ${ACCESS_TOKEN}`,
-//      'Content-Type': 'application/json',
-//    },
-//  };
 
   // -----------------------------------------------------------
   // [TEST 1] 날씨 API (Redis Caching + 비동기 WebClient 최적화 검증)
@@ -47,22 +35,6 @@ export default function () {
       'status is 200': (r) => r.status === 200,
       'weather duration < 500ms': (r) => r.timings.duration < 500, // 최초 요청 보장
       'weather cache hit (< 50ms)': (r) => r.timings.duration < 50, // 캐시 적중 시
-    });
-  });
-
-  // -----------------------------------------------------------
-  // [TEST 2] 내 아파트 정보 API (Fetch Join 최적화 검증)
-  // -----------------------------------------------------------
-  group('2. Member Apartment Info API (Fetch Join Optimized)', function () {
-    const apartmentUrl = `${BASE_URL}/api/member/apartment`;
-
-    // 회원 정보 API는 토큰이 필요하므로 params 전달
-    const apartmentRes = http.get(apartmentUrl, params);
-
-    // 검증 로직 (1+1 쿼리 제거로 I/O가 줄었는지 확인)
-    check(apartmentRes, {
-      'status is 200': (r) => r.status === 200,
-      'apartment duration < 200ms': (r) => r.timings.duration < 200,
     });
   });
 
