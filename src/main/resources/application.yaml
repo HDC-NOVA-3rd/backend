@@ -20,11 +20,14 @@ spring:
     url: jdbc:mariadb://${DB_IP}:${DB_PORT}/${DB_TABLE}?serverTimezone=Asia/Seoul # DB 접속 URL (Timezone: Asia/Seoul)
     username: ${DB_USER} # DB 사용자 계정
     password: ${DB_PW} # DB 비밀번호
+    hikari:
+      maximum-pool-size: 30
 
   sql:
     init:
       mode: never # 애플리케이션 시작 시 SQL 스크립트 실행 모드 (always: 항상 실행, never: 실행 x)
   jpa:
+    #open-in-view: false # DB 조회가 끝나는 즉시 커넥션을 반환하도록 강제
     defer-datasource-initialization: true
     show-sql: false # 실행되는 SQL 쿼리를 콘솔에 출력
     hibernate:
