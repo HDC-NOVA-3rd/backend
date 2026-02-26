@@ -22,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -92,6 +93,28 @@ public class MemberService {
     }
 
     @Transactional
+    public Optional<MemberDetails> processOAuthMemberLogin(String email, String provider, String profileImg) {
+        return memberRepository.findByEmailWithResidentInfo(email)
+                .map(member -> {
+                    // 1. 소셜 정보 업데이트
+                    if(member.getLoginType() == LoginType.NORMAL)
+                        member.updateOAuthInfo(provider, profileImg);
+
+                    // 2. 이미 메모리에 로드된(Fetch Join) 연관관계에서 ID 추출 (추가 Select 쿼리 안 나감)
+                    Long apartmentId = null;
+                    Long hoId = null;
+
+                    if (member.getResident() != null && member.getResident().getHo() != null) {
+                        hoId = member.getResident().getHo().getId();
+                        apartmentId = member.getResident().getHo().getDong().getApartment().getId();
+                    }
+
+                    // 3. MemberDetails 반환
+                    return new MemberDetails(member, apartmentId, hoId);
+                });
+    }
+
+    @Transactional
     public AuthExchangeResponse exchangeAuthCode(String code) {
         // 1. 코드 조회 및 삭제 (One-Time Use)
         Object data = authCodeRepository.getAndRemove(code);
@@ -102,10 +125,10 @@ public class MemberService {
 
         // 2. 데이터 타입에 따라 응답 DTO 생성
         if (data instanceof TokenResponse) {
-            // 로그인 성공 케이스
+            // 로그인 성공 케이스 -> access, refresh 반환
             return AuthExchangeResponse.login((TokenResponse) data);
         } else if (data instanceof String) {
-            // 회원가입 필요 케이스 (Register Token)
+            // 회원가입 필요 케이스 -> register Token 할당
             return AuthExchangeResponse.register((String) data);
         }
 
