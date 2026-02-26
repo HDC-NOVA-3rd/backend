@@ -133,6 +133,9 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
         }
         // 3. 인증 관련 쿠키 삭제 (보안 및 용량 관리)
         oAuthRedirectCookieRepository.removeAuthorizationRequestCookies(request, response);
+
+        log.info("[OAuth2 Success Handler 처리 시간]\n{}", stopWatch.prettyPrint());
+
         // 4. 리다이렉트 수행 (브라우저가 exp:// 스키마를 인식해서 앱을 켬)
         getRedirectStrategy().sendRedirect(request, response, targetUrl);
     }
