@@ -22,6 +22,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -89,6 +90,28 @@ public class MemberService {
         saveTokensToRedis(tokenResponse, memberDetails);
 
         return tokenResponse;
+    }
+
+    @Transactional
+    public Optional<MemberDetails> processOAuthMemberLogin(String email, String provider, String profileImg) {
+        return memberRepository.findByEmailWithResidentInfo(email)
+                .map(member -> {
+                    // 1. 소셜 정보 업데이트
+                    if(member.getLoginType() == LoginType.NORMAL)
+                        member.updateOAuthInfo(provider, profileImg);
+
+                    // 2. 이미 메모리에 로드된(Fetch Join) 연관관계에서 ID 추출 (추가 Select 쿼리 안 나감)
+                    Long apartmentId = null;
+                    Long hoId = null;
+
+                    if (member.getResident() != null && member.getResident().getHo() != null) {
+                        hoId = member.getResident().getHo().getId();
+                        apartmentId = member.getResident().getHo().getDong().getApartment().getId();
+                    }
+
+                    // 3. MemberDetails 반환
+                    return new MemberDetails(member, apartmentId, hoId);
+                });
     }
 
     @Transactional

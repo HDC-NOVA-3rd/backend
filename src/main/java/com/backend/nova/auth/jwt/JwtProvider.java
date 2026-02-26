@@ -30,13 +30,11 @@ public class JwtProvider {
     private final SecretKey secretKey; // 토큰 서명(암호화/복호화)에 사용할 비밀키 객체
     private final Long accessTokenExpires;
     private final Long refreshTokenExpires;
-    private final MemberDetailsService memberDetailsService;
     private final AdminDetailsService adminDetailsService;
     private final RedisTokenService redisTokenService;
 
     public JwtProvider(
             @Value("${jwt.secret}") String secretStr,
-            MemberDetailsService memberDetailsService,
             AdminDetailsService adminDetailsService,
             RedisTokenService redisTokenService
     ) {
@@ -44,7 +42,6 @@ public class JwtProvider {
         this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         accessTokenExpires = 300 * 1000L; // 5분
         refreshTokenExpires = 604800 * 1000L; // 7일
-        this.memberDetailsService = memberDetailsService;
         this.adminDetailsService = adminDetailsService;
         this.redisTokenService = redisTokenService;
     }
@@ -56,7 +53,7 @@ public class JwtProvider {
     public TokenResponse createTokenDto(Authentication authentication, Long memberId, String name) {
         String accessToken = createAccessToken(authentication);
         String refreshToken = createRefreshToken(authentication);
-        log.info("refresh 토큰으로 새로운 access/refresh 발급 {} / {}",accessToken,refreshToken);
+        log.info("인증된 객체를 기반으로 Member access/refresh 토큰 발급 {} / {}",accessToken,refreshToken);
         return TokenResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)

@@ -6,6 +6,7 @@ import com.backend.nova.member.dto.RedisMember;
 import com.backend.nova.member.dto.TokenResponse;
 import com.backend.nova.member.entity.Member;
 import com.backend.nova.member.repository.MemberRepository;
+import com.backend.nova.member.service.MemberService;
 import com.backend.nova.member.service.RedisTokenService;
 import com.backend.nova.oauth2.dto.CustomOAuth2User;
 import com.backend.nova.oauth2.dto.OAuth2Response;
@@ -41,6 +42,7 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
     private final OAuthRedirectCookieRepository oAuthRedirectCookieRepository;
     private final AuthCodeInMemoryRepository authCodeRepository; // In memory 환경 token 저장소
     private final RedisTokenService redisTokenService;
+    private final MemberService memberService;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
@@ -57,45 +59,39 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
         String phoneNumber = oAuthInfo.getPhoneNumber();
         String birthDate = oAuthInfo.getBirthDate();
 
-        // 1. DB에서 회원 조회 (이메일 기반 조회)
-        stopWatch.start("1. DB Query (Find & Update)");
-        Optional<Member> optionalMember = memberRepository.findByEmail(email);
-        stopWatch.stop();
-
-        // 2. 쿠키에서 redirect_uri 가져오기
+        // 쿠키에서 redirect_uri 가져오기
         String targetUri = getRedirectUri(request);
         String targetUrl;
-
         // 랜덤 인증 코드 생성 -> 캐시에 로그인 / 회원가입 용 토큰 저장 목적
         String authCode = UUID.randomUUID().toString();
 
+        // 1. 단일 트랜잭션으로 DB 조회 + 소셜정보 업데이트 + 연관 아파트 ID 매핑을 한 번에 처리
+        stopWatch.start("1. DB Transaction (Find & Update & Map)");
+        Optional<MemberDetails> optionalMemberDetails = memberService.processOAuthMemberLogin(email, provider, profileImg);
+        stopWatch.stop();
+
         // [CASE 1] 기존 가입된 회원 -> 계정 연동 및 로그인 처리
-        if (optionalMember.isPresent()) {
+        if (optionalMemberDetails.isPresent()) {
+            MemberDetails memberDetails = optionalMemberDetails.get();
+
             stopWatch.start("2. JWT Creation");
-            Member existMember = optionalMember.get();
-
-            // 1-1. 소셜 정보 업데이트
-            // 기존에 NORMAL 상태면, 로그인 타입과 프로필 사진을 최신화한다.
-            existMember.updateOAuthInfo(provider, profileImg);
-            memberRepository.save(existMember);
-
-            // OAuth 인증 객체 대신, DB의 Member 정보로 새로운 Authentication 생성
-            // 이유: 이렇게 해야 토큰의 Subject에 'loginId'가 들어갑니다.
-            MemberLocationResponse locationDto = memberRepository.findApartmentIdByMemberId(existMember.getId())
-                    .orElse(null);
-            Long apartmentId = (locationDto != null) ? locationDto.apartmentId() : null;
-            Long hoId = (locationDto != null) ? locationDto.hoId() : null;
-
-            MemberDetails memberDetails = new MemberDetails(existMember,apartmentId, hoId);
-            Authentication newAuth = new UsernamePasswordAuthenticationToken(memberDetails,null, memberDetails.getAuthorities());
-
-            TokenResponse tokenResponse = jwtProvider.createTokenDto(newAuth, existMember.getId(), existMember.getName());
+            Authentication newAuth = new UsernamePasswordAuthenticationToken(memberDetails, null, memberDetails.getAuthorities());
+            TokenResponse tokenResponse = jwtProvider.createTokenDto(newAuth, memberDetails.getMemberId(), memberDetails.getName());
             stopWatch.stop();
 
             stopWatch.start("3. Redis I/O");
-            RedisMember dto = new RedisMember(existMember.getId(), existMember.getLoginId(), existMember.getName(), apartmentId, hoId, "MEMBER");
+
+            RedisMember dto = new RedisMember(
+                    memberDetails.getMemberId(),
+                    memberDetails.getUsername(),
+                    memberDetails.getName(),
+                    memberDetails.getApartmentId(),
+                    memberDetails.getHoId(),
+                    "MEMBER"
+            );
+
             redisTokenService.saveAccessToken(tokenResponse.accessToken(), dto, jwtProvider.getAccessTokenExpires());
-            redisTokenService.saveRefreshToken(existMember.getLoginId(), tokenResponse.refreshToken(), jwtProvider.getRefreshTokenExpires());
+            redisTokenService.saveRefreshToken(memberDetails.getUsername(), tokenResponse.refreshToken(), jwtProvider.getRefreshTokenExpires());
             stopWatch.stop();
 
             // 메모리에 저장 (Code -> TokenResponse)
@@ -113,16 +109,10 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
         else {
             // 회원가입 시 필요한 정보를 JWT(Register Token)에 저장 후, registerToken 으로 임시 저장
             String registerToken = jwtProvider.createRegisterToken(
-                    email,
-                    oAuthInfo.getName(),
-                    provider,
-                    providerId,
-                    phoneNumber,
-                    birthDate
+                    email, oAuthInfo.getName(), provider, providerId, phoneNumber, birthDate
             );
 
-            // [핵심] 가입용 토큰도 메모리에 저장 (Code -> String(RegisterToken))
-            // 회원가입 정보도 URL에 노출되면 위험하므로 똑같이 코드로 변환합니다.
+            // 가입용 토큰도 메모리에 저장
             authCodeRepository.save(authCode, registerToken);
 
             targetUrl = UriComponentsBuilder.fromUriString(targetUri)
