@@ -27,11 +27,15 @@ public record NaverResponse(
             fullBirthDate = birthYear + "-" + birthDay; // "1999-07-21"
         }
 
+        // 3. 프로필 이미지 (선택 데이터 - null 체크 후 변환)
+        Object rawProfileImage = response.get("profile_image");
+        String profileImage = (rawProfileImage != null) ? rawProfileImage.toString() : null;
+
         return new NaverResponse(
                 response.get("id").toString(),
                 response.get("email").toString(),
                 response.get("name").toString(),
-                response.get("profile_image").toString(),
+                profileImage,
                 cleanMobile,
                 fullBirthDate
         );
