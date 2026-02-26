@@ -4,6 +4,7 @@ import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.repository.ApartmentRepository;
 import com.backend.nova.weather.dto.OpenWeatherResponse;
 import com.backend.nova.weather.service.OpenWeatherService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -27,15 +28,16 @@ public class ApartmentWeatherService {
     private final ApartmentRepository apartmentRepository;
     private final OpenWeatherService openWeatherService;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final ObjectMapper objectMapper;
 
     public OpenWeatherResponse getApartmentWeather(Long apartmentId) {
         String cacheKey = "weather:apartment:" + apartmentId;
-        // 1. Redis 캐시 조회 (있으면 바로 반환, 외부 통신 X)
+        // Redis 캐시 조회
         try {
-            OpenWeatherResponse cachedResponse = (OpenWeatherResponse) redisTemplate.opsForValue().get(cacheKey);
-            if (cachedResponse != null) {
+            String cachedJson = (String) redisTemplate.opsForValue().get(cacheKey);
+            if (cachedJson != null) {
                 log.info("[Weather Cache Hit] apartmentId: {}", apartmentId);
-                return cachedResponse;
+                return objectMapper.readValue(cachedJson, OpenWeatherResponse.class);
             }
         } catch (Exception e) {
             log.error("Redis 캐시 조회 중 오류 발생: {}", e.getMessage());
@@ -50,8 +52,11 @@ public class ApartmentWeatherService {
         double lat = apartment.getLatitude();
         double lon = apartment.getLongitude();
         OpenWeatherResponse response = openWeatherService.getOpenWeather(lat, lon);
+        // Redis에 저장
         try {
-            redisTemplate.opsForValue().set(cacheKey, response, Duration.ofMinutes(30));
+            // Object -> String 직렬화
+            String jsonValue = objectMapper.writeValueAsString(response);
+            redisTemplate.opsForValue().set(cacheKey, jsonValue, Duration.ofMinutes(30));
         } catch (Exception e) {
             log.error("Redis 캐시 저장 중 오류 발생: {}", e.getMessage());
         }
