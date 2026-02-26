@@ -1,6 +1,8 @@
 package com.backend.nova.chat.service;
 import com.backend.nova.apartment.entity.Apartment;
 import com.backend.nova.apartment.entity.Dong;
+import com.backend.nova.bill.dto.BillSummaryResponse;
+import com.backend.nova.bill.service.BillService;
 import com.backend.nova.complaint.entity.Complaint;
 import com.backend.nova.complaint.entity.ComplaintAnswer;
 import com.backend.nova.complaint.repository.ComplaintAnswerRepository;
@@ -49,6 +51,7 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.integration.mqtt.support.MqttHeaders;
@@ -97,7 +100,7 @@ public class ChatService {
     private final ReservationService reservationService;
     private final DeviceStateService deviceStateService;
     private final DeviceRepository deviceRepository;
-
+    private final BillService billService;
     // -------------------------
     // Caches (요청량 절감 핵심)
     // -------------------------
@@ -158,7 +161,7 @@ public class ChatService {
             MemberRepository memberRepository, DeviceCommandLogRepository deviceCommandLogRepository,
             MessageChannel mqttOutboundChannel, SpaceRepository spaceRepository, NoticeRepository noticeRepository,
             NoticeTargetDongRepository noticeTargetDongRepository, ComplaintAnswerRepository complaintAnswerRepository,
-            ComplaintRepository complaintRepository, ReservationRepository reservationRepository, ReservationService reservationService, DeviceStateService deviceStateService, DeviceRepository deviceRepository//필요한 의존성을 만들어서 필드에 저장
+            ComplaintRepository complaintRepository, ReservationRepository reservationRepository, ReservationService reservationService, DeviceStateService deviceStateService, DeviceRepository deviceRepository, BillService billService//필요한 의존성을 만들어서 필드에 저장
     ) {
         this.chatClient = builder.build();
         this.objectMapper = objectMapper;
@@ -185,10 +188,7 @@ public class ChatService {
         this.mqttOutboundChannel = mqttOutboundChannel;
         this.deviceStateService = deviceStateService;
         this.deviceRepository = deviceRepository;
-
-
-
-
+        this.billService = billService;
     }
 
     @Transactional
@@ -265,13 +265,13 @@ public class ChatService {
         );
 
 
-// 1. rn_worker에서 사용하는 실제 deviceCode
+        // 1. rn_worker에서 사용하는 실제 deviceCode
         String deviceCode = realDeviceCode; // ex) light-1, fan-1-2
 
-// 2. rn_worker 규격 command/value 변환
+        // 2. rn_worker 규격 command/value 변환
         MqttCmd mv = toRoomMqtt(deviceType, action, value);
 
-// 3. room 기반 토픽으로 변경
+        // 3. room 기반 토픽으로 변경
         String topic = "hdc/" + hoId + "/room/" + room.getId() + "/device/execute/req";
 
         RoomDeviceExecuteReq payload = new RoomDeviceExecuteReq(
@@ -688,6 +688,8 @@ public class ChatService {
             // 예약 상세 정보
             case "RESERVATION_DETAIL" -> handleReservationDetail(sessionId, req, cmd);
 
+            case "BILL_LIST" -> handleBillList(sessionId, req, cmd);
+
 
             case "FREE_CHAT" -> new ChatResponse(
                     sessionId,
@@ -840,6 +842,14 @@ public class ChatService {
             // dongId를 물어봐야 할 수도 있지만, 기본은 "내 동" 기준으로 보여주면 UX가 좋음
             return new LlmCommand("DONG_HO_LIST", "", Map.of("dong_source", "MY"), false, "");
         }
+        // ---- BILL_LIST 룰 ----
+        if (containsAny(m,
+                "관리비", "고지서", "청구서", "납부", "납입", "요금",
+                "이번달 관리비", "이번 달 관리비", "지난달 관리비", "지난 달 관리비",
+                "관리비 내역", "관리비 목록", "고지서 목록"
+        )) {
+            return new LlmCommand("BILL_LIST", "", Map.of(), false, "");
+        }
 
 
         // ---- ENV_STATUS 룰 ----
@@ -898,8 +908,7 @@ public class ChatService {
         // 디바이스 타입 추출
         String deviceType = null;
         if (containsAny(m, "전등", "불", "조명", "등")) deviceType = "LED";
-        else if (containsAny(m, "에어컨", "냉방", "난방")) deviceType = "AIRCON";
-        else if (containsAny(m, "팬", "선풍기")) deviceType = "FAN";
+        else if (containsAny(m, "에어컨", "선풍기")) deviceType = "FAN";
 
         // 🔥 (추가) 밝기/어두움 키워드만으로도 LED로 추론 (방이 있을 때만)
         boolean looksBrightness = containsAny(m, "밝기", "밝게", "어둡게", "어둡다", "너무 어둡");
@@ -1923,6 +1932,8 @@ public class ChatService {
                 data
         );
     }
+
+
     private Map<String, Object> readPendingSlots(ChatSession session) {
         if (session.getPendingSlotsJson() == null || session.getPendingSlotsJson().isBlank())
             return new HashMap<>();
@@ -2098,6 +2109,58 @@ public class ChatService {
         );
 
     }
+
+    private ChatResponse handleBillList(String sessionId, ChatRequest req, LlmCommand cmd) {
+        Long memberId = req.memberId();
+        if (memberId == null) {
+            return new ChatResponse(sessionId, "로그인이 필요해요.", "BILL_LIST", Map.of("bills", List.of()));
+        }
+
+        // memberId -> hoId (예: memberRepository로 member 조회 후 resident.ho.id)
+        Member member = memberRepository.findById(memberId)
+                .orElseThrow(() -> new IllegalArgumentException("회원 없음"));
+        Long hoId = member.getResident().getHo().getId();
+
+        // 페이징 0페이지, 10개
+
+        Page<BillSummaryResponse> page = billService.getBillsByHo(hoId, PageRequest.of(0, 10));
+
+        List<Map<String, Object>> payload = new ArrayList<>();
+        int idx = 1;
+        for (BillSummaryResponse b : page.getContent()) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("index", idx++);
+            m.put("billId", b.getBillId());        // DTO 필드명에 맞춰 수정
+            m.put("billMonth", b.getBillMonth());
+            m.put("totalPrice", b.getTotalPrice());
+            m.put("status", String.valueOf(b.getStatus()));
+            m.put("dueDate", b.getDueDate());
+            payload.add(m);
+        }
+
+        if (payload.isEmpty()) {
+            return new ChatResponse(sessionId, "조회된 관리비 고지서가 없어요.", "BILL_LIST", Map.of("bills", List.of()));
+        }
+
+        String listText = payload.stream()
+                .map(p -> p.get("index") + "번) " + p.get("billMonth") + " 관리비 (" + p.get("totalPrice") + "원)")
+                .reduce((a, b) -> a + "\n" + b)
+                .orElse("");
+
+        String answer = "관리비 고지서 목록입니다.\n" + listText + "\n\n자세히 볼 번호를 말해줘요. (예: 1번)";
+
+        // pending 저장 (상세에서 index -> billId 찾기)
+        ChatSession session = chatSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("세션 없음: " + sessionId));
+
+        Map<String, Object> pending = new HashMap<>();
+        pending.put("bills", payload);
+        writePending(session, "BILL_LIST", pending);
+
+        return new ChatResponse(sessionId, answer, "BILL_LIST", Map.of("bills", payload));
+    }
+
+
     /* NOTICE_LIST
      * - 단지 전체 공지 + 내 동 대상 공지를 최신순으로 조회한다.
      * - 목록 응답 후 번호(index) 입력을 통해 상세 조회로 이어진다.
@@ -2241,7 +2304,12 @@ public class ChatService {
         }
 
         // 최신순 정렬(레포가 order by가 없어서 안전하게)
-        complaints.sort((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()));
+        complaints.sort(
+                Comparator.comparing(
+                        Complaint::getCreatedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())
+                ).reversed()
+        );
 
         int limit = Math.min(10, complaints.size());
 
@@ -2482,7 +2550,7 @@ public class ChatService {
 
         if (t.contains("전등") || t.contains("조명") || t.contains("등") || t.contains("불")) return "LED";
         if (t.contains("에어컨")) return "AIRCON";
-        if (t.contains("팬") || t.contains("선풍기")) return "FAN";
+        if (t.contains("에어컨") || t.contains("에어컨")) return "FAN";
 
         return t;
     }
