@@ -100,8 +100,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/complaint/**").permitAll()
                         .requestMatchers("/api/admin/management-fee/**").permitAll()
                         .requestMatchers("/api/admin/bill/**").permitAll()
-                        .requestMatchers("/api/admin/notice**").permitAll()
-                        .requestMatchers("/api/notice**").permitAll()
+                        .requestMatchers("/api/admin/notice/**").permitAll()
+                        .requestMatchers("/api/notice/**").permitAll()
                         .requestMatchers("/api/admin/auth/refresh").permitAll()
 
                         .requestMatchers("/admin/rag/**").permitAll()
