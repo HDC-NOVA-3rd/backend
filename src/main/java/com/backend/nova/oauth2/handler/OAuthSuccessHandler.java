@@ -21,6 +21,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StopWatch;
 import org.springframework.web.util.UriComponentsBuilder;
 import com.backend.nova.auth.member.MemberDetails;
 
@@ -43,6 +44,7 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+        StopWatch stopWatch = new StopWatch("OAuth2 Success Handler");
         CustomOAuth2User customUser = (CustomOAuth2User) authentication.getPrincipal();
         OAuth2Response oAuthInfo = customUser.getOAuth2Response();
         log.info(String.valueOf(oAuthInfo));
@@ -56,22 +58,25 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
         String birthDate = oAuthInfo.getBirthDate();
 
         // 1. DB에서 회원 조회 (이메일 기반 조회)
+        stopWatch.start("1. DB Query (Find & Update)");
         Optional<Member> optionalMember = memberRepository.findByEmail(email);
+        stopWatch.stop();
 
         // 2. 쿠키에서 redirect_uri 가져오기
         String targetUri = getRedirectUri(request);
-
         String targetUrl;
-        // 랜덤 인증 코드 생성 (공통)
+
+        // 랜덤 인증 코드 생성 -> 캐시에 로그인 / 회원가입 용 토큰 저장 목적
         String authCode = UUID.randomUUID().toString();
 
         // [CASE 1] 기존 가입된 회원 -> 계정 연동 및 로그인 처리
         if (optionalMember.isPresent()) {
+            stopWatch.start("2. JWT Creation");
             Member existMember = optionalMember.get();
 
             // 1-1. 소셜 정보 업데이트
             // 기존에 NORMAL 상태면, 로그인 타입과 프로필 사진을 최신화한다.
-            existMember.updateOAuthInfo(provider, providerId,profileImg);
+            existMember.updateOAuthInfo(provider, profileImg);
             memberRepository.save(existMember);
 
             // OAuth 인증 객체 대신, DB의 Member 정보로 새로운 Authentication 생성
@@ -85,10 +90,13 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
             Authentication newAuth = new UsernamePasswordAuthenticationToken(memberDetails,null, memberDetails.getAuthorities());
 
             TokenResponse tokenResponse = jwtProvider.createTokenDto(newAuth, existMember.getId(), existMember.getName());
+            stopWatch.stop();
 
+            stopWatch.start("3. Redis I/O");
             RedisMember dto = new RedisMember(existMember.getId(), existMember.getLoginId(), existMember.getName(), apartmentId, hoId, "MEMBER");
             redisTokenService.saveAccessToken(tokenResponse.accessToken(), dto, jwtProvider.getAccessTokenExpires());
             redisTokenService.saveRefreshToken(existMember.getLoginId(), tokenResponse.refreshToken(), jwtProvider.getRefreshTokenExpires());
+            stopWatch.stop();
 
             // 메모리에 저장 (Code -> TokenResponse)
             authCodeRepository.save(authCode, tokenResponse);
@@ -103,7 +111,7 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
         }
         // [CASE 2] 신규 회원 -> 회원가입 페이지로 이동
         else {
-            // 회원가입 시 필요한 정보를 JWT(Register Token)에 담아서 보냄 (보안상 URL에 평문 노출 지양)
+            // 회원가입 시 필요한 정보를 JWT(Register Token)에 저장 후, registerToken 으로 임시 저장
             String registerToken = jwtProvider.createRegisterToken(
                     email,
                     oAuthInfo.getName(),
@@ -118,7 +126,7 @@ public class OAuthSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
             authCodeRepository.save(authCode, registerToken);
 
             targetUrl = UriComponentsBuilder.fromUriString(targetUri)
-                    .queryParam("status", "REGISTER") // 상태 구분값
+                    .queryParam("status", "REGISTER")
                     .queryParam("code", authCode)
                     .build().encode(StandardCharsets.UTF_8).toUriString();
             log.info("신규 회원. AuthCode 생성: {}", authCode);

@@ -102,10 +102,10 @@ public class MemberService {
 
         // 2. 데이터 타입에 따라 응답 DTO 생성
         if (data instanceof TokenResponse) {
-            // 로그인 성공 케이스
+            // 로그인 성공 케이스 -> access, refresh 반환
             return AuthExchangeResponse.login((TokenResponse) data);
         } else if (data instanceof String) {
-            // 회원가입 필요 케이스 (Register Token)
+            // 회원가입 필요 케이스 -> register Token 할당
             return AuthExchangeResponse.register((String) data);
         }
 

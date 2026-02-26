@@ -49,7 +49,7 @@ public class Member {
     @Column(name = "push_token")
     private String pushToken;
 
-    public void updateOAuthInfo(String provider, String providerId, String profileImage) {
+    public void updateOAuthInfo(String provider, String profileImage) {
         // 일반 가입자도 소셜 로그인을 허용하고, 타입 정보를 갱신한다.
         if (this.loginType == LoginType.NORMAL) {
             this.loginType = LoginType.valueOf(provider.toUpperCase());
