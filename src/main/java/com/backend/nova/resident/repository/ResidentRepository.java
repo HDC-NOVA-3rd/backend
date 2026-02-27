@@ -12,7 +12,8 @@ import java.util.Optional;
 public interface ResidentRepository extends JpaRepository<Resident, Long> {
 
     List<Resident> findByHo_Dong_Apartment_Id(Long apartmentId);
-
+    @Query("SELECT r FROM Resident r WHERE r.ho.id = :hoId AND r.name = :name " +
+            "AND REPLACE(r.phone, '-', '') = :phone")
     Optional<Resident> findByHo_IdAndNameAndPhone(Long hoId, String name, String phone);
 
     @Modifying(clearAutomatically = true) // 연산 수행 후 영속성 컨텍스트를 비워라!

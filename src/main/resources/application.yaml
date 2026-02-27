@@ -21,7 +21,7 @@ spring:
     username: ${DB_USER} # DB 사용자 계정
     password: ${DB_PW} # DB 비밀번호
     hikari:
-      maximum-pool-size: 30
+      maximum-pool-size: 15
 
   sql:
     init:
