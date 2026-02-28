@@ -1,0 +1,22 @@
+spring:
+  config:
+    activate:
+      on-profile: prod # 'prod' 프로필이 활성화될 때만 이 설정이 적용됨
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      password: ${REDIS_PASSWORD}
+  mqtt:
+    url: tcp://mosquitto-server:${MQTT_PORT}
+
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            # 배포 서버 도메인으로 변경
+            redirect-uri: https://${YOUR_DOMAIN}:58080/login/oauth2/code/google
+          naver:
+            # 배포 서버 도메인으로 변경
+            redirect-uri: https://${YOUR_DOMAIN}:58080/login/oauth2/code/naver

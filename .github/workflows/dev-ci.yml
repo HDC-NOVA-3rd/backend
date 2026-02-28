@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [ develop ]
   push:
-    branches: [ develop ]
+    branches: [ develop, main, performance-test]
 
 jobs:
   pr-test:
@@ -13,6 +13,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: true # 서브모듈 가져오기 활성화
+          token: ${{ secrets.PROJECT_REPO_TOKEN }} # repo에 접근가능한 token 획득
+
+      - name: Update Submodule
+        run: git submodule update --remote
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -33,6 +39,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          submodules: false
+          token: ${{ secrets.PROJECT_REPO_TOKEN }} # repo에 접근가능한 token 획득
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -61,21 +70,16 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: |
-            hdc-nova/spring-app:latest
-            hdc-nova/spring-app:${{ github.sha }}
-          cache-from: type=registry,ref=hdc-nova/spring-app:buildcache
-          cache-to: type=registry,ref=hdc-nova/spring-app:buildcache,mode=max
+            jungil12532/nova-spring-app:latest
+            jungil12532/nova-spring-app:${{ github.sha }}
+          cache-from: type=registry,ref=jungil12532/nova-spring-app:buildcache
+          cache-to: type=registry,ref=jungil12532/nova-spring-app:buildcache,mode=max
 
-      - name: Save image tag to file
-        run: echo ${{ github.sha }} > ./image-tag.txt
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-artifact
-          path: ./image-tag.txt
-
-      - name: Clean Docker space
-        run: |
-          docker system prune -af
-          docker volume prune -f
+  # 다음으로 실행할 스크립트 파일을 호출
+  deploy-trigger:
+    needs: build-and-push
+    if: github.event_name == 'push'
+    # 중요: 호출할 파일 경로 (같은 레포지토리 내 .github/workflows 폴더)
+    uses: ./.github/workflows/dev-cd.yml
+    # 중요: 메인 파일의 Secrets를 서브 파일로 모두 넘겨줍니다.
+    secrets: inherit

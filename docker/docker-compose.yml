@@ -1,0 +1,119 @@
+version: '3.8'
+
+services:
+  # 1. Spring Boot 서버
+  my-spring-app:
+    image: jungil12532/nova-spring-app:latest  # Docker 이미지 주소
+    container_name: nova-app
+    volumes:
+      - ./secrets.yaml:/app/config/secrets.yaml
+      - ./images:/app/images
+    ports:
+      - "127.0.0.1:8088:8080"
+    environment:
+      - SPRING_CONFIG_IMPORT=optional:file:/app/config/secrets.yaml
+      - TZ=Asia/Seoul  # 서버 시간 한국 시간으로 맞추기
+      - SPRING_PROFILES_ACTIVE=prod # application-prod 적용
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    networks:
+      - app-network
+    depends_on:
+      - mosquitto-server # MQTT가 켜진 후 Spring Boot가 켜지도록 설정
+
+  # 2. Mosquitto 서비스
+  mosquitto-server:
+    image: eclipse-mosquitto:latest
+    container_name: mosquitto-server
+    ports:
+      - "1883:1883" # tcp 포트
+      - "9001:9001" # WebSocket 포트
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    restart: always
+    networks:
+      - app-network
+
+  # 3. Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - app-network
+
+  # 4. Grafana
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana  # 그래프 설정이 날아가지 않게 저장소 잡기
+    networks:
+      - app-network
+
+  # 5. InfluxDB (k6 부하테스트 결과 저장용)
+  influxdb:
+    image: influxdb:1.8
+    container_name: influxdb
+    ports:
+      - "8086:8086"
+    environment:
+      - INFLUXDB_DB=k6
+    networks:
+      - app-network
+
+  #6. Redis
+  redis:
+    image: redis:alpine
+    container_name: redis
+    command: redis-server --requirepass ${REDIS_PASSWORD} # 비밀번호 설정
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data # 데이터 영구 저장
+    networks:
+      - app-network
+
+  # 7. Loki (로그 저장 및 검색 엔진)
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    ports:
+      - "127.0.0.1:3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - app-network
+
+  # 8. Promtail (로그 수집 에이전트)
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    volumes:
+      - ./promtail-config.yml:/etc/promtail/config.yml
+
+      # Spring Boot 컨테이너의 로그를 읽기 위해 Docker 소켓이나 로그 파일 마운트 필요
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+
+      # 실제 로그 텍스트 파일은 호스트 서버의 '/var/lib/docker/containers' 경로에 저장
+      # Promtail이 이 '실제 로그 파일들'을 읽어서 Loki로 보낼 수 있도록 물리적인 폴더 자체를 마운트
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - app-network
+
+# 모든 컨테이너를 하나의 네트워크로 묶음 (서로 통신 가능하게)
+networks:
+  app-network:
+    driver: bridge
+
+# 그라파나 데이터를 영구 저장할 공간 생성
+volumes:
+  grafana-data:
+  redis-data:
